@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form>
+    <field>
+        <id>propagation.enabled</id>
+        <label>Enable Propagation Node</label>
+        <type>checkbox</type>
+        <help>Enable the LXMF propagation node daemon (lxmd). This provides store-and-forward messaging for the Reticulum network. Requires the Reticulum daemon to be enabled and running.</help>
+    </field>
+    <field>
+        <id>propagation.enable_node</id>
+        <label>Enable Node Functionality</label>
+        <type>checkbox</type>
+        <help>Enable propagation node functionality within lxmd.</help>
+    </field>
+    <field>
+        <id>propagation.announce_at_start</id>
+        <label>Announce at Start</label>
+        <type>checkbox</type>
+        <help>Announce the propagation node on the Reticulum network when lxmd starts. This makes the node discoverable by LXMF clients.</help>
+    </field>
+    <field>
+        <id>propagation.autopeer</id>
+        <label>Auto-Peer</label>
+        <type>checkbox</type>
+        <help>Automatically peer with other propagation nodes discovered on the network. Peered nodes synchronize their message stores.</help>
+    </field>
+    <field>
+        <id>propagation.autopeer_maxdepth</id>
+        <label>Auto-Peer Max Depth</label>
+        <type>text</type>
+        <help>Maximum hop count for auto-peering with other propagation nodes (1-128).</help>
+    </field>
+    <field>
+        <id>propagation.message_storage_limit</id>
+        <label>Message Storage Limit</label>
+        <type>text</type>
+        <help>Maximum number of messages to store. Set to 0 for unlimited storage.</help>
+    </field>
+    <field>
+        <id>propagation.message_storage_path</id>
+        <label>Message Storage Path</label>
+        <type>text</type>
+        <help>Filesystem path for the LXMF message database.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>propagation.lxmf_delivery_transfer_max_accepted_size</id>
+        <label>Max Message Size (KB)</label>
+        <type>text</type>
+        <help>Maximum accepted size for a single LXMF message in kilobytes.</help>
+    </field>
+    <field>
+        <id>propagation.periodic_sync_interval</id>
+        <label>Sync Interval (seconds)</label>
+        <type>text</type>
+        <help>Interval in seconds between message synchronization with peered propagation nodes.</help>
+    </field>
+    <field>
+        <id>propagation.prioritise_local</id>
+        <label>Prioritise Local Delivery</label>
+        <type>checkbox</type>
+        <help>Prioritise direct local message delivery over propagation to other nodes.</help>
+    </field>
+</form>

@@ -1,0 +1,8 @@
+Reticulum transport and propagation node plugin for OPNsense. Provides
+full GUI configuration of the Reticulum cryptographic networking stack
+including all interface types (LoRa/RNode, TCP, UDP, Serial, KISS,
+AX.25, I2P, Auto), transport node routing, and LXMF propagation node
+store-and-forward messaging. Includes service management, automatic
+firewall rule generation, and network diagnostics.
+
+WWW: https://reticulum.network/

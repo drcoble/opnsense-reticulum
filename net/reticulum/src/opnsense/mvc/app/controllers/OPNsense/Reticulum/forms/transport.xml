@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form>
+    <field>
+        <id>general.enable_transport</id>
+        <label>Enable Transport Node</label>
+        <type>checkbox</type>
+        <help><![CDATA[Enable transport mode to route traffic for other peers on the network.
+<br/><br/>
+<strong>Best Practices for Transport Nodes:</strong>
+<ul>
+<li><strong>Stationary:</strong> Transport nodes must remain in fixed locations for reliable routing.</li>
+<li><strong>Always-on:</strong> Keep transport nodes running continuously for network stability.</li>
+<li><strong>Well-connected:</strong> Place transport nodes where they can reach multiple network segments.</li>
+<li><strong>Strategic placement:</strong> Only enable transport on nodes that provide connectivity between segments — not on every node.</li>
+<li><strong>Announce rates:</strong> Configure per-interface announce rate limits in the Interfaces tab to control bandwidth usage.</li>
+</ul>
+Transport nodes maintain path tables, forward packets across hops, and propagate announcements throughout the network. They act as distributed cryptographic keystores by caching public keys from announcements.]]></help>
+    </field>
+</form>

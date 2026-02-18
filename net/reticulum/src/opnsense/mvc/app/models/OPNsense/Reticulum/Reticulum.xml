@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<model>
+    <mount>//OPNsense/Reticulum</mount>
+    <description>Reticulum Network Stack - Transport &amp; Propagation Node</description>
+    <version>1.0.0</version>
+    <items>
+        <!-- ============================================================ -->
+        <!-- General Settings                                              -->
+        <!-- ============================================================ -->
+        <general>
+            <enabled type="BooleanField">
+                <Default>0</Default>
+                <Required>Y</Required>
+            </enabled>
+            <enable_transport type="BooleanField">
+                <Default>0</Default>
+                <Required>Y</Required>
+            </enable_transport>
+            <share_instance type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </share_instance>
+            <shared_instance_port type="PortField">
+                <Default>37428</Default>
+                <Required>Y</Required>
+                <ValidationMessage>Please enter a valid port number.</ValidationMessage>
+            </shared_instance_port>
+            <instance_control_port type="PortField">
+                <Default>37429</Default>
+                <Required>Y</Required>
+                <ValidationMessage>Please enter a valid port number.</ValidationMessage>
+            </instance_control_port>
+            <panic_on_interface_error type="BooleanField">
+                <Default>0</Default>
+                <Required>Y</Required>
+            </panic_on_interface_error>
+            <loglevel type="OptionField">
+                <Default>4</Default>
+                <Required>Y</Required>
+                <OptionValues>
+                    <option value="0">0 - None</option>
+                    <option value="1">1 - Critical</option>
+                    <option value="2">2 - Error</option>
+                    <option value="3">3 - Warning</option>
+                    <option value="4">4 - Notice</option>
+                    <option value="5">5 - Info</option>
+                    <option value="6">6 - Verbose</option>
+                    <option value="7">7 - Debug</option>
+                </OptionValues>
+            </loglevel>
+        </general>
+
+        <!-- ============================================================ -->
+        <!-- Interfaces                                                    -->
+        <!-- ============================================================ -->
+        <interfaces>
+            <interface type="ArrayField">
+                <enabled type="BooleanField">
+                    <Default>1</Default>
+                    <Required>Y</Required>
+                </enabled>
+                <name type="TextField">
+                    <Required>Y</Required>
+                    <Mask>/^[a-zA-Z0-9 _\-]+$/</Mask>
+                    <ValidationMessage>Interface name may contain letters, numbers, spaces, hyphens, and underscores.</ValidationMessage>
+                </name>
+                <interfaceType type="OptionField">
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <option value="AutoInterface">AutoInterface</option>
+                        <option value="UDPInterface">UDPInterface</option>
+                        <option value="TCPServerInterface">TCPServerInterface</option>
+                        <option value="TCPClientInterface">TCPClientInterface</option>
+                        <option value="RNodeInterface">RNodeInterface</option>
+                        <option value="KISSInterface">KISSInterface</option>
+                        <option value="AX25KISSInterface">AX25KISSInterface</option>
+                        <option value="SerialInterface">SerialInterface</option>
+                        <option value="I2PInterface">I2PInterface</option>
+                    </OptionValues>
+                </interfaceType>
+
+                <!-- Common optional fields -->
+                <outgoing type="BooleanField">
+                    <Default>1</Default>
+                </outgoing>
+                <mode type="OptionField">
+                    <BlankDesc>Default (full)</BlankDesc>
+                    <OptionValues>
+                        <option value="full">Full</option>
+                        <option value="gateway">Gateway</option>
+                        <option value="boundary">Boundary</option>
+                        <option value="access_point">Access Point</option>
+                        <option value="roaming">Roaming</option>
+                    </OptionValues>
+                </mode>
+                <bitrate type="IntegerField">
+                    <MinimumValue>1</MinimumValue>
+                    <ValidationMessage>Bitrate must be a positive integer (bits/sec).</ValidationMessage>
+                </bitrate>
+                <announce_rate_target type="IntegerField">
+                    <MinimumValue>1</MinimumValue>
+                    <ValidationMessage>Must be a positive integer (seconds).</ValidationMessage>
+                </announce_rate_target>
+                <announce_rate_grace type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                    <ValidationMessage>Must be a non-negative integer.</ValidationMessage>
+                </announce_rate_grace>
+                <announce_rate_penalty type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                    <ValidationMessage>Must be a non-negative integer.</ValidationMessage>
+                </announce_rate_penalty>
+
+                <!-- ======================================== -->
+                <!-- AutoInterface fields                     -->
+                <!-- ======================================== -->
+                <auto_group_id type="TextField">
+                    <Default>reticulum</Default>
+                </auto_group_id>
+                <auto_discovery_scope type="OptionField">
+                    <Default>link</Default>
+                    <OptionValues>
+                        <option value="link">Link</option>
+                        <option value="admin">Admin</option>
+                        <option value="site">Site</option>
+                        <option value="organization">Organization</option>
+                        <option value="global">Global</option>
+                    </OptionValues>
+                </auto_discovery_scope>
+                <auto_discovery_port type="PortField">
+                    <Default>29716</Default>
+                    <ValidationMessage>Please enter a valid port number.</ValidationMessage>
+                </auto_discovery_port>
+                <auto_data_port type="PortField">
+                    <Default>42671</Default>
+                    <ValidationMessage>Please enter a valid port number.</ValidationMessage>
+                </auto_data_port>
+                <auto_allowed_interfaces type="TextField">
+                </auto_allowed_interfaces>
+                <auto_ignored_interfaces type="TextField">
+                </auto_ignored_interfaces>
+
+                <!-- ======================================== -->
+                <!-- UDPInterface fields                      -->
+                <!-- ======================================== -->
+                <udp_listen_ip type="TextField">
+                    <Default>0.0.0.0</Default>
+                </udp_listen_ip>
+                <udp_listen_port type="PortField">
+                    <Default>4242</Default>
+                    <ValidationMessage>Please enter a valid port number.</ValidationMessage>
+                </udp_listen_port>
+                <udp_forward_ip type="TextField">
+                </udp_forward_ip>
+                <udp_forward_port type="PortField">
+                    <ValidationMessage>Please enter a valid port number.</ValidationMessage>
+                </udp_forward_port>
+                <udp_broadcast type="BooleanField">
+                    <Default>0</Default>
+                </udp_broadcast>
+
+                <!-- ======================================== -->
+                <!-- TCPServerInterface fields                -->
+                <!-- ======================================== -->
+                <tcp_server_listen_ip type="TextField">
+                    <Default>0.0.0.0</Default>
+                </tcp_server_listen_ip>
+                <tcp_server_listen_port type="PortField">
+                    <Default>4242</Default>
+                    <ValidationMessage>Please enter a valid port number.</ValidationMessage>
+                </tcp_server_listen_port>
+                <tcp_server_i2p_tunneled type="BooleanField">
+                    <Default>0</Default>
+                </tcp_server_i2p_tunneled>
+
+                <!-- ======================================== -->
+                <!-- TCPClientInterface fields                -->
+                <!-- ======================================== -->
+                <tcp_client_target_host type="TextField">
+                </tcp_client_target_host>
+                <tcp_client_target_port type="PortField">
+                    <Default>4242</Default>
+                    <ValidationMessage>Please enter a valid port number.</ValidationMessage>
+                </tcp_client_target_port>
+                <tcp_client_kissbytes type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                </tcp_client_kissbytes>
+                <tcp_client_i2p_tunneled type="BooleanField">
+                    <Default>0</Default>
+                </tcp_client_i2p_tunneled>
+
+                <!-- ======================================== -->
+                <!-- RNodeInterface fields                    -->
+                <!-- ======================================== -->
+                <rnode_port type="TextField">
+                    <Default>/dev/ttyUSB0</Default>
+                </rnode_port>
+                <rnode_frequency type="IntegerField">
+                    <Default>868000000</Default>
+                    <MinimumValue>100000000</MinimumValue>
+                    <MaximumValue>1000000000</MaximumValue>
+                    <ValidationMessage>Frequency must be between 100 MHz and 1 GHz (in Hz).</ValidationMessage>
+                </rnode_frequency>
+                <rnode_bandwidth type="OptionField">
+                    <Default>125000</Default>
+                    <OptionValues>
+                        <option value="7800">7.8 kHz</option>
+                        <option value="10400">10.4 kHz</option>
+                        <option value="15600">15.6 kHz</option>
+                        <option value="20800">20.8 kHz</option>
+                        <option value="31250">31.25 kHz</option>
+                        <option value="41700">41.7 kHz</option>
+                        <option value="62500">62.5 kHz</option>
+                        <option value="125000">125 kHz</option>
+                        <option value="250000">250 kHz</option>
+                        <option value="500000">500 kHz</option>
+                    </OptionValues>
+                </rnode_bandwidth>
+                <rnode_txpower type="IntegerField">
+                    <Default>7</Default>
+                    <MinimumValue>0</MinimumValue>
+                    <MaximumValue>22</MaximumValue>
+                    <ValidationMessage>TX power must be between 0 and 22 dBm.</ValidationMessage>
+                </rnode_txpower>
+                <rnode_spreadingfactor type="OptionField">
+                    <Default>7</Default>
+                    <OptionValues>
+                        <option value="7">SF7</option>
+                        <option value="8">SF8</option>
+                        <option value="9">SF9</option>
+                        <option value="10">SF10</option>
+                        <option value="11">SF11</option>
+                        <option value="12">SF12</option>
+                    </OptionValues>
+                </rnode_spreadingfactor>
+                <rnode_codingrate type="OptionField">
+                    <Default>5</Default>
+                    <OptionValues>
+                        <option value="5">4/5</option>
+                        <option value="6">4/6</option>
+                        <option value="7">4/7</option>
+                        <option value="8">4/8</option>
+                    </OptionValues>
+                </rnode_codingrate>
+                <rnode_id type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                </rnode_id>
+                <rnode_flow_control type="BooleanField">
+                    <Default>0</Default>
+                </rnode_flow_control>
+
+                <!-- ======================================== -->
+                <!-- KISSInterface fields                     -->
+                <!-- ======================================== -->
+                <kiss_port type="TextField">
+                    <Default>/dev/ttyUSB1</Default>
+                </kiss_port>
+                <kiss_speed type="IntegerField">
+                    <Default>115200</Default>
+                    <MinimumValue>300</MinimumValue>
+                    <ValidationMessage>Baud rate must be at least 300.</ValidationMessage>
+                </kiss_speed>
+                <kiss_databits type="OptionField">
+                    <Default>8</Default>
+                    <OptionValues>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                    </OptionValues>
+                </kiss_databits>
+                <kiss_parity type="OptionField">
+                    <Default>none</Default>
+                    <OptionValues>
+                        <option value="none">None</option>
+                        <option value="even">Even</option>
+                        <option value="odd">Odd</option>
+                    </OptionValues>
+                </kiss_parity>
+                <kiss_stopbits type="OptionField">
+                    <Default>1</Default>
+                    <OptionValues>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                    </OptionValues>
+                </kiss_stopbits>
+                <kiss_flow_control type="BooleanField">
+                    <Default>0</Default>
+                </kiss_flow_control>
+                <kiss_preamble type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                </kiss_preamble>
+                <kiss_txtail type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                </kiss_txtail>
+                <kiss_persistence type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                    <MaximumValue>255</MaximumValue>
+                    <ValidationMessage>Persistence must be between 0 and 255.</ValidationMessage>
+                </kiss_persistence>
+                <kiss_slottime type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                </kiss_slottime>
+                <kiss_beacon_interval type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                </kiss_beacon_interval>
+                <kiss_beacon_data type="TextField">
+                </kiss_beacon_data>
+
+                <!-- ======================================== -->
+                <!-- AX25KISSInterface fields                 -->
+                <!-- ======================================== -->
+                <ax25_port type="TextField">
+                    <Default>/dev/ttyUSB2</Default>
+                </ax25_port>
+                <ax25_speed type="IntegerField">
+                    <Default>9600</Default>
+                    <MinimumValue>300</MinimumValue>
+                    <ValidationMessage>Baud rate must be at least 300.</ValidationMessage>
+                </ax25_speed>
+                <ax25_databits type="OptionField">
+                    <Default>8</Default>
+                    <OptionValues>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                    </OptionValues>
+                </ax25_databits>
+                <ax25_parity type="OptionField">
+                    <Default>none</Default>
+                    <OptionValues>
+                        <option value="none">None</option>
+                        <option value="even">Even</option>
+                        <option value="odd">Odd</option>
+                    </OptionValues>
+                </ax25_parity>
+                <ax25_stopbits type="OptionField">
+                    <Default>1</Default>
+                    <OptionValues>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                    </OptionValues>
+                </ax25_stopbits>
+                <ax25_flow_control type="BooleanField">
+                    <Default>0</Default>
+                </ax25_flow_control>
+                <ax25_callsign type="TextField">
+                    <Mask>/^[A-Z0-9]{3,7}$/</Mask>
+                    <ValidationMessage>Callsign must be 3-7 uppercase alphanumeric characters.</ValidationMessage>
+                </ax25_callsign>
+                <ax25_ssid type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                    <MaximumValue>15</MaximumValue>
+                    <ValidationMessage>SSID must be between 0 and 15.</ValidationMessage>
+                </ax25_ssid>
+
+                <!-- ======================================== -->
+                <!-- SerialInterface fields                   -->
+                <!-- ======================================== -->
+                <serial_port type="TextField">
+                    <Default>/dev/ttyUSB3</Default>
+                </serial_port>
+                <serial_speed type="IntegerField">
+                    <Default>9600</Default>
+                    <MinimumValue>300</MinimumValue>
+                    <ValidationMessage>Baud rate must be at least 300.</ValidationMessage>
+                </serial_speed>
+                <serial_databits type="OptionField">
+                    <Default>8</Default>
+                    <OptionValues>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                    </OptionValues>
+                </serial_databits>
+                <serial_parity type="OptionField">
+                    <Default>none</Default>
+                    <OptionValues>
+                        <option value="none">None</option>
+                        <option value="even">Even</option>
+                        <option value="odd">Odd</option>
+                    </OptionValues>
+                </serial_parity>
+                <serial_stopbits type="OptionField">
+                    <Default>1</Default>
+                    <OptionValues>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                    </OptionValues>
+                </serial_stopbits>
+                <serial_flow_control type="BooleanField">
+                    <Default>0</Default>
+                </serial_flow_control>
+
+                <!-- ======================================== -->
+                <!-- I2PInterface fields                      -->
+                <!-- ======================================== -->
+                <i2p_peers type="TextField">
+                </i2p_peers>
+            </interface>
+        </interfaces>
+
+        <!-- ============================================================ -->
+        <!-- Propagation Node Settings (LXMF)                             -->
+        <!-- ============================================================ -->
+        <propagation>
+            <enabled type="BooleanField">
+                <Default>0</Default>
+                <Required>Y</Required>
+            </enabled>
+            <enable_node type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </enable_node>
+            <announce_at_start type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </announce_at_start>
+            <autopeer type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </autopeer>
+            <autopeer_maxdepth type="IntegerField">
+                <Default>4</Default>
+                <MinimumValue>1</MinimumValue>
+                <MaximumValue>128</MaximumValue>
+                <Required>Y</Required>
+                <ValidationMessage>Max depth must be between 1 and 128 hops.</ValidationMessage>
+            </autopeer_maxdepth>
+            <message_storage_limit type="IntegerField">
+                <Default>2000</Default>
+                <MinimumValue>0</MinimumValue>
+                <Required>Y</Required>
+                <ValidationMessage>Must be 0 (unlimited) or a positive integer.</ValidationMessage>
+            </message_storage_limit>
+            <message_storage_path type="TextField">
+                <Default>/var/db/lxmd/messagestore</Default>
+                <Required>Y</Required>
+            </message_storage_path>
+            <lxmf_delivery_transfer_max_accepted_size type="IntegerField">
+                <Default>1000</Default>
+                <MinimumValue>1</MinimumValue>
+                <Required>Y</Required>
+                <ValidationMessage>Max accepted message size must be a positive integer (KB).</ValidationMessage>
+            </lxmf_delivery_transfer_max_accepted_size>
+            <periodic_sync_interval type="IntegerField">
+                <Default>360</Default>
+                <MinimumValue>10</MinimumValue>
+                <Required>Y</Required>
+                <ValidationMessage>Sync interval must be at least 10 seconds.</ValidationMessage>
+            </periodic_sync_interval>
+            <prioritise_local type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </prioritise_local>
+        </propagation>
+    </items>
+</model>

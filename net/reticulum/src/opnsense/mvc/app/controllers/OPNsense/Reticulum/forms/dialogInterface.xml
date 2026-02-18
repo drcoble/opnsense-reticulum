@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form>
+    <!-- ============================================================ -->
+    <!-- Common Fields                                                 -->
+    <!-- ============================================================ -->
+    <field>
+        <id>interface.enabled</id>
+        <label>Enabled</label>
+        <type>checkbox</type>
+        <help>Enable or disable this interface.</help>
+    </field>
+    <field>
+        <id>interface.name</id>
+        <label>Name</label>
+        <type>text</type>
+        <help>Display name for this interface. Used as the section header in the Reticulum config file.</help>
+    </field>
+    <field>
+        <id>interface.interfaceType</id>
+        <label>Interface Type</label>
+        <type>dropdown</type>
+        <help>The type of Reticulum interface to configure.</help>
+    </field>
+    <field>
+        <id>interface.mode</id>
+        <label>Interface Mode</label>
+        <type>dropdown</type>
+        <help><![CDATA[Operating mode for this interface:
+<ul>
+<li><strong>Full:</strong> Default mode — full routing capabilities</li>
+<li><strong>Gateway:</strong> Interface connects to a network of client-only nodes</li>
+<li><strong>Boundary:</strong> Interface connects two significantly different network segments</li>
+<li><strong>Access Point:</strong> Wide-area radio interface serving temporary/mobile users</li>
+<li><strong>Roaming:</strong> Mobile interface that may frequently change location</li>
+</ul>]]></help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.outgoing</id>
+        <label>Outgoing</label>
+        <type>checkbox</type>
+        <help>Allow outgoing traffic on this interface.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.bitrate</id>
+        <label>Bitrate Override</label>
+        <type>text</type>
+        <help>Manual bitrate override in bits per second. Leave empty for automatic detection.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.announce_rate_target</id>
+        <label>Announce Rate Target</label>
+        <type>text</type>
+        <help>Target time in seconds between announcements on this interface. Leave empty for default.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.announce_rate_grace</id>
+        <label>Announce Rate Grace</label>
+        <type>text</type>
+        <help>Number of grace announcements allowed before rate limiting activates.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.announce_rate_penalty</id>
+        <label>Announce Rate Penalty</label>
+        <type>text</type>
+        <help>Penalty multiplier applied when announce rate is exceeded.</help>
+        <advanced>true</advanced>
+    </field>
+
+    <!-- ============================================================ -->
+    <!-- AutoInterface Fields                                          -->
+    <!-- ============================================================ -->
+    <field>
+        <id>interface.auto_group_id</id>
+        <label>Group ID</label>
+        <type>text</type>
+        <style>interfaceType is "AutoInterface"</style>
+        <help>Multicast group identifier. Nodes with the same group ID will discover each other.</help>
+    </field>
+    <field>
+        <id>interface.auto_discovery_scope</id>
+        <label>Discovery Scope</label>
+        <type>dropdown</type>
+        <style>interfaceType is "AutoInterface"</style>
+        <help>IPv6 multicast scope for peer discovery. "Link" is for local network only.</help>
+    </field>
+    <field>
+        <id>interface.auto_discovery_port</id>
+        <label>Discovery Port</label>
+        <type>text</type>
+        <style>interfaceType is "AutoInterface"</style>
+        <help>UDP port used for peer discovery multicast.</help>
+    </field>
+    <field>
+        <id>interface.auto_data_port</id>
+        <label>Data Port</label>
+        <type>text</type>
+        <style>interfaceType is "AutoInterface"</style>
+        <help>UDP port used for data transfer between discovered peers.</help>
+    </field>
+    <field>
+        <id>interface.auto_allowed_interfaces</id>
+        <label>Allowed Interfaces</label>
+        <type>text</type>
+        <style>interfaceType is "AutoInterface"</style>
+        <help>Comma-separated list of OS network interface names to use for discovery (e.g., "eth0,wlan0"). Leave empty to use all available interfaces.</help>
+    </field>
+    <field>
+        <id>interface.auto_ignored_interfaces</id>
+        <label>Ignored Interfaces</label>
+        <type>text</type>
+        <style>interfaceType is "AutoInterface"</style>
+        <help>Comma-separated list of OS network interface names to exclude from discovery.</help>
+    </field>
+
+    <!-- ============================================================ -->
+    <!-- UDPInterface Fields                                           -->
+    <!-- ============================================================ -->
+    <field>
+        <id>interface.udp_listen_ip</id>
+        <label>Listen IP</label>
+        <type>text</type>
+        <style>interfaceType is "UDPInterface"</style>
+        <help>IP address to listen on. Use 0.0.0.0 for all interfaces.</help>
+    </field>
+    <field>
+        <id>interface.udp_listen_port</id>
+        <label>Listen Port</label>
+        <type>text</type>
+        <style>interfaceType is "UDPInterface"</style>
+        <help>UDP port to listen on for incoming connections.</help>
+    </field>
+    <field>
+        <id>interface.udp_forward_ip</id>
+        <label>Forward IP</label>
+        <type>text</type>
+        <style>interfaceType is "UDPInterface"</style>
+        <help>IP address of the remote peer to forward packets to. Leave empty for listen-only mode.</help>
+    </field>
+    <field>
+        <id>interface.udp_forward_port</id>
+        <label>Forward Port</label>
+        <type>text</type>
+        <style>interfaceType is "UDPInterface"</style>
+        <help>UDP port of the remote peer.</help>
+    </field>
+    <field>
+        <id>interface.udp_broadcast</id>
+        <label>Broadcast Mode</label>
+        <type>checkbox</type>
+        <style>interfaceType is "UDPInterface"</style>
+        <help>Enable UDP broadcast mode for local network discovery.</help>
+    </field>
+
+    <!-- ============================================================ -->
+    <!-- TCPServerInterface Fields                                     -->
+    <!-- ============================================================ -->
+    <field>
+        <id>interface.tcp_server_listen_ip</id>
+        <label>Listen IP</label>
+        <type>text</type>
+        <style>interfaceType is "TCPServerInterface"</style>
+        <help>IP address to bind the TCP listener on. Use 0.0.0.0 for all interfaces.</help>
+    </field>
+    <field>
+        <id>interface.tcp_server_listen_port</id>
+        <label>Listen Port</label>
+        <type>text</type>
+        <style>interfaceType is "TCPServerInterface"</style>
+        <help>TCP port to listen on for incoming connections.</help>
+    </field>
+    <field>
+        <id>interface.tcp_server_i2p_tunneled</id>
+        <label>I2P Tunneled</label>
+        <type>checkbox</type>
+        <style>interfaceType is "TCPServerInterface"</style>
+        <help>Indicate that this TCP listener is accessible behind an I2P tunnel.</help>
+    </field>
+
+    <!-- ============================================================ -->
+    <!-- TCPClientInterface Fields                                     -->
+    <!-- ============================================================ -->
+    <field>
+        <id>interface.tcp_client_target_host</id>
+        <label>Target Host</label>
+        <type>text</type>
+        <style>interfaceType is "TCPClientInterface"</style>
+        <help>Hostname or IP address of the remote TCP server to connect to.</help>
+    </field>
+    <field>
+        <id>interface.tcp_client_target_port</id>
+        <label>Target Port</label>
+        <type>text</type>
+        <style>interfaceType is "TCPClientInterface"</style>
+        <help>TCP port of the remote server.</help>
+    </field>
+    <field>
+        <id>interface.tcp_client_kissbytes</id>
+        <label>KISS Framing Bytes</label>
+        <type>text</type>
+        <style>interfaceType is "TCPClientInterface"</style>
+        <help>KISS framing byte count. Leave empty unless connecting to a KISS TNC over TCP.</help>
+    </field>
+    <field>
+        <id>interface.tcp_client_i2p_tunneled</id>
+        <label>I2P Tunneled</label>
+        <type>checkbox</type>
+        <style>interfaceType is "TCPClientInterface"</style>
+        <help>Indicate that this connection goes through an I2P tunnel.</help>
+    </field>
+
+    <!-- ============================================================ -->
+    <!-- RNodeInterface Fields                                         -->
+    <!-- ============================================================ -->
+    <field>
+        <id>interface.rnode_port</id>
+        <label>Serial Port</label>
+        <type>text</type>
+        <style>interfaceType is "RNodeInterface"</style>
+        <help>Serial device path for the RNode hardware (e.g., /dev/ttyUSB0 or /dev/cuaU0).</help>
+    </field>
+    <field>
+        <id>interface.rnode_frequency</id>
+        <label>Frequency (Hz)</label>
+        <type>text</type>
+        <style>interfaceType is "RNodeInterface"</style>
+        <help>Radio frequency in Hertz (e.g., 868000000 for 868 MHz, 915000000 for 915 MHz). Ensure compliance with local regulations.</help>
+    </field>
+    <field>
+        <id>interface.rnode_bandwidth</id>
+        <label>Bandwidth</label>
+        <type>dropdown</type>
+        <style>interfaceType is "RNodeInterface"</style>
+        <help>LoRa channel bandwidth. Wider bandwidth = higher data rate but shorter range.</help>
+    </field>
+    <field>
+        <id>interface.rnode_txpower</id>
+        <label>TX Power (dBm)</label>
+        <type>text</type>
+        <style>interfaceType is "RNodeInterface"</style>
+        <help>Transmit power in dBm (0-22). Higher values increase range but consume more power. Ensure compliance with local regulations.</help>
+    </field>
+    <field>
+        <id>interface.rnode_spreadingfactor</id>
+        <label>Spreading Factor</label>
+        <type>dropdown</type>
+        <style>interfaceType is "RNodeInterface"</style>
+        <help>LoRa spreading factor. Higher values increase range and robustness but reduce data rate.</help>
+    </field>
+    <field>
+        <id>interface.rnode_codingrate</id>
+        <label>Coding Rate</label>
+        <type>dropdown</type>
+        <style>interfaceType is "RNodeInterface"</style>
+        <help>LoRa forward error correction coding rate. Higher values add more redundancy.</help>
+    </field>
+    <field>
+        <id>interface.rnode_id</id>
+        <label>RNode ID</label>
+        <type>text</type>
+        <style>interfaceType is "RNodeInterface"</style>
+        <help>RNode hardware ID for multi-RNode setups. Leave empty for single RNode configurations.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.rnode_flow_control</id>
+        <label>Flow Control</label>
+        <type>checkbox</type>
+        <style>interfaceType is "RNodeInterface"</style>
+        <help>Enable hardware (RTS/CTS) flow control on the serial connection.</help>
+        <advanced>true</advanced>
+    </field>
+
+    <!-- ============================================================ -->
+    <!-- KISSInterface Fields                                          -->
+    <!-- ============================================================ -->
+    <field>
+        <id>interface.kiss_port</id>
+        <label>Serial Port</label>
+        <type>text</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>Serial device path for the KISS TNC (e.g., /dev/ttyUSB1 or /dev/cuaU1).</help>
+    </field>
+    <field>
+        <id>interface.kiss_speed</id>
+        <label>Baud Rate</label>
+        <type>text</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>Serial port baud rate.</help>
+    </field>
+    <field>
+        <id>interface.kiss_databits</id>
+        <label>Data Bits</label>
+        <type>dropdown</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>Number of data bits per serial frame.</help>
+    </field>
+    <field>
+        <id>interface.kiss_parity</id>
+        <label>Parity</label>
+        <type>dropdown</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>Serial parity checking mode.</help>
+    </field>
+    <field>
+        <id>interface.kiss_stopbits</id>
+        <label>Stop Bits</label>
+        <type>dropdown</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>Number of stop bits per serial frame.</help>
+    </field>
+    <field>
+        <id>interface.kiss_flow_control</id>
+        <label>Flow Control</label>
+        <type>checkbox</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>Enable hardware (RTS/CTS) flow control.</help>
+    </field>
+    <field>
+        <id>interface.kiss_preamble</id>
+        <label>Preamble (ms)</label>
+        <type>text</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>KISS preamble time in milliseconds. Leave empty for TNC default.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.kiss_txtail</id>
+        <label>TX Tail (ms)</label>
+        <type>text</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>KISS transmit tail time in milliseconds. Leave empty for TNC default.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.kiss_persistence</id>
+        <label>Persistence</label>
+        <type>text</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>KISS persistence value (0-255). Controls CSMA channel access probability.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.kiss_slottime</id>
+        <label>Slot Time (ms)</label>
+        <type>text</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>KISS slot time in milliseconds for CSMA channel access.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.kiss_beacon_interval</id>
+        <label>Beacon Interval (s)</label>
+        <type>text</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>Beacon transmission interval in seconds. Leave empty to disable beacons.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>interface.kiss_beacon_data</id>
+        <label>Beacon Data</label>
+        <type>text</type>
+        <style>interfaceType is "KISSInterface"</style>
+        <help>Beacon payload text to transmit at each beacon interval.</help>
+        <advanced>true</advanced>
+    </field>
+
+    <!-- ============================================================ -->
+    <!-- AX25KISSInterface Fields                                      -->
+    <!-- ============================================================ -->
+    <field>
+        <id>interface.ax25_port</id>
+        <label>Serial Port</label>
+        <type>text</type>
+        <style>interfaceType is "AX25KISSInterface"</style>
+        <help>Serial device path for the AX.25 KISS TNC.</help>
+    </field>
+    <field>
+        <id>interface.ax25_speed</id>
+        <label>Baud Rate</label>
+        <type>text</type>
+        <style>interfaceType is "AX25KISSInterface"</style>
+        <help>Serial port baud rate.</help>
+    </field>
+    <field>
+        <id>interface.ax25_databits</id>
+        <label>Data Bits</label>
+        <type>dropdown</type>
+        <style>interfaceType is "AX25KISSInterface"</style>
+        <help>Number of data bits per serial frame.</help>
+    </field>
+    <field>
+        <id>interface.ax25_parity</id>
+        <label>Parity</label>
+        <type>dropdown</type>
+        <style>interfaceType is "AX25KISSInterface"</style>
+        <help>Serial parity checking mode.</help>
+    </field>
+    <field>
+        <id>interface.ax25_stopbits</id>
+        <label>Stop Bits</label>
+        <type>dropdown</type>
+        <style>interfaceType is "AX25KISSInterface"</style>
+        <help>Number of stop bits per serial frame.</help>
+    </field>
+    <field>
+        <id>interface.ax25_flow_control</id>
+        <label>Flow Control</label>
+        <type>checkbox</type>
+        <style>interfaceType is "AX25KISSInterface"</style>
+        <help>Enable hardware (RTS/CTS) flow control.</help>
+    </field>
+    <field>
+        <id>interface.ax25_callsign</id>
+        <label>Callsign</label>
+        <type>text</type>
+        <style>interfaceType is "AX25KISSInterface"</style>
+        <help>Amateur radio callsign (3-7 uppercase alphanumeric characters). Required for AX.25 operation.</help>
+    </field>
+    <field>
+        <id>interface.ax25_ssid</id>
+        <label>SSID</label>
+        <type>text</type>
+        <style>interfaceType is "AX25KISSInterface"</style>
+        <help>AX.25 Secondary Station Identifier (0-15).</help>
+    </field>
+
+    <!-- ============================================================ -->
+    <!-- SerialInterface Fields                                        -->
+    <!-- ============================================================ -->
+    <field>
+        <id>interface.serial_port</id>
+        <label>Serial Port</label>
+        <type>text</type>
+        <style>interfaceType is "SerialInterface"</style>
+        <help>Serial device path for the data radio or modem.</help>
+    </field>
+    <field>
+        <id>interface.serial_speed</id>
+        <label>Baud Rate</label>
+        <type>text</type>
+        <style>interfaceType is "SerialInterface"</style>
+        <help>Serial port baud rate.</help>
+    </field>
+    <field>
+        <id>interface.serial_databits</id>
+        <label>Data Bits</label>
+        <type>dropdown</type>
+        <style>interfaceType is "SerialInterface"</style>
+        <help>Number of data bits per serial frame.</help>
+    </field>
+    <field>
+        <id>interface.serial_parity</id>
+        <label>Parity</label>
+        <type>dropdown</type>
+        <style>interfaceType is "SerialInterface"</style>
+        <help>Serial parity checking mode.</help>
+    </field>
+    <field>
+        <id>interface.serial_stopbits</id>
+        <label>Stop Bits</label>
+        <type>dropdown</type>
+        <style>interfaceType is "SerialInterface"</style>
+        <help>Number of stop bits per serial frame.</help>
+    </field>
+    <field>
+        <id>interface.serial_flow_control</id>
+        <label>Flow Control</label>
+        <type>checkbox</type>
+        <style>interfaceType is "SerialInterface"</style>
+        <help>Enable hardware (RTS/CTS) flow control.</help>
+    </field>
+
+    <!-- ============================================================ -->
+    <!-- I2PInterface Fields                                           -->
+    <!-- ============================================================ -->
+    <field>
+        <id>interface.i2p_peers</id>
+        <label>I2P Peers</label>
+        <type>text</type>
+        <style>interfaceType is "I2PInterface"</style>
+        <help>Comma-separated list of I2P base32 peer addresses to connect to.</help>
+    </field>
+</form>
