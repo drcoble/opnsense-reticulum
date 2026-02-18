@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<acl>
+    <reticulum-settings>
+        <name>Reticulum - Settings</name>
+        <patterns>
+            <pattern>ui/reticulum/*</pattern>
+            <pattern>api/reticulum/settings/*</pattern>
+        </patterns>
+    </reticulum-settings>
+    <reticulum-service>
+        <name>Reticulum - Service Control</name>
+        <patterns>
+            <pattern>api/reticulum/service/*</pattern>
+        </patterns>
+    </reticulum-service>
+    <reticulum-diagnostics>
+        <name>Reticulum - Diagnostics</name>
+        <patterns>
+            <pattern>api/reticulum/diagnostics/*</pattern>
+        </patterns>
+    </reticulum-diagnostics>
+</acl>

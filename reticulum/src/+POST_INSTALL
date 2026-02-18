@@ -1,0 +1,59 @@
+#!/bin/sh
+
+# OPNsense Reticulum Plugin — Post-Installation Script
+# Sets up the service user, directories, and permissions
+
+SERVICE_USER="_reticulum"
+SERVICE_GROUP="_reticulum"
+
+# Create dedicated service user and group if they don't exist
+if ! pw groupshow "${SERVICE_GROUP}" > /dev/null 2>&1; then
+    pw groupadd "${SERVICE_GROUP}" -g 920
+    echo "Created group: ${SERVICE_GROUP}"
+fi
+
+if ! pw usershow "${SERVICE_USER}" > /dev/null 2>&1; then
+    pw useradd "${SERVICE_USER}" \
+        -u 920 \
+        -g "${SERVICE_GROUP}" \
+        -d /nonexistent \
+        -s /usr/sbin/nologin \
+        -c "Reticulum Network Daemon"
+    echo "Created user: ${SERVICE_USER}"
+fi
+
+# Add service user to dialer group for serial device access (RNode, KISS, Serial)
+pw groupmod dialer -m "${SERVICE_USER}" 2>/dev/null
+
+# Create configuration directories
+mkdir -p /usr/local/etc/reticulum
+mkdir -p /usr/local/etc/lxmd
+
+# Create data directories for LXMF propagation node
+mkdir -p /var/db/lxmd/messagestore
+
+# Create log directory
+mkdir -p /var/log/reticulum
+
+# Set ownership
+chown -R "${SERVICE_USER}:${SERVICE_GROUP}" /usr/local/etc/reticulum
+chown -R "${SERVICE_USER}:${SERVICE_GROUP}" /usr/local/etc/lxmd
+chown -R "${SERVICE_USER}:${SERVICE_GROUP}" /var/db/lxmd
+chown -R "${SERVICE_USER}:${SERVICE_GROUP}" /var/log/reticulum
+
+# Set permissions
+chmod 750 /usr/local/etc/reticulum
+chmod 750 /usr/local/etc/lxmd
+chmod 750 /var/db/lxmd
+chmod 750 /var/db/lxmd/messagestore
+chmod 750 /var/log/reticulum
+
+# Make scripts executable
+chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/setup.sh
+chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/status.py
+chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/diagnostics.py
+
+# Restart configd to pick up new action definitions
+service configd restart
+
+echo "Reticulum plugin post-installation complete."
