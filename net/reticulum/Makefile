@@ -15,5 +15,3 @@ RNS_VERSION=		1.1.3
 LXMF_VERSION=		0.9.4
 
 .include "../../Mk/plugins.mk"
-
-# auto-merge test
