@@ -37,6 +37,31 @@
         });
     });
 
+    function loadLogTab(data) {
+        var content;
+        if (data && data.status === 'ok' && data.data) {
+            var d = data.data;
+            if (d.error) {
+                content = '<div class="alert alert-danger">' + $('<span>').text(d.error).html() + '</div>';
+            } else if (d.lines && d.lines.length === 0) {
+                content = '<div class="alert alert-info">' + $('<span>').text(d.message || 'No log output yet.').html() + '</div>';
+            } else if (d.lines) {
+                content = '<pre class="pre-scrollable" style="max-height:500px;background:#1a1a1a;color:#d0d0d0;font-size:12px;padding:10px;">' +
+                    $('<span>').text(d.lines.join('\n')).html() + '</pre>';
+            } else {
+                content = '<div class="alert alert-warning">Unexpected response format.</div>';
+            }
+        } else {
+            content = '<div class="alert alert-warning">Could not retrieve log data.</div>';
+        }
+        $('#tab-log .diagnostics-content').html(content);
+        // Scroll to bottom of log
+        var pre = $('#tab-log pre');
+        if (pre.length) {
+            pre.scrollTop(pre[0].scrollHeight);
+        }
+    }
+
     function loadDiagnosticTab(tab) {
         var endpoint;
         switch (tab) {
@@ -55,11 +80,21 @@
             case 'propagation':
                 endpoint = '/api/reticulum/diagnostics/propagation';
                 break;
+            case 'log':
+                endpoint = '/api/reticulum/diagnostics/log';
+                break;
             default:
                 return;
         }
 
         $('#tab-' + tab + ' .diagnostics-content').html('<i class="fa fa-spinner fa-spin"></i> Loading...');
+
+        if (tab === 'log') {
+            ajaxCall(endpoint, {}, function (data, status) {
+                loadLogTab(data);
+            });
+            return;
+        }
 
         ajaxCall(endpoint, {}, function (data, status) {
             var content;
@@ -208,6 +243,11 @@
                     <i class="fa fa-envelope"></i> {{ lang._('Propagation') }}
                 </a>
             </li>
+            <li role="presentation">
+                <a href="#tab-log" aria-controls="tab-log" role="tab" data-toggle="tab">
+                    <i class="fa fa-file-text-o"></i> {{ lang._('Log') }}
+                </a>
+            </li>
         </ul>
 
         <div class="tab-content" style="padding: 15px;">
@@ -232,6 +272,11 @@
                 </div>
             </div>
             <div role="tabpanel" class="tab-pane" id="tab-propagation">
+                <div class="diagnostics-content">
+                    <i class="fa fa-spinner fa-spin"></i> {{ lang._('Loading...') }}
+                </div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="tab-log">
                 <div class="diagnostics-content">
                     <i class="fa fa-spinner fa-spin"></i> {{ lang._('Loading...') }}
                 </div>

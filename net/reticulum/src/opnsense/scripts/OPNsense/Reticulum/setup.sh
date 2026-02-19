@@ -26,11 +26,8 @@ start_rnsd() {
         return 0
     fi
 
-    # Regenerate configuration from templates
-    configctl template reload OPNsense/Reticulum
-
     echo "Starting rnsd..."
-    daemon -u ${SERVICE_USER} -p ${RNSD_PID} \
+    daemon -u ${SERVICE_USER} -p ${RNSD_PID} -o /var/log/reticulum/rnsd.log \
         ${RNSD_BIN} --config "${RNS_CONFIG_DIR}"
 
     # Wait for rnsd to initialize
@@ -78,7 +75,7 @@ start_lxmd() {
     fi
 
     echo "Starting lxmd..."
-    daemon -u ${SERVICE_USER} -p ${LXMD_PID} \
+    daemon -u ${SERVICE_USER} -p ${LXMD_PID} -o /var/log/reticulum/lxmd.log \
         ${LXMD_BIN} --config "${LXMD_CONFIG_DIR}"
 
     sleep 2
@@ -119,8 +116,6 @@ case "$1" in
         stop_lxmd
         stop_rnsd
         sleep 1
-        # Regenerate config before restarting
-        configctl template reload OPNsense/Reticulum
         start_rnsd
         start_lxmd
         ;;

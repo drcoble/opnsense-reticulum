@@ -97,6 +97,20 @@ def diag_interfaces():
     return parse_json_or_raw(output)
 
 
+def diag_log():
+    """Return the last 200 lines of the rnsd log."""
+    import os
+    log_file = '/var/log/reticulum/rnsd.log'
+    if not os.path.exists(log_file):
+        return {'lines': [], 'message': 'Log file not found. Start the service first.'}
+    try:
+        with open(log_file, 'r', errors='replace') as f:
+            lines = f.readlines()
+        return {'lines': [l.rstrip('\n') for l in lines[-200:]]}
+    except OSError as e:
+        return {'error': str(e)}
+
+
 def main():
     if len(sys.argv) < 2:
         print(json.dumps({"error": "No diagnostic subcommand specified"}))
@@ -110,6 +124,7 @@ def main():
         'announces': diag_announces,
         'propagation': diag_propagation,
         'interfaces': diag_interfaces,
+        'log': diag_log,
     }
 
     handler = handlers.get(subcommand)
