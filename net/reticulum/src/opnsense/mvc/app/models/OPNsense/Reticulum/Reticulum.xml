@@ -53,8 +53,7 @@
         <!-- ============================================================ -->
         <!-- Interfaces                                                    -->
         <!-- ============================================================ -->
-        <interfaces>
-            <interface type="ArrayField">
+        <interfaces type="ArrayField">
                 <enabled type="BooleanField">
                     <Default>1</Default>
                     <Required>Y</Required>
@@ -392,7 +391,6 @@
                 <!-- ======================================== -->
                 <i2p_peers type="TextField">
                 </i2p_peers>
-            </interface>
         </interfaces>
 
         <!-- ============================================================ -->

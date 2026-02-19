@@ -79,7 +79,7 @@ class SettingsController extends ApiMutableModelControllerBase
     public function searchInterfaceAction()
     {
         return $this->searchBase(
-            'interfaces.interface',
+            'interfaces',
             array('enabled', 'name', 'interfaceType', 'mode'),
             'name'
         );
@@ -92,7 +92,7 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function getInterfaceAction($uuid = null)
     {
-        return $this->getBase('interface', 'interfaces.interface', $uuid);
+        return $this->getBase('interface', 'interfaces', $uuid);
     }
 
     /**
@@ -101,7 +101,7 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function addInterfaceAction()
     {
-        return $this->addBase('interface', 'interfaces.interface');
+        return $this->addBase('interface', 'interfaces');
     }
 
     /**
@@ -111,7 +111,7 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function setInterfaceAction($uuid)
     {
-        return $this->setBase('interface', 'interfaces.interface', $uuid);
+        return $this->setBase('interface', 'interfaces', $uuid);
     }
 
     /**
@@ -121,7 +121,7 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function delInterfaceAction($uuid)
     {
-        return $this->delBase('interfaces.interface', $uuid);
+        return $this->delBase('interfaces', $uuid);
     }
 
     /**
@@ -132,6 +132,6 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function toggleInterfaceAction($uuid, $enabled = null)
     {
-        return $this->toggleBase('interfaces.interface', $uuid, $enabled);
+        return $this->toggleBase('interfaces', $uuid, $enabled);
     }
 }

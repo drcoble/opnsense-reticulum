@@ -91,7 +91,7 @@ function reticulum_firewall($fw)
     }
 
     // Iterate all configured interfaces and create firewall rules for listeners
-    $interfaces = $mdl->interfaces->interface->iterateItems();
+    $interfaces = $mdl->interfaces->iterateItems();
     foreach ($interfaces as $uuid => $iface) {
         if ((string)$iface->enabled !== '1') {
             continue;
