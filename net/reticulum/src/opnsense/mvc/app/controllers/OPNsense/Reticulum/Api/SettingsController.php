@@ -42,7 +42,11 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function getAction()
     {
-        return $this->getBase('reticulum', 'general');
+        $result = array();
+        if ($this->request->isGet()) {
+            $result['reticulum'] = $this->getModel()->general->getNodes();
+        }
+        return $result;
     }
 
     /**
@@ -60,7 +64,11 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function getPropagationAction()
     {
-        return $this->getBase('propagation', 'propagation');
+        $result = array();
+        if ($this->request->isGet()) {
+            $result['propagation'] = $this->getModel()->propagation->getNodes();
+        }
+        return $result;
     }
 
     /**
