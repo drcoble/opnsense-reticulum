@@ -30,6 +30,7 @@
 namespace OPNsense\Reticulum\Api;
 
 use OPNsense\Base\ApiMutableModelControllerBase;
+use OPNsense\Core\Config;
 
 class SettingsController extends ApiMutableModelControllerBase
 {
@@ -37,14 +38,14 @@ class SettingsController extends ApiMutableModelControllerBase
     protected static $internalModelClass = '\OPNsense\Reticulum\Reticulum';
 
     /**
-     * Retrieve general and propagation settings
+     * Retrieve general settings
      * @return array
      */
     public function getAction()
     {
         $result = array();
         if ($this->request->isGet()) {
-            $result['reticulum'] = $this->getModel()->general->getNodes();
+            $result['general'] = $this->getModel()->general->getNodes();
         }
         return $result;
     }
@@ -55,7 +56,26 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function setAction()
     {
-        return $this->setBase('reticulum', 'general', null);
+        $result = ['result' => 'failed'];
+        if ($this->request->isPost()) {
+            $mdl = $this->getModel();
+            $post = $this->request->getPost('general');
+            if ($post !== null) {
+                $mdl->general->setNodes($post);
+            }
+            $validations = $mdl->performValidation();
+            if ($validations->count() === 0) {
+                $mdl->serializeToConfig();
+                Config::getInstance()->save();
+                $result['result'] = 'saved';
+            } else {
+                $result['validations'] = array();
+                foreach ($validations->getMessages() as $msg) {
+                    $result['validations'][$msg->getField()] = $msg->getMessage();
+                }
+            }
+        }
+        return $result;
     }
 
     /**
@@ -77,7 +97,26 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function setPropagationAction()
     {
-        return $this->setBase('propagation', 'propagation', null);
+        $result = ['result' => 'failed'];
+        if ($this->request->isPost()) {
+            $mdl = $this->getModel();
+            $post = $this->request->getPost('propagation');
+            if ($post !== null) {
+                $mdl->propagation->setNodes($post);
+            }
+            $validations = $mdl->performValidation();
+            if ($validations->count() === 0) {
+                $mdl->serializeToConfig();
+                Config::getInstance()->save();
+                $result['result'] = 'saved';
+            } else {
+                $result['validations'] = array();
+                foreach ($validations->getMessages() as $msg) {
+                    $result['validations'][$msg->getField()] = $msg->getMessage();
+                }
+            }
+        }
+        return $result;
     }
 
     /**
