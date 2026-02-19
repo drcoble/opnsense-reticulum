@@ -8,7 +8,7 @@ PLUGIN_TIER=		2
 # Reticulum and LXMF are installed from bundled source (see src/usr/local/lib/rns-src
 # and src/usr/local/lib/lxmf-src git submodules) via pip in +POST_INSTALL.
 # Only their compiled/system-level dependencies are listed here as pkg deps.
-PLUGIN_DEPENDS=		py311-cryptography py311-serial py311-pip
+PLUGIN_DEPENDS=		py311-cryptography py311-serial
 
 # Bundled upstream source versions (update submodules + bump PLUGIN_VERSION to release)
 RNS_VERSION=		1.1.3

@@ -14,11 +14,11 @@ RNS_SRC="/usr/local/lib/rns-src"
 LXMF_SRC="/usr/local/lib/lxmf-src"
 
 # ---------------------------------------------------------------------------
-# 1. Ensure pip is available (not bundled with Python on FreeBSD/OPNsense)
+# 1. Ensure pip is available (not bundled with Python on OPNsense/HardenedBSD)
 # ---------------------------------------------------------------------------
 if ! "${PYTHON}" -m pip --version > /dev/null 2>&1; then
-    echo "pip not found — installing py311-pip via pkg..."
-    pkg install -y py311-pip
+    echo "pip not found — bootstrapping via ensurepip..."
+    "${PYTHON}" -m ensurepip --upgrade
 fi
 
 # ---------------------------------------------------------------------------
