@@ -5,6 +5,7 @@
 1. [Introduction](#1-introduction)
 2. [Prerequisites](#2-prerequisites)
 3. [Installation](#3-installation)
+   - [Updating Reticulum](#updating-reticulum)
 4. [Quick Start](#4-quick-start)
 5. [General Settings](#5-general-settings)
 6. [Interfaces](#6-interfaces)
@@ -65,9 +66,10 @@ The OPNsense Reticulum plugin (`os-reticulum`) provides a full graphical interfa
 
 - OPNsense 24.1 or later
 - Python 3.11 (included with OPNsense)
-- The following packages are installed automatically as dependencies:
-  - `py311-rns` (Reticulum Network Stack)
-  - `py311-lxmf` (Lightweight Extensible Message Format)
+- The following packages are installed automatically as pkg dependencies:
+  - `py311-cryptography` (compiled cryptography library required by Reticulum)
+  - `py311-serial` (PySerial, required for RNode, KISS, AX.25, and Serial interfaces)
+- Reticulum (RNS) and LXMF are **not** installed from the FreeBSD ports tree. They are bundled directly as upstream source and installed via pip at plugin install time. See [Updating Reticulum](#updating-reticulum) for details.
 
 ### Network Requirements
 
@@ -106,24 +108,40 @@ service configd restart
 
 ### Method 3: Manual Build from Source
 
-If you are developing or testing from the plugin source code:
+If you are developing or testing from the plugin source code, clone with `--recurse-submodules` to populate the bundled Reticulum and LXMF source trees:
 
 ```bash
-cd /path/to/plugins/net/reticulum
+git clone --recurse-submodules https://github.com/drcoble/opnsense-reticulum.git
+cd opnsense-reticulum/net/reticulum
 make install
 service configd restart
+```
+
+If you already have a clone without the submodules, initialise them first:
+
+```bash
+git submodule update --init --recursive
 ```
 
 ### Post-Installation
 
 The installer automatically:
 
+- Installs Reticulum (RNS) from the bundled source at `/usr/local/lib/rns-src/` via `pip install --no-deps`
+- Installs LXMF from the bundled source at `/usr/local/lib/lxmf-src/` via `pip install --no-deps`
+- Creates the `rnsd`, `lxmd`, `rnstatus`, `rnpath`, and other CLI tools in `/usr/local/bin/`
 - Creates a dedicated `_reticulum` service user and group (UID/GID 920)
 - Creates configuration directories at `/usr/local/etc/reticulum/` and `/usr/local/etc/lxmd/`
 - Creates the message store directory at `/var/db/lxmd/messagestore/`
 - Creates a log directory at `/var/log/reticulum/`
 - Adds the service user to the `dialer` group for serial device access
 - Sets restrictive ownership and permissions on all directories
+
+To verify the installed versions after installation:
+
+```bash
+python3.11 -m pip show rns lxmf
+```
 
 ### Uninstallation
 
@@ -135,12 +153,40 @@ Via the command line:
 pkg remove os-reticulum
 ```
 
-Note: Uninstallation stops all Reticulum services but does not remove the `_reticulum` user, configuration directories, or stored messages. To fully clean up:
+The post-deinstall script automatically removes the pip-installed `rns` and `lxmf` packages. However, it does not remove the `_reticulum` user, configuration directories, or stored messages. To fully clean up:
 
 ```bash
 pw userdel _reticulum
 pw groupdel _reticulum
 rm -rf /usr/local/etc/reticulum /usr/local/etc/lxmd /var/db/lxmd /var/log/reticulum
+```
+
+### Updating Reticulum
+
+Because Reticulum and LXMF are installed from source bundled with the plugin (rather than from the FreeBSD ports tree), updates are delivered as plugin package updates rather than `pkg upgrade`.
+
+**As a user**: install the latest `os-reticulum` plugin update from **System > Firmware > Plugins** whenever it is available. Each plugin update pins to a tested Reticulum and LXMF release.
+
+**As a developer/contributor**: use the included helper script to update the bundled source to a new upstream release:
+
+```bash
+# Show current pinned versions and available upstream tags
+./scripts/update_upstream.sh
+
+# Pin to the latest tag of each upstream repo
+./scripts/update_upstream.sh --latest
+
+# Or pin to specific versions
+./scripts/update_upstream.sh 1.1.4 0.9.5
+```
+
+The script updates the git submodules (`src/usr/local/lib/rns-src` and `src/usr/local/lib/lxmf-src`), bumps the version strings in `Makefile`, and stages everything ready for review. After testing on a live OPNsense instance, commit and push to release a new plugin version.
+
+The bundled upstream source versions are always visible in the plugin `Makefile`:
+
+```makefile
+RNS_VERSION=    1.1.3
+LXMF_VERSION=   0.9.4
 ```
 
 ---
@@ -1423,7 +1469,7 @@ tail -f /var/log/system.log | grep reticulum
 1. Verify the Reticulum daemon is running first — lxmd depends on rnsd
 2. Check logs for lxmd errors: `clog /var/log/system.log | grep lxmd`
 3. Verify the message storage path exists and is writable by `_reticulum`: `ls -la /var/db/lxmd/messagestore`
-4. Ensure the `py311-lxmf` package is installed: `pkg info py311-lxmf`
+4. Verify LXMF is installed: `python3.11 -m pip show lxmf`
 
 ### Serial device not found
 
