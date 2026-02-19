@@ -29,10 +29,11 @@
 
 namespace OPNsense\Reticulum;
 
-class IndexController extends \OPNsense\Base\IndexController
+class TransportController extends \OPNsense\Base\IndexController
 {
     public function indexAction()
     {
-        $this->response->redirect('/ui/reticulum/general');
+        $this->view->transportForm = $this->getForm('transport');
+        $this->view->pick('OPNsense/Reticulum/transport');
     }
 }

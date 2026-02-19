@@ -90,8 +90,12 @@ The repo uses git submodules for the upstream Reticulum and LXMF sources. Clone 
 git clone --recurse-submodules https://github.com/drcoble/opnsense-reticulum.git
 cd opnsense-reticulum/net/reticulum
 make install
-service configd restart
+sh /usr/local/+POST_INSTALL
 ```
+
+`+POST_INSTALL` creates the `_reticulum` service user, runtime directories, installs Reticulum and LXMF via pip, and restarts configd. It is not run automatically by `make install`.
+
+> **Note:** Source installs bypass the OPNsense package manager, so the plugin will not appear in System > Firmware > Plugins. This is expected — the plugin is fully functional once installed.
 
 If you already cloned without `--recurse-submodules`, initialise them afterwards:
 

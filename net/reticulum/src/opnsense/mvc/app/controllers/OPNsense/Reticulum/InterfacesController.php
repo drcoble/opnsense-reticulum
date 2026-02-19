@@ -29,10 +29,11 @@
 
 namespace OPNsense\Reticulum;
 
-class IndexController extends \OPNsense\Base\IndexController
+class InterfacesController extends \OPNsense\Base\IndexController
 {
     public function indexAction()
     {
-        $this->response->redirect('/ui/reticulum/general');
+        $this->view->interfaceForm = $this->getForm('dialogInterface');
+        $this->view->pick('OPNsense/Reticulum/interfaces');
     }
 }

@@ -29,10 +29,11 @@
 
 namespace OPNsense\Reticulum;
 
-class IndexController extends \OPNsense\Base\IndexController
+class PropagationController extends \OPNsense\Base\IndexController
 {
     public function indexAction()
     {
-        $this->response->redirect('/ui/reticulum/general');
+        $this->view->propagationForm = $this->getForm('propagation');
+        $this->view->pick('OPNsense/Reticulum/propagation');
     }
 }
