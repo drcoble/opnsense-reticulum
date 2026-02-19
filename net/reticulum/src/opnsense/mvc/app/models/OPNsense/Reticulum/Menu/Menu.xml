@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<menu>
+    <Services>
+        <Reticulum VisibleName="Reticulum" cssclass="fa fa-share-alt" order="80">
+            <General VisibleName="General" url="/ui/reticulum/general" order="1"/>
+            <Interfaces VisibleName="Interfaces" url="/ui/reticulum/interfaces" order="2"/>
+            <Transport VisibleName="Transport" url="/ui/reticulum/transport" order="3"/>
+            <Propagation VisibleName="Propagation" url="/ui/reticulum/propagation" order="4"/>
+            <Diagnostics VisibleName="Diagnostics" url="/ui/reticulum/diagnostics" order="5"/>
+        </Reticulum>
+    </Services>
+</menu>

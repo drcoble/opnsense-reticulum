@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form>
+    <field>
+        <id>general.enabled</id>
+        <label>Enable Reticulum</label>
+        <type>checkbox</type>
+        <help>Enable the Reticulum network daemon (rnsd).</help>
+    </field>
+    <field>
+        <id>general.enable_transport</id>
+        <label>Enable Transport Node</label>
+        <type>checkbox</type>
+        <help>Enable transport mode to forward packets for other peers. Only enable this on stationary, always-on, well-connected nodes. Not every node should be a transport node — only strategic points that provide connectivity between network segments.</help>
+    </field>
+    <field>
+        <id>general.share_instance</id>
+        <label>Share Instance</label>
+        <type>checkbox</type>
+        <help>Allow multiple programs on this system to share a single running Reticulum instance via the shared instance port. When enabled, applications such as rnx, lxmf (lxmd), Nomad Network, or custom Python scripts can connect to the running rnsd instance rather than each starting their own. This is required if you want to run additional Reticulum-based services (e.g. the LXMF propagation node) alongside the main daemon.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>general.shared_instance_port</id>
+        <label>Shared Instance Port</label>
+        <type>text</type>
+        <help>TCP port on the loopback interface (127.0.0.1) used for shared instance communication between local programs. Default is 37428. Only change this if port 37428 conflicts with another service on this system. All applications sharing this Reticulum instance must be configured to use the same port.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>general.instance_control_port</id>
+        <label>Instance Control Port</label>
+        <type>text</type>
+        <help>TCP port on the loopback interface (127.0.0.1) used for instance control and management operations by local Reticulum tools such as rnstatus, rnpath, and rnid. Default is 37429. Only change this if port 37429 conflicts with another service on this system.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>general.panic_on_interface_error</id>
+        <label>Panic on Interface Error</label>
+        <type>checkbox</type>
+        <help>Terminate Reticulum if any interface encounters an error during startup. Useful for ensuring all interfaces are operational.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>general.loglevel</id>
+        <label>Log Level</label>
+        <type>dropdown</type>
+        <help><![CDATA[Logging verbosity level for the Reticulum daemon (rnsd):
+<ul>
+<li><strong>0 - None:</strong> No logging output</li>
+<li><strong>1 - Critical:</strong> Only fatal errors that cause the daemon to stop</li>
+<li><strong>2 - Error:</strong> Error conditions requiring attention</li>
+<li><strong>3 - Warning:</strong> Warnings and error conditions</li>
+<li><strong>4 - Notice:</strong> Normal operational messages (recommended for production)</li>
+<li><strong>5 - Info:</strong> Informational messages about network activity</li>
+<li><strong>6 - Verbose:</strong> Detailed operational information</li>
+<li><strong>7 - Debug:</strong> Full debug output including packet-level detail (very verbose — use for troubleshooting only)</li>
+</ul>
+Log output is viewable via System &gt; Log Files &gt; General (facility: reticulum).]]></help>
+    </field>
+</form>
