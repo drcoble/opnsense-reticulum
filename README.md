@@ -55,7 +55,8 @@ After installation, the plugin adds a **Services > Reticulum** section with five
 
 - OPNsense 24.1 or later
 - Python 3.11 (included with OPNsense)
-- `py311-rns` and `py311-lxmf` packages (installed automatically as dependencies)
+- `py311-cryptography` and `py311-serial` (installed automatically as package dependencies)
+- Reticulum and LXMF are installed from the bundled upstream source at post-install time — no separate package required (see [Upstream Source & Updating](#upstream-source--updating))
 - For LoRa: An [RNode](https://unsigned.io/rnode/) transceiver connected via USB
 - For packet radio: A KISS-compatible TNC connected via serial
 - For I2P: A running I2P router (i2pd or Java I2P) accessible from OPNsense
@@ -78,11 +79,19 @@ service configd restart
 
 ### From Source (Development)
 
+The repo uses git submodules for the upstream Reticulum and LXMF sources. Clone with `--recurse-submodules` to populate them:
+
 ```bash
-git clone https://github.com/drcoble/opnsense-reticulum.git
+git clone --recurse-submodules https://github.com/drcoble/opnsense-reticulum.git
 cd opnsense-reticulum/net/reticulum
 make install
 service configd restart
+```
+
+If you already cloned without `--recurse-submodules`, initialise them afterwards:
+
+```bash
+git submodule update --init --recursive
 ```
 
 ## Quick Start
@@ -97,12 +106,18 @@ To enable transport routing, check "Enable Transport Node" on the General page. 
 
 ```
 net/reticulum/
-├── Makefile                              # Plugin build metadata
+├── Makefile                              # Plugin build metadata + bundled version pins
 ├── pkg-descr                             # Package description
+├── scripts/
+│   └── update_upstream.sh               # Developer helper: update submodule pins
 ├── doc/
 │   └── userguide.md                      # Comprehensive user guide
 └── src/
-    ├── +POST_INSTALL                     # Post-install setup script
+    ├── +POST_INSTALL                     # Post-install: creates user/dirs, pip-installs RNS+LXMF
+    ├── +POST_DEINSTALL                   # Post-deinstall: pip-uninstalls RNS+LXMF
+    ├── usr/local/lib/
+    │   ├── rns-src/                      # git submodule → markqvist/Reticulum (pinned tag)
+    │   └── lxmf-src/                     # git submodule → markqvist/LXMF (pinned tag)
     ├── etc/inc/plugins.inc.d/
     │   └── reticulum.inc                 # OPNsense service hooks
     └── opnsense/
@@ -135,6 +150,51 @@ net/reticulum/
             ├── setup.sh                         # Service start/stop/restart
             ├── status.py                        # JSON service status
             └── diagnostics.py                   # Diagnostics backend
+```
+
+## Upstream Source & Updating
+
+Reticulum (RNS) and LXMF are not installed from the FreeBSD ports tree. Instead, their full source is bundled with this plugin as git submodules pinned to a specific upstream release tag:
+
+| Submodule | Upstream repo | Installed at |
+|-----------|--------------|--------------|
+| `src/usr/local/lib/rns-src` | [markqvist/Reticulum](https://github.com/markqvist/Reticulum) | `/usr/local/lib/rns-src` |
+| `src/usr/local/lib/lxmf-src` | [markqvist/LXMF](https://github.com/markqvist/LXMF) | `/usr/local/lib/lxmf-src` |
+
+At plugin install time, `+POST_INSTALL` runs `pip install --no-deps` from those directories, which creates the `rnsd`, `lxmd`, `rnstatus`, `rnpath`, and other CLI tools in `/usr/local/bin/`. The only FreeBSD package dependencies are `py311-cryptography` and `py311-serial` — the compiled libraries that pip cannot build in this environment.
+
+### Why this approach?
+
+The FreeBSD `py311-rns` and `py311-lxmf` ports often lag several releases behind the upstream Python packages. Bundling the source directly ensures the plugin always ships a tested, known-good version of Reticulum without waiting for a port update.
+
+### Updating to a new Reticulum release
+
+Use the included helper script:
+
+```bash
+# See current pinned versions and available upstream tags
+./scripts/update_upstream.sh
+
+# Pin to the latest tag of each upstream repo
+./scripts/update_upstream.sh --latest
+
+# Or pin to specific versions
+./scripts/update_upstream.sh 1.1.4 0.9.5
+```
+
+The script will:
+1. Fetch the latest tags from both upstream repos
+2. Check out the requested tag in each submodule
+3. Update the `RNS_VERSION` and `LXMF_VERSION` lines in `Makefile`
+4. Bump `PLUGIN_REVISION`
+5. Stage all changes ready for review and commit
+
+After running the script, review the diff, test on a live OPNsense instance, then commit and push:
+
+```bash
+git diff --cached
+git commit -m "Update Reticulum to 1.1.4, LXMF to 0.9.5"
+git push
 ```
 
 ## REST API
