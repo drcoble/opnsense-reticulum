@@ -55,7 +55,7 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function setAction()
     {
-        return $this->setBase('reticulum', 'general');
+        return $this->setBase('reticulum', 'general', null);
     }
 
     /**
@@ -77,7 +77,7 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function setPropagationAction()
     {
-        return $this->setBase('propagation', 'propagation');
+        return $this->setBase('propagation', 'propagation', null);
     }
 
     /**
