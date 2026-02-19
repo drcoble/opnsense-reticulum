@@ -14,7 +14,15 @@ RNS_SRC="/usr/local/lib/rns-src"
 LXMF_SRC="/usr/local/lib/lxmf-src"
 
 # ---------------------------------------------------------------------------
-# 1. Install Reticulum and LXMF from bundled source
+# 1. Ensure pip is available (not bundled with Python on FreeBSD/OPNsense)
+# ---------------------------------------------------------------------------
+if ! "${PYTHON}" -m pip --version > /dev/null 2>&1; then
+    echo "pip not found — installing py311-pip via pkg..."
+    pkg install -y py311-pip
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Install Reticulum and LXMF from bundled source
 # ---------------------------------------------------------------------------
 # cryptography and pyserial are already satisfied by pkg (py311-cryptography,
 # py311-serial), so we skip their installation here with --no-deps.
@@ -25,7 +33,7 @@ echo "Installing LXMF from bundled source (${LXMF_SRC})..."
 "${PYTHON}" -m pip install --quiet --no-deps --upgrade "${LXMF_SRC}"
 
 # ---------------------------------------------------------------------------
-# 2. Create dedicated service user and group
+# 3. Create dedicated service user and group
 # ---------------------------------------------------------------------------
 if ! pw groupshow "${SERVICE_GROUP}" > /dev/null 2>&1; then
     pw groupadd "${SERVICE_GROUP}" -g 920
@@ -46,7 +54,7 @@ fi
 pw groupmod dialer -m "${SERVICE_USER}" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 3. Create runtime directories
+# 4. Create runtime directories
 # ---------------------------------------------------------------------------
 mkdir -p /usr/local/etc/reticulum
 mkdir -p /usr/local/etc/lxmd
@@ -66,14 +74,14 @@ chmod 750 /var/db/lxmd/messagestore
 chmod 750 /var/log/reticulum
 
 # ---------------------------------------------------------------------------
-# 4. Make plugin scripts executable
+# 5. Make plugin scripts executable
 # ---------------------------------------------------------------------------
 chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/setup.sh
 chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/status.py
 chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/diagnostics.py
 
 # ---------------------------------------------------------------------------
-# 5. Restart configd to pick up new action definitions
+# 6. Restart configd to pick up new action definitions
 # ---------------------------------------------------------------------------
 service configd restart
 
