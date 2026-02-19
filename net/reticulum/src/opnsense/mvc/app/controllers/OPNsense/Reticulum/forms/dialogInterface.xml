@@ -19,7 +19,18 @@
         <id>interface.interfaceType</id>
         <label>Interface Type</label>
         <type>dropdown</type>
-        <help>The type of Reticulum interface to configure.</help>
+        <help><![CDATA[The type of Reticulum interface to configure:
+<ul>
+<li><strong>AutoInterface:</strong> Automatically discovers peers on local network segments using IPv4/IPv6 multicast. Best for LAN/VLAN connectivity with no manual peer configuration required.</li>
+<li><strong>UDPInterface:</strong> Point-to-point or broadcast UDP connectivity over IP networks. Suitable for WAN and VPN links between known peers.</li>
+<li><strong>TCPServerInterface:</strong> Accepts incoming TCP connections from remote Reticulum nodes. Use this to create a publicly-accessible entry point into your network.</li>
+<li><strong>TCPClientInterface:</strong> Establishes an outgoing TCP connection to a remote Reticulum TCPServerInterface. Use when NAT or firewall rules prevent inbound connections.</li>
+<li><strong>RNodeInterface:</strong> Connects to an RNode LoRa hardware device for long-range, low-bandwidth radio communication.</li>
+<li><strong>KISSInterface:</strong> Connects to a KISS-protocol TNC (Terminal Node Controller) over a serial port for packet radio communication.</li>
+<li><strong>AX25KISSInterface:</strong> Like KISSInterface but uses AX.25 packet framing. Requires a licensed amateur radio callsign.</li>
+<li><strong>SerialInterface:</strong> Generic serial interface for data radios or modems communicating over raw serial.</li>
+<li><strong>I2PInterface:</strong> Connects to other Reticulum nodes through the I2P anonymity network for censorship-resistant, anonymous connectivity.</li>
+</ul>]]></help>
     </field>
     <field>
         <id>interface.mode</id>
@@ -39,7 +50,7 @@
         <id>interface.outgoing</id>
         <label>Outgoing</label>
         <type>checkbox</type>
-        <help>Allow outgoing traffic on this interface.</help>
+        <help>Allow this interface to carry outgoing (locally-originated) traffic. Disable to create a receive-only interface that can accept and forward announcements and traffic from other nodes, but will not transmit any locally-generated packets through this interface. Useful for monitoring or one-way link scenarios.</help>
         <advanced>true</advanced>
     </field>
     <field>
@@ -53,21 +64,21 @@
         <id>interface.announce_rate_target</id>
         <label>Announce Rate Target</label>
         <type>text</type>
-        <help>Target time in seconds between announcements on this interface. Leave empty for default.</help>
+        <help>Minimum target time in seconds between announcement retransmissions on this interface. Announcements are how Reticulum nodes advertise their destinations across the network. Setting a rate limit helps prevent announcement storms on bandwidth-constrained links such as LoRa or packet radio. Leave empty to use Reticulum defaults (no rate limiting).</help>
         <advanced>true</advanced>
     </field>
     <field>
         <id>interface.announce_rate_grace</id>
         <label>Announce Rate Grace</label>
         <type>text</type>
-        <help>Number of grace announcements allowed before rate limiting activates.</help>
+        <help>Number of announcements permitted above the rate target before rate limiting begins. This grace period allows burst announcements when a node first comes online or when many new destinations appear simultaneously. Once the grace count is exhausted, the rate limit is enforced. Leave empty to use Reticulum defaults.</help>
         <advanced>true</advanced>
     </field>
     <field>
         <id>interface.announce_rate_penalty</id>
         <label>Announce Rate Penalty</label>
         <type>text</type>
-        <help>Penalty multiplier applied when announce rate is exceeded.</help>
+        <help>Additional penalty time in seconds added to the rate limiting delay each time the announce rate target is exceeded. Higher values cause more aggressive back-off after an announcement burst, reducing bandwidth usage on congested links. Leave empty to use Reticulum defaults.</help>
         <advanced>true</advanced>
     </field>
 
@@ -86,7 +97,15 @@
         <label>Discovery Scope</label>
         <type>dropdown</type>
         <style>interfaceType is "AutoInterface"</style>
-        <help>IPv6 multicast scope for peer discovery. "Link" is for local network only.</help>
+        <help><![CDATA[IPv6 multicast scope used for AutoInterface peer discovery:
+<ul>
+<li><strong>Link:</strong> Discovery limited to directly-attached network segment only (most common, default)</li>
+<li><strong>Admin:</strong> Discovery within an administratively-scoped multicast zone</li>
+<li><strong>Site:</strong> Discovery across an entire site or campus network (requires multicast routing)</li>
+<li><strong>Organization:</strong> Discovery across an organizational network boundary (requires multicast routing)</li>
+<li><strong>Global:</strong> Global multicast discovery (requires multicast routing infrastructure)</li>
+</ul>
+Use "Link" for most deployments. Wider scopes require multicast routing to be configured on your network infrastructure.]]></help>
     </field>
     <field>
         <id>interface.auto_discovery_port</id>
@@ -146,7 +165,7 @@
         <label>Forward Port</label>
         <type>text</type>
         <style>interfaceType is "UDPInterface"</style>
-        <help>UDP port of the remote peer.</help>
+        <help>UDP port on the remote peer to forward packets to. Must match the listen port configured on the remote node's UDPInterface. Required when Forward IP is set.</help>
     </field>
     <field>
         <id>interface.udp_broadcast</id>
@@ -196,7 +215,7 @@
         <label>Target Port</label>
         <type>text</type>
         <style>interfaceType is "TCPClientInterface"</style>
-        <help>TCP port of the remote server.</help>
+        <help>TCP port on the remote Reticulum node to connect to. Must match the listen port configured on the remote node's TCPServerInterface. Common public Reticulum hubs use port 4242.</help>
     </field>
     <field>
         <id>interface.tcp_client_kissbytes</id>
@@ -290,28 +309,28 @@
         <label>Baud Rate</label>
         <type>text</type>
         <style>interfaceType is "KISSInterface"</style>
-        <help>Serial port baud rate.</help>
+        <help>Serial port baud rate for TNC communication. Common values: 1200, 4800, 9600, 19200, 38400, 57600, 115200. Must exactly match the baud rate configured on your TNC hardware. Most hardware TNCs default to 9600 baud.</help>
     </field>
     <field>
         <id>interface.kiss_databits</id>
         <label>Data Bits</label>
         <type>dropdown</type>
         <style>interfaceType is "KISSInterface"</style>
-        <help>Number of data bits per serial frame.</help>
+        <help>Number of data bits per serial frame. Almost all modern TNCs use 8 data bits. Use 7 only if explicitly required by your specific hardware documentation.</help>
     </field>
     <field>
         <id>interface.kiss_parity</id>
         <label>Parity</label>
         <type>dropdown</type>
         <style>interfaceType is "KISSInterface"</style>
-        <help>Serial parity checking mode.</help>
+        <help>Serial parity error-checking mode. The vast majority of TNCs use "None" (no parity). Only change this if your hardware documentation explicitly requires Even or Odd parity.</help>
     </field>
     <field>
         <id>interface.kiss_stopbits</id>
         <label>Stop Bits</label>
         <type>dropdown</type>
         <style>interfaceType is "KISSInterface"</style>
-        <help>Number of stop bits per serial frame.</help>
+        <help>Number of stop bits per serial frame. Most TNCs use 1 stop bit. Use 2 only if required by your specific hardware documentation.</help>
     </field>
     <field>
         <id>interface.kiss_flow_control</id>
@@ -384,28 +403,28 @@
         <label>Baud Rate</label>
         <type>text</type>
         <style>interfaceType is "AX25KISSInterface"</style>
-        <help>Serial port baud rate.</help>
+        <help>Serial port baud rate for TNC communication. Common values: 1200 (standard VHF/UHF packet radio), 9600 (G3RUH 9600 baud), 38400, 57600, 115200. Must exactly match the baud rate configured on your TNC hardware.</help>
     </field>
     <field>
         <id>interface.ax25_databits</id>
         <label>Data Bits</label>
         <type>dropdown</type>
         <style>interfaceType is "AX25KISSInterface"</style>
-        <help>Number of data bits per serial frame.</help>
+        <help>Number of data bits per serial frame. Almost all modern TNCs use 8 data bits. Use 7 only if explicitly required by your specific hardware documentation.</help>
     </field>
     <field>
         <id>interface.ax25_parity</id>
         <label>Parity</label>
         <type>dropdown</type>
         <style>interfaceType is "AX25KISSInterface"</style>
-        <help>Serial parity checking mode.</help>
+        <help>Serial parity error-checking mode. The vast majority of TNCs use "None" (no parity). Only change this if your hardware documentation explicitly requires Even or Odd parity.</help>
     </field>
     <field>
         <id>interface.ax25_stopbits</id>
         <label>Stop Bits</label>
         <type>dropdown</type>
         <style>interfaceType is "AX25KISSInterface"</style>
-        <help>Number of stop bits per serial frame.</help>
+        <help>Number of stop bits per serial frame. Most TNCs use 1 stop bit. Use 2 only if required by your specific hardware documentation.</help>
     </field>
     <field>
         <id>interface.ax25_flow_control</id>
@@ -426,7 +445,7 @@
         <label>SSID</label>
         <type>text</type>
         <style>interfaceType is "AX25KISSInterface"</style>
-        <help>AX.25 Secondary Station Identifier (0-15).</help>
+        <help>AX.25 Secondary Station Identifier (0-15). The SSID is appended to the callsign (e.g., CALLSIGN-9) to distinguish multiple stations using the same callsign. Use 0 for the default/primary station. Common conventions: 1-5 for fixed digital stations, 7 for handhelds, 9 for mobile, 14-15 for BBS or network nodes.</help>
     </field>
 
     <!-- ============================================================ -->
@@ -444,28 +463,28 @@
         <label>Baud Rate</label>
         <type>text</type>
         <style>interfaceType is "SerialInterface"</style>
-        <help>Serial port baud rate.</help>
+        <help>Serial port baud rate for the connected data radio or modem. Common values: 4800, 9600, 19200, 38400, 57600, 115200. Must exactly match the baud rate configured on the connected device. Consult your radio or modem documentation for the correct value.</help>
     </field>
     <field>
         <id>interface.serial_databits</id>
         <label>Data Bits</label>
         <type>dropdown</type>
         <style>interfaceType is "SerialInterface"</style>
-        <help>Number of data bits per serial frame.</help>
+        <help>Number of data bits per serial frame. Almost all modern data radios and modems use 8 data bits. Use 7 only if explicitly required by your device documentation.</help>
     </field>
     <field>
         <id>interface.serial_parity</id>
         <label>Parity</label>
         <type>dropdown</type>
         <style>interfaceType is "SerialInterface"</style>
-        <help>Serial parity checking mode.</help>
+        <help>Serial parity error-checking mode. Most data radios and modems use "None" (no parity). Only change this if your device documentation explicitly requires Even or Odd parity.</help>
     </field>
     <field>
         <id>interface.serial_stopbits</id>
         <label>Stop Bits</label>
         <type>dropdown</type>
         <style>interfaceType is "SerialInterface"</style>
-        <help>Number of stop bits per serial frame.</help>
+        <help>Number of stop bits per serial frame. Most data radios and modems use 1 stop bit. Use 2 only if required by your specific device documentation.</help>
     </field>
     <field>
         <id>interface.serial_flow_control</id>
@@ -483,6 +502,6 @@
         <label>I2P Peers</label>
         <type>text</type>
         <style>interfaceType is "I2PInterface"</style>
-        <help>Comma-separated list of I2P base32 peer addresses to connect to.</help>
+        <help>Comma-separated list of I2P destination addresses to connect to. Addresses are in base32 format (52-character strings ending in .b32.i2p, or raw 52-character base32 hashes). I2P must be installed and running on this system for this interface to function. Peer addresses are published by Reticulum network operators who expose I2P endpoints — consult the Reticulum network directory or community resources to find peers.</help>
     </field>
 </form>
