@@ -5,4 +5,8 @@ AX.25, I2P, Auto), transport node routing, and LXMF propagation node
 store-and-forward messaging. Includes service management, automatic
 firewall rule generation, and network diagnostics.
 
+Reticulum (RNS) and LXMF are installed directly from the upstream
+GitHub sources bundled with this plugin, ensuring the latest supported
+release is always used without relying on the FreeBSD ports lag.
+
 WWW: https://reticulum.network/
