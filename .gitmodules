@@ -1,8 +1,8 @@
-[submodule "net/reticulum/src/usr/local/lib/rns-src"]
-	path = net/reticulum/src/usr/local/lib/rns-src
+[submodule "net/reticulum/src/lib/rns-src"]
+	path = net/reticulum/src/lib/rns-src
 	url = https://github.com/markqvist/Reticulum.git
 	branch = master
-[submodule "net/reticulum/src/usr/local/lib/lxmf-src"]
-	path = net/reticulum/src/usr/local/lib/lxmf-src
+[submodule "net/reticulum/src/lib/lxmf-src"]
+	path = net/reticulum/src/lib/lxmf-src
 	url = https://github.com/markqvist/LXMF.git
 	branch = master
