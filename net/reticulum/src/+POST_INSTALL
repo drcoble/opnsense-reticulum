@@ -14,7 +14,21 @@ RNS_SRC="/usr/local/lib/rns-src"
 LXMF_SRC="/usr/local/lib/lxmf-src"
 
 # ---------------------------------------------------------------------------
-# 1. Ensure pip is available (not bundled with Python on OPNsense/HardenedBSD)
+# 1. Verify submodules were populated before make install was run
+# ---------------------------------------------------------------------------
+for SRC in "${RNS_SRC}" "${LXMF_SRC}"; do
+    if [ ! -f "${SRC}/setup.py" ] && [ ! -f "${SRC}/pyproject.toml" ]; then
+        echo "ERROR: Source directory missing or empty: ${SRC}"
+        echo "       The git submodules were not populated before 'make install'."
+        echo "       Re-clone with:  git clone --recurse-submodules <repo>"
+        echo "       Or run:         git submodule update --init --recursive"
+        echo "       Then re-run:    make install && sh /usr/local/+POST_INSTALL"
+        exit 1
+    fi
+done
+
+# ---------------------------------------------------------------------------
+# 3. Ensure pip is available (not bundled with Python on OPNsense/HardenedBSD)
 # ---------------------------------------------------------------------------
 if ! "${PYTHON}" -m pip --version > /dev/null 2>&1; then
     echo "pip not found — bootstrapping via ensurepip..."
@@ -22,7 +36,7 @@ if ! "${PYTHON}" -m pip --version > /dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------------------------
-# 2. Install Reticulum and LXMF from bundled source
+# 4. Install Reticulum and LXMF from bundled source
 # ---------------------------------------------------------------------------
 # cryptography and pyserial are already satisfied by pkg (py311-cryptography,
 # py311-serial), so we skip their installation here with --no-deps.
@@ -33,7 +47,7 @@ echo "Installing LXMF from bundled source (${LXMF_SRC})..."
 "${PYTHON}" -m pip install --quiet --no-deps --upgrade "${LXMF_SRC}"
 
 # ---------------------------------------------------------------------------
-# 3. Create dedicated service user and group
+# 5. Create dedicated service user and group
 # ---------------------------------------------------------------------------
 if ! pw groupshow "${SERVICE_GROUP}" > /dev/null 2>&1; then
     pw groupadd "${SERVICE_GROUP}" -g 920
@@ -54,7 +68,7 @@ fi
 pw groupmod dialer -m "${SERVICE_USER}" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 4. Create runtime directories
+# 6. Create runtime directories
 # ---------------------------------------------------------------------------
 mkdir -p /usr/local/etc/reticulum
 mkdir -p /usr/local/etc/lxmd
@@ -74,14 +88,14 @@ chmod 750 /var/db/lxmd/messagestore
 chmod 750 /var/log/reticulum
 
 # ---------------------------------------------------------------------------
-# 5. Make plugin scripts executable
+# 7. Make plugin scripts executable
 # ---------------------------------------------------------------------------
 chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/setup.sh
 chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/status.py
 chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/diagnostics.py
 
 # ---------------------------------------------------------------------------
-# 6. Restart configd to pick up new action definitions
+# 8. Restart configd to pick up new action definitions
 # ---------------------------------------------------------------------------
 service configd restart
 
