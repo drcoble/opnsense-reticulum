@@ -79,6 +79,11 @@ service configd restart
 
 ### From Source (Development)
 
+> **Note:** git is not installed on OPNsense by default. Install it first:
+> ```bash
+> pkg install git
+> ```
+
 The repo uses git submodules for the upstream Reticulum and LXMF sources. Clone with `--recurse-submodules` to populate them:
 
 ```bash
