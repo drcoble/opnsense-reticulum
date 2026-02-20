@@ -30,6 +30,7 @@
 namespace OPNsense\Reticulum\Api;
 
 use OPNsense\Base\ApiMutableModelControllerBase;
+use OPNsense\Core\Config;
 
 class SettingsController extends ApiMutableModelControllerBase
 {
@@ -37,7 +38,7 @@ class SettingsController extends ApiMutableModelControllerBase
     protected static $internalModelClass = '\OPNsense\Reticulum\Reticulum';
 
     /**
-     * Retrieve general and propagation settings
+     * Retrieve general settings
      * @return array
      */
     public function getAction()
@@ -46,12 +47,12 @@ class SettingsController extends ApiMutableModelControllerBase
     }
 
     /**
-     * Update general settings
+     * Update general settings (ContainerField — cannot use setBase)
      * @return array
      */
     public function setAction()
     {
-        return $this->setBase('reticulum', 'general');
+        return $this->saveContainerSettings('reticulum', 'general');
     }
 
     /**
@@ -64,12 +65,49 @@ class SettingsController extends ApiMutableModelControllerBase
     }
 
     /**
-     * Update propagation settings
+     * Update propagation settings (ContainerField — cannot use setBase)
      * @return array
      */
     public function setPropagationAction()
     {
-        return $this->setBase('propagation', 'propagation');
+        return $this->saveContainerSettings('propagation', 'propagation');
+    }
+
+    /**
+     * Save a ContainerField node from POST data.
+     * setBase() calls Add() which only works on ArrayFields, so plain
+     * container nodes (general, propagation) need manual handling.
+     *
+     * @param string $postKey  key in $_POST that wraps the field values
+     * @param string $nodePath model node reference (e.g. 'general')
+     * @return array
+     */
+    private function saveContainerSettings($postKey, $nodePath)
+    {
+        $result = array("result" => "failed");
+        if ($this->request->isPost()) {
+            $mdl = $this->getModel();
+            $node = $mdl->getNodeByReference($nodePath);
+            if ($node !== null) {
+                $post = $this->request->getPost($postKey);
+                if (is_array($post)) {
+                    $node->setNodes($post);
+                }
+                $valMsgs = $mdl->performValidation();
+                foreach ($valMsgs as $msg) {
+                    if (!array_key_exists("validations", $result)) {
+                        $result["validations"] = array();
+                    }
+                    $result["validations"][$postKey . "." . $msg->getField()] = $msg->getMessage();
+                }
+                if (empty($result["validations"] ?? [])) {
+                    $mdl->serializeToConfig();
+                    Config::getInstance()->save();
+                    $result["result"] = "saved";
+                }
+            }
+        }
+        return $result;
     }
 
     /**
