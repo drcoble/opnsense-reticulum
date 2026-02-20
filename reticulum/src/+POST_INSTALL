@@ -3,8 +3,16 @@
 # OPNsense Reticulum Plugin — Post-Installation Script
 # Sets up the service user, directories, and permissions
 
+set -e
+
 SERVICE_USER="_reticulum"
 SERVICE_GROUP="_reticulum"
+
+# Verify UID/GID 920 is not already claimed by another user/group
+if id -u 920 >/dev/null 2>&1 && [ "$(pw usershow -u 920 -7 2>/dev/null | cut -d: -f1)" != "${SERVICE_USER}" ]; then
+    echo "ERROR: UID 920 is already in use. Cannot create ${SERVICE_USER}."
+    exit 1
+fi
 
 # Create dedicated service user and group if they don't exist
 if ! pw groupshow "${SERVICE_GROUP}" > /dev/null 2>&1; then

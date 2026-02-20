@@ -1,12 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <acl>
     <reticulum-settings>
-        <name>Reticulum - Settings</name>
+        <name>Reticulum - Settings (Read)</name>
         <patterns>
             <pattern>ui/reticulum/*</pattern>
-            <pattern>api/reticulum/settings/*</pattern>
+            <pattern>api/reticulum/settings/get*</pattern>
+            <pattern>api/reticulum/settings/search*</pattern>
         </patterns>
     </reticulum-settings>
+    <reticulum-settings-edit>
+        <name>Reticulum - Settings (Edit)</name>
+        <patterns>
+            <pattern>api/reticulum/settings/set*</pattern>
+            <pattern>api/reticulum/settings/add*</pattern>
+            <pattern>api/reticulum/settings/del*</pattern>
+            <pattern>api/reticulum/settings/toggle*</pattern>
+        </patterns>
+    </reticulum-settings-edit>
     <reticulum-service>
         <name>Reticulum - Service Control</name>
         <patterns>

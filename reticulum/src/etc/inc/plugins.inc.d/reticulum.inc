@@ -109,6 +109,7 @@ function reticulum_firewall($fw)
                         array(
                             'protocol' => 'tcp',
                             'to_port' => $port,
+                            'to' => '(self)',
                             'direction' => 'in',
                             'label' => "Reticulum TCP: {$ifaceName}",
                             '#ref' => "ui/reticulum/interfaces"
@@ -125,6 +126,7 @@ function reticulum_firewall($fw)
                         array(
                             'protocol' => 'udp',
                             'to_port' => $port,
+                            'to' => '(self)',
                             'direction' => 'in',
                             'label' => "Reticulum UDP: {$ifaceName}",
                             '#ref' => "ui/reticulum/interfaces"
@@ -142,6 +144,7 @@ function reticulum_firewall($fw)
                         array(
                             'protocol' => 'udp',
                             'to_port' => $discoveryPort,
+                            'to' => '(self)',
                             'direction' => 'in',
                             'label' => "Reticulum Auto Discovery: {$ifaceName}",
                             '#ref' => "ui/reticulum/interfaces"
@@ -154,6 +157,7 @@ function reticulum_firewall($fw)
                         array(
                             'protocol' => 'udp',
                             'to_port' => $dataPort,
+                            'to' => '(self)',
                             'direction' => 'in',
                             'label' => "Reticulum Auto Data: {$ifaceName}",
                             '#ref' => "ui/reticulum/interfaces"

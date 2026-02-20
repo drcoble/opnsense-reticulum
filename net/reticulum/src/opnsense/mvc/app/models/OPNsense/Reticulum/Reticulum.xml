@@ -114,6 +114,8 @@
                 <!-- ======================================== -->
                 <auto_group_id type="TextField">
                     <Default>reticulum</Default>
+                    <Mask>/^[a-zA-Z0-9_\-]+$/</Mask>
+                    <ValidationMessage>Group ID may contain letters, numbers, hyphens, and underscores.</ValidationMessage>
                 </auto_group_id>
                 <auto_discovery_scope type="OptionField">
                     <Default>link</Default>
@@ -134,21 +136,27 @@
                     <ValidationMessage>Please enter a valid port number.</ValidationMessage>
                 </auto_data_port>
                 <auto_allowed_interfaces type="TextField">
+                    <Mask>/^[a-zA-Z0-9_,.\- ]*$/</Mask>
+                    <ValidationMessage>Comma-separated list of OS interface names (letters, numbers, hyphens, underscores, dots).</ValidationMessage>
                 </auto_allowed_interfaces>
                 <auto_ignored_interfaces type="TextField">
+                    <Mask>/^[a-zA-Z0-9_,.\- ]*$/</Mask>
+                    <ValidationMessage>Comma-separated list of OS interface names (letters, numbers, hyphens, underscores, dots).</ValidationMessage>
                 </auto_ignored_interfaces>
 
                 <!-- ======================================== -->
                 <!-- UDPInterface fields                      -->
                 <!-- ======================================== -->
-                <udp_listen_ip type="TextField">
+                <udp_listen_ip type="NetworkField">
                     <Default>0.0.0.0</Default>
+                    <NetMaskAllowed>N</NetMaskAllowed>
                 </udp_listen_ip>
                 <udp_listen_port type="PortField">
                     <Default>4242</Default>
                     <ValidationMessage>Please enter a valid port number.</ValidationMessage>
                 </udp_listen_port>
-                <udp_forward_ip type="TextField">
+                <udp_forward_ip type="NetworkField">
+                    <NetMaskAllowed>N</NetMaskAllowed>
                 </udp_forward_ip>
                 <udp_forward_port type="PortField">
                     <ValidationMessage>Please enter a valid port number.</ValidationMessage>
@@ -160,8 +168,9 @@
                 <!-- ======================================== -->
                 <!-- TCPServerInterface fields                -->
                 <!-- ======================================== -->
-                <tcp_server_listen_ip type="TextField">
+                <tcp_server_listen_ip type="NetworkField">
                     <Default>0.0.0.0</Default>
+                    <NetMaskAllowed>N</NetMaskAllowed>
                 </tcp_server_listen_ip>
                 <tcp_server_listen_port type="PortField">
                     <Default>4242</Default>
@@ -174,7 +183,8 @@
                 <!-- ======================================== -->
                 <!-- TCPClientInterface fields                -->
                 <!-- ======================================== -->
-                <tcp_client_target_host type="TextField">
+                <tcp_client_target_host type="HostnameField">
+                    <IpAllowed>Y</IpAllowed>
                 </tcp_client_target_host>
                 <tcp_client_target_port type="PortField">
                     <Default>4242</Default>
@@ -192,6 +202,8 @@
                 <!-- ======================================== -->
                 <rnode_port type="TextField">
                     <Default>/dev/ttyUSB0</Default>
+                    <Mask>/^\/dev\/[a-zA-Z0-9._\-]+$/</Mask>
+                    <ValidationMessage>Must be a valid device path (e.g., /dev/ttyUSB0 or /dev/cuaU0).</ValidationMessage>
                 </rnode_port>
                 <rnode_frequency type="IntegerField">
                     <Default>868000000</Default>
@@ -252,6 +264,8 @@
                 <!-- ======================================== -->
                 <kiss_port type="TextField">
                     <Default>/dev/ttyUSB1</Default>
+                    <Mask>/^\/dev\/[a-zA-Z0-9._\-]+$/</Mask>
+                    <ValidationMessage>Must be a valid device path (e.g., /dev/ttyUSB1 or /dev/cuaU1).</ValidationMessage>
                 </kiss_port>
                 <kiss_speed type="IntegerField">
                     <Default>115200</Default>
@@ -301,6 +315,8 @@
                     <MinimumValue>0</MinimumValue>
                 </kiss_beacon_interval>
                 <kiss_beacon_data type="TextField">
+                    <Mask>/^[^\r\n]*$/</Mask>
+                    <ValidationMessage>Beacon data must not contain line breaks.</ValidationMessage>
                 </kiss_beacon_data>
 
                 <!-- ======================================== -->
@@ -308,6 +324,8 @@
                 <!-- ======================================== -->
                 <ax25_port type="TextField">
                     <Default>/dev/ttyUSB2</Default>
+                    <Mask>/^\/dev\/[a-zA-Z0-9._\-]+$/</Mask>
+                    <ValidationMessage>Must be a valid device path (e.g., /dev/ttyUSB2 or /dev/cuaU2).</ValidationMessage>
                 </ax25_port>
                 <ax25_speed type="IntegerField">
                     <Default>9600</Default>
@@ -354,6 +372,8 @@
                 <!-- ======================================== -->
                 <serial_port type="TextField">
                     <Default>/dev/ttyUSB3</Default>
+                    <Mask>/^\/dev\/[a-zA-Z0-9._\-]+$/</Mask>
+                    <ValidationMessage>Must be a valid device path (e.g., /dev/ttyUSB3 or /dev/cuaU3).</ValidationMessage>
                 </serial_port>
                 <serial_speed type="IntegerField">
                     <Default>9600</Default>
@@ -390,6 +410,8 @@
                 <!-- I2PInterface fields                      -->
                 <!-- ======================================== -->
                 <i2p_peers type="TextField">
+                    <Mask>/^[a-zA-Z0-9,.\-: ]*$/</Mask>
+                    <ValidationMessage>Comma-separated list of I2P peer addresses (alphanumeric, dots, colons).</ValidationMessage>
                 </i2p_peers>
         </interfaces>
 
@@ -429,6 +451,8 @@
             <message_storage_path type="TextField">
                 <Default>/var/db/lxmd/messagestore</Default>
                 <Required>Y</Required>
+                <Mask>/^\/[a-zA-Z0-9._\-\/]+$/</Mask>
+                <ValidationMessage>Must be an absolute path with no special characters.</ValidationMessage>
             </message_storage_path>
             <lxmf_delivery_transfer_max_accepted_size type="IntegerField">
                 <Default>1000</Default>

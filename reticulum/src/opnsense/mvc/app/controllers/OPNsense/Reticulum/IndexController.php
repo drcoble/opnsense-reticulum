@@ -29,8 +29,6 @@
 
 namespace OPNsense\Reticulum;
 
-use OPNsense\Base\IndexController;
-
 class IndexController extends \OPNsense\Base\IndexController
 {
     /**

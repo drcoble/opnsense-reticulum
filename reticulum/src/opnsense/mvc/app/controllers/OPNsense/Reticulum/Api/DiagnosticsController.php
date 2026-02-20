@@ -90,6 +90,17 @@ class DiagnosticsController extends ApiControllerBase
     }
 
     /**
+     * Retrieve recent rnsd log output
+     * @return array
+     */
+    public function logAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('reticulum diagnostics log');
+        return $this->parseJsonResponse($response);
+    }
+
+    /**
      * Parse JSON response from backend, falling back to raw text
      * @param string $response
      * @return array

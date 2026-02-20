@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# OPNsense Reticulum Plugin — Post-Deinstallation Script
+# Stop services on removal. Configuration and data are preserved.
+
+/usr/local/opnsense/scripts/OPNsense/Reticulum/setup.sh stop 2>/dev/null || true
+
+echo "Reticulum plugin removed. Configuration and data preserved in /usr/local/etc/reticulum and /var/db/lxmd."

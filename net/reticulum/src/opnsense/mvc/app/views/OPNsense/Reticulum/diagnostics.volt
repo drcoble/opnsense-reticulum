@@ -35,6 +35,14 @@
             var activeTab = $('.nav-tabs .active a').attr('href').replace('#tab-', '');
             loadDiagnosticTab(activeTab);
         });
+
+        // Clean up timer on page unload to prevent leaked intervals
+        $(window).on('beforeunload', function () {
+            if (autoRefreshTimer) {
+                clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
+        });
     });
 
     function loadLogTab(data) {
