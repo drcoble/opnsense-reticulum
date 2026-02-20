@@ -30,7 +30,6 @@
 namespace OPNsense\Reticulum\Api;
 
 use OPNsense\Base\ApiMutableModelControllerBase;
-use OPNsense\Core\Config;
 
 class SettingsController extends ApiMutableModelControllerBase
 {
@@ -43,11 +42,7 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function getAction()
     {
-        $result = array();
-        if ($this->request->isGet()) {
-            $result['general'] = $this->getModel()->general->getNodes();
-        }
-        return $result;
+        return $this->getBase('reticulum', 'general');
     }
 
     /**
@@ -56,26 +51,7 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function setAction()
     {
-        $result = ['result' => 'failed'];
-        if ($this->request->isPost()) {
-            $mdl = $this->getModel();
-            $post = $this->request->getPost('general');
-            if ($post !== null) {
-                $mdl->general->setNodes($post);
-            }
-            $validations = $mdl->performValidation();
-            if ($validations->count() === 0) {
-                $mdl->serializeToConfig();
-                Config::getInstance()->save();
-                $result['result'] = 'saved';
-            } else {
-                $result['validations'] = array();
-                foreach ($validations->getMessages() as $msg) {
-                    $result['validations'][$msg->getField()] = $msg->getMessage();
-                }
-            }
-        }
-        return $result;
+        return $this->setBase('reticulum', 'general');
     }
 
     /**
@@ -84,11 +60,7 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function getPropagationAction()
     {
-        $result = array();
-        if ($this->request->isGet()) {
-            $result['propagation'] = $this->getModel()->propagation->getNodes();
-        }
-        return $result;
+        return $this->getBase('propagation', 'propagation');
     }
 
     /**
@@ -97,26 +69,7 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function setPropagationAction()
     {
-        $result = ['result' => 'failed'];
-        if ($this->request->isPost()) {
-            $mdl = $this->getModel();
-            $post = $this->request->getPost('propagation');
-            if ($post !== null) {
-                $mdl->propagation->setNodes($post);
-            }
-            $validations = $mdl->performValidation();
-            if ($validations->count() === 0) {
-                $mdl->serializeToConfig();
-                Config::getInstance()->save();
-                $result['result'] = 'saved';
-            } else {
-                $result['validations'] = array();
-                foreach ($validations->getMessages() as $msg) {
-                    $result['validations'][$msg->getField()] = $msg->getMessage();
-                }
-            }
-        }
-        return $result;
+        return $this->setBase('propagation', 'propagation');
     }
 
     /**

@@ -3,6 +3,8 @@ PLUGIN_VERSION=		1.1
 PLUGIN_REVISION=	0
 PLUGIN_COMMENT=		Reticulum Network Stack - Transport & Propagation Node
 PLUGIN_MAINTAINER=	maintainer@example.org
+PLUGIN_WWW=		https://reticulum.network/
+PLUGIN_CATEGORIES=	net
 PLUGIN_TIER=		2
 
 # Reticulum and LXMF are installed from bundled source (see src/usr/local/lib/rns-src

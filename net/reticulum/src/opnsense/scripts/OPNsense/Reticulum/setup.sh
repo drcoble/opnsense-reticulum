@@ -45,7 +45,7 @@ stop_rnsd() {
     if pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
         echo "Stopping rnsd..."
         pkill -f "${RNSD_BIN}"
-        sleep 1
+        sleep 5
         # Force kill if still running
         if pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
             pkill -9 -f "${RNSD_BIN}"
@@ -92,7 +92,7 @@ stop_lxmd() {
     if pgrep -f "${LXMD_BIN}" > /dev/null 2>&1; then
         echo "Stopping lxmd..."
         pkill -f "${LXMD_BIN}"
-        sleep 1
+        sleep 5
         if pgrep -f "${LXMD_BIN}" > /dev/null 2>&1; then
             pkill -9 -f "${LXMD_BIN}"
         fi
