@@ -1,0 +1,137 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: [testing]
+  workflow_dispatch:
+
+jobs:
+  integration-test:
+    name: OPNsense Integration Test
+    runs-on: [self-hosted, opnsense-test]
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Validate required variables
+        env:
+          PROXMOX_NODE: ${{ vars.PROXMOX_NODE }}
+          PROXMOX_VM_ID: ${{ vars.PROXMOX_VM_ID }}
+          PROXMOX_SNAPSHOT: ${{ vars.PROXMOX_SNAPSHOT }}
+        run: |
+          : "${PROXMOX_NODE:?Set PROXMOX_NODE in repo Settings > Variables}"
+          : "${PROXMOX_VM_ID:?Set PROXMOX_VM_ID in repo Settings > Variables}"
+          : "${PROXMOX_SNAPSHOT:?Set PROXMOX_SNAPSHOT in repo Settings > Variables}"
+
+      - name: Install Python test dependencies
+        run: pip install -r tests/requirements-test.txt
+
+      - name: Restore OPNsense VM to clean snapshot
+        env:
+          PROXMOX_HOST: ${{ secrets.PROXMOX_HOST }}
+          PROXMOX_TOKEN_ID: ${{ secrets.PROXMOX_TOKEN_ID }}
+          PROXMOX_TOKEN_SECRET: ${{ secrets.PROXMOX_TOKEN_SECRET }}
+          PROXMOX_NODE: ${{ vars.PROXMOX_NODE }}
+          PROXMOX_VM_ID: ${{ vars.PROXMOX_VM_ID }}
+          PROXMOX_SNAPSHOT: ${{ vars.PROXMOX_SNAPSHOT }}
+        run: |
+          BASE="https://${PROXMOX_HOST}:8006/api2/json"
+          AUTH="PVEAPIToken=${PROXMOX_TOKEN_ID}=${PROXMOX_TOKEN_SECRET}"
+
+          echo "Stopping VM ${PROXMOX_VM_ID} if running..."
+          curl -sf -k -X POST \
+            -H "Authorization: $AUTH" \
+            "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/status/stop" \
+            -d "timeout=30" || true
+          sleep 15
+
+          echo "Rolling back to snapshot: ${PROXMOX_SNAPSHOT}"
+          curl -sf -k -X POST \
+            -H "Authorization: $AUTH" \
+            "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/snapshot/${PROXMOX_SNAPSHOT}/rollback"
+          sleep 30
+
+          echo "Starting VM..."
+          curl -sf -k -X POST \
+            -H "Authorization: $AUTH" \
+            "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/status/start"
+
+      - name: Wait for OPNsense API
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
+          OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
+        run: |
+          echo "Waiting for OPNsense to boot and API to respond..."
+          for i in $(seq 1 36); do
+            HTTP=$(curl -sk -o /dev/null -w "%{http_code}" \
+              -u "${OPNSENSE_API_KEY}:${OPNSENSE_API_SECRET}" \
+              "https://${OPNSENSE_HOST}/api/reticulum/service/status" 2>/dev/null || echo "000")
+            echo "Attempt ${i}/36: HTTP ${HTTP}"
+            if [ "$HTTP" = "200" ] || [ "$HTTP" = "401" ]; then
+              echo "OPNsense API is up"
+              break
+            fi
+            [ "$i" -eq 36 ] && { echo "OPNsense did not come up in 6 minutes"; exit 1; }
+            sleep 10
+          done
+
+      - name: Resolve branch name
+        id: branch
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          [ -z "$BRANCH" ] && BRANCH="${{ github.ref_name }}"
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Deploying branch: $BRANCH"
+
+      - name: Deploy plugin to OPNsense
+        env:
+          SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/opnsense_key
+          chmod 600 ~/.ssh/opnsense_key
+
+          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+
+          $SSH root@"$OPNSENSE_HOST" bash -s << ENDSSH
+            set -e
+            which git 2>/dev/null || pkg install -y git
+            rm -rf /tmp/ci-reticulum
+            git clone --recurse-submodules \
+              -b "$BRANCH" \
+              "https://github.com/$REPO.git" \
+              /tmp/ci-reticulum
+            cd /tmp/ci-reticulum/net/reticulum
+            make install
+            sh /usr/local/+POST_INSTALL
+            service configd restart
+            sleep 3
+            echo "Plugin installed"
+          ENDSSH
+
+      - name: Run integration tests
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
+          OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
+        run: |
+          pytest tests/ -v --tb=short --junit-xml=test-results.xml
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.run_number }}
+          path: test-results.xml
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/opnsense_key

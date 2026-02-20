@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from Makefile
+        id: ver
+        run: |
+          NAME=$(awk '/^PLUGIN_NAME[[:space:]]/{print $NF}' net/reticulum/Makefile)
+          VERSION=$(awk '/^PLUGIN_VERSION[[:space:]]/{print $NF}' net/reticulum/Makefile)
+          REVISION=$(awk '/^PLUGIN_REVISION[[:space:]]/{print $NF}' net/reticulum/Makefile)
+          TAG="v${VERSION}_${REVISION}"
+          ARCHIVE="os-${NAME}-${VERSION}_${REVISION}.tar.gz"
+          echo "name=$NAME"     >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "revision=$REVISION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"       >> "$GITHUB_OUTPUT"
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG"
+
+      - name: Check if release already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ steps.ver.outputs.tag }}" &>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release ${{ steps.ver.outputs.tag }} already exists — skipping"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build plugin archive
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          tar czf "${{ steps.ver.outputs.archive }}" \
+            --exclude='.git' \
+            --exclude='*.pyc' \
+            --exclude='__pycache__' \
+            net/reticulum/
+
+      - name: Create GitHub release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.ver.outputs.tag }}" \
+            --title "os-reticulum ${{ steps.ver.outputs.version }} (rev ${{ steps.ver.outputs.revision }})" \
+            --generate-notes \
+            --target main \
+            "${{ steps.ver.outputs.archive }}"
