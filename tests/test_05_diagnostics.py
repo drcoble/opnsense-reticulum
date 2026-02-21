@@ -7,9 +7,10 @@ import pytest
 @pytest.fixture(scope="module", autouse=True)
 def service_running(api):
     """Ensure Reticulum is running before diagnostics tests, stop after."""
+    # saveContainerSettings('reticulum', 'general') expects flat fields under 'reticulum'
     api.post(
         "/api/reticulum/settings/set",
-        json={"reticulum": {"general": {"enabled": "1"}}},
+        json={"reticulum": {"enabled": "1"}},
     )
     api.post("/api/reticulum/service/reconfigure")
     time.sleep(10)

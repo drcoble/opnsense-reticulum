@@ -1,6 +1,15 @@
 """Tests for OPNsense Reticulum interface CRUD API."""
 
-import pytest
+
+def _selected_option(field):
+    """Return the selected value from an OPNsense OptionField dict.
+
+    OPNsense returns OptionFields as a dict of options:
+      {"UDPInterface": {"value": "UDPInterface", "selected": 1}, ...}
+    """
+    if isinstance(field, dict):
+        return next((k for k, v in field.items() if isinstance(v, dict) and v.get("selected")), None)
+    return field  # plain string (older API behaviour)
 
 
 def test_interface_full_lifecycle(api):
@@ -36,7 +45,8 @@ def test_interface_full_lifecycle(api):
         assert resp.status_code == 200
         iface = resp.json().get("interface", {})
         assert iface.get("name") == "CI-Test-UDP"
-        assert iface.get("interfaceType") == "UDPInterface"
+        # interfaceType is an OptionField — OPNsense returns a dict of options
+        assert _selected_option(iface.get("interfaceType")) == "UDPInterface"
 
         # Update
         resp = api.post(
