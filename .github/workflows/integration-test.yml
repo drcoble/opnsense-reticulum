@@ -19,7 +19,10 @@ jobs:
 
       - name: Install Python test dependencies
         run: |
-          python3 -m ensurepip --upgrade 2>/dev/null || true
+          python3 -m pip --version 2>/dev/null || {
+            curl -s https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+            python3 /tmp/get-pip.py --user
+          }
           python3 -m pip install --user -r tests/requirements-test.txt
 
       - name: Restore OPNsense VM to clean snapshot
