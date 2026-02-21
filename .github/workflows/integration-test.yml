@@ -19,8 +19,8 @@ jobs:
 
       - name: Install Python test dependencies
         run: |
-          sudo apt-get install -y -q python3-pip
-          python3 -m pip install -r tests/requirements-test.txt
+          python3 -m ensurepip --upgrade 2>/dev/null || true
+          python3 -m pip install --user -r tests/requirements-test.txt
 
       - name: Restore OPNsense VM to clean snapshot
         env:
