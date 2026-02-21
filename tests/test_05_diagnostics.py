@@ -49,7 +49,10 @@ def test_interfaces_diagnostics(api):
 def test_propagation_diagnostics(api):
     resp = api.get("/api/reticulum/diagnostics/propagation")
     assert resp.status_code == 200
-    data = resp.json()
+    outer = resp.json()
+    # diagnostics endpoints return {"status": "ok", "data": {...}}
+    assert "data" in outer
+    data = outer["data"]
     assert "running" in data
     assert isinstance(data["running"], bool)
     assert "message_count" in data
