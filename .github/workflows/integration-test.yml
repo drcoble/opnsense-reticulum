@@ -19,11 +19,8 @@ jobs:
 
       - name: Install Python test dependencies
         run: |
-          python3 -m pip --version 2>/dev/null || {
-            curl -s https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
-            python3 /tmp/get-pip.py --user
-          }
-          python3 -m pip install --user -r tests/requirements-test.txt
+          python3 -m venv .venv
+          .venv/bin/pip install -r tests/requirements-test.txt
 
       - name: Restore OPNsense VM to clean snapshot
         env:
@@ -118,7 +115,7 @@ jobs:
           OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
           OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
         run: |
-          python3 -m pytest tests/ -v --tb=short --junit-xml=test-results.xml
+          .venv/bin/pytest tests/ -v --tb=short --junit-xml=test-results.xml
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
