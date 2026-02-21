@@ -84,20 +84,22 @@ jobs:
           print(f"  task: {result.get('data')}")
           EOF
 
-      - name: Wait for OPNsense API
+      - name: Wait for OPNsense to be ready
         env:
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
           OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
           OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
         run: |
-          echo "Waiting for OPNsense to boot and API to respond..."
+          echo "Waiting for OPNsense to be ready..."
           for i in $(seq 1 36); do
-            HTTP=$(curl -sk -o /dev/null -w "%{http_code}" \
+            UI=$(curl -sk -o /dev/null -w "%{http_code}" \
+              "https://${OPNSENSE_HOST}/" 2>/dev/null || echo "000")
+            API=$(curl -sk -o /dev/null -w "%{http_code}" \
               -u "${OPNSENSE_API_KEY}:${OPNSENSE_API_SECRET}" \
-              "https://${OPNSENSE_HOST}/api/reticulum/service/status" 2>/dev/null || echo "000")
-            echo "Attempt ${i}/36: HTTP ${HTTP}"
-            if [ "$HTTP" = "200" ] || [ "$HTTP" = "401" ]; then
-              echo "OPNsense API is up"
+              "https://${OPNSENSE_HOST}/api/core/firmware/status" 2>/dev/null || echo "000")
+            echo "Attempt ${i}/36 — web UI: ${UI}  core API: ${API}"
+            if [ "$UI" \!= "000" ] && [ "$API" \!= "000" ]; then
+              echo "OPNsense web UI and API are both responding"
               break
             fi
             [ "$i" -eq 36 ] && { echo "OPNsense did not come up in 6 minutes"; exit 1; }
