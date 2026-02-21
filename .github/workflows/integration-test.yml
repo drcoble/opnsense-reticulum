@@ -31,36 +31,58 @@ jobs:
           PROXMOX_VM_ID: ${{ secrets.PROXMOX_VM_ID }}
           PROXMOX_SNAPSHOT: ${{ secrets.PROXMOX_SNAPSHOT }}
         run: |
-          BASE="https://${PROXMOX_HOST}:8006/api2/json"
-          AUTH="PVEAPIToken=${PROXMOX_TOKEN_ID}=${PROXMOX_TOKEN_SECRET}"
+          python3 << 'EOF'
+          import os, sys, json, time, urllib.request, urllib.parse, ssl
 
-          echo "Stopping VM ${PROXMOX_VM_ID} if running..."
-          curl -sk -X POST \
-            -H "Authorization: $AUTH" \
-            "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/status/stop" \
-            -d "timeout=30" | python3 -c "import sys,json; d=json.load(sys.stdin); print('stop:', d.get('data') or d.get('errors') or d)" || true
-          sleep 15
+          ctx = ssl.create_default_context()
+          ctx.check_hostname = False
+          ctx.verify_mode = ssl.CERT_NONE
 
-          echo "Rolling back to snapshot: ${PROXMOX_SNAPSHOT}"
-          ROLLBACK_RESP=$(curl -sk -X POST \
-            -H "Authorization: $AUTH" \
-            "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/snapshot/${PROXMOX_SNAPSHOT}/rollback")
-          echo "Rollback response: $ROLLBACK_RESP"
-          echo "$ROLLBACK_RESP" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-if 'errors' in d:
-    print('ERROR:', d['errors'])
-    sys.exit(1)
-print('Rollback task:', d.get('data'))
-"
-          sleep 30
+          base  = f"https://{os.environ['PROXMOX_HOST']}:8006/api2/json"
+          auth  = f"PVEAPIToken={os.environ['PROXMOX_TOKEN_ID']}={os.environ['PROXMOX_TOKEN_SECRET']}"
+          node  = os.environ['PROXMOX_NODE']
+          vmid  = os.environ['PROXMOX_VM_ID']
+          snap  = os.environ['PROXMOX_SNAPSHOT']
 
-          echo "Starting VM..."
-          curl -sk -X POST \
-            -H "Authorization: $AUTH" \
-            "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/status/start" \
-            | python3 -c "import sys,json; d=json.load(sys.stdin); print('start:', d.get('data') or d.get('errors') or d)"
+          def api(method, path, data=None):
+              req = urllib.request.Request(
+                  f"{base}{path}",
+                  data=data.encode() if data else None,
+                  method=method,
+                  headers={"Authorization": auth,
+                           **({"Content-Type": "application/x-www-form-urlencoded"} if data else {})}
+              )
+              with urllib.request.urlopen(req, context=ctx) as r:
+                  return json.loads(r.read())
+
+          # List snapshots to verify names
+          print(f"Checking snapshots for VM {vmid} on node '{node}'...")
+          snaps = api("GET", f"/nodes/{node}/qemu/{vmid}/snapshot")
+          names = [s["name"] for s in snaps.get("data", [])]
+          print(f"Available snapshots: {names}")
+          if snap not in names:
+              print(f"ERROR: snapshot '{snap}' not found. Available: {names}")
+              sys.exit(1)
+
+          # Stop VM (ignore errors — may already be stopped)
+          print(f"Stopping VM {vmid}...")
+          try:
+              api("POST", f"/nodes/{node}/qemu/{vmid}/status/stop", "timeout=30")
+          except Exception as e:
+              print(f"  (stop: {e})")
+          time.sleep(15)
+
+          # Rollback
+          print(f"Rolling back to '{snap}'...")
+          result = api("POST", f"/nodes/{node}/qemu/{vmid}/snapshot/{snap}/rollback")
+          print(f"  task: {result.get('data')}")
+          time.sleep(30)
+
+          # Start VM
+          print(f"Starting VM {vmid}...")
+          result = api("POST", f"/nodes/{node}/qemu/{vmid}/status/start")
+          print(f"  task: {result.get('data')}")
+          EOF
 
       - name: Wait for OPNsense API
         env:
