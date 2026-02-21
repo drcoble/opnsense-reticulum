@@ -65,10 +65,9 @@ jobs:
               sys.exit(1)
 
           # Stop VM only if currently running
-          status = api("GET", f"/nodes/{node}/qemu/{vmid}/status/current")
-          vm_status = status["data"]["status"]
-          print(f"VM current status: {vm_status}")
-          if vm_status == "running":
+          status = api("GET", f"/nodes/{node}/qemu/{vmid}/status/current")["data"]["status"]
+          print(f"VM current status: {status}")
+          if status == "running":
               print("Stopping VM before rollback...")
               api("POST", f"/nodes/{node}/qemu/{vmid}/status/stop", "timeout=30")
               for _ in range(12):
@@ -100,19 +99,20 @@ jobs:
           OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
           OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
         run: |
-          echo "Waiting for OPNsense to be ready..."
+          echo "Waiting for OPNsense web UI, core API, and SSH to be ready..."
           for i in $(seq 1 36); do
             UI=$(curl -sk -o /dev/null -w "%{http_code}" \
               "https://${OPNSENSE_HOST}/" 2>/dev/null || echo "000")
             API=$(curl -sk -o /dev/null -w "%{http_code}" \
               -u "${OPNSENSE_API_KEY}:${OPNSENSE_API_SECRET}" \
               "https://${OPNSENSE_HOST}/api/core/firmware/status" 2>/dev/null || echo "000")
-            echo "Attempt ${i}/36 — web UI: ${UI}  core API: ${API}"
-            if [ "$UI" != "000" ] && [ "$API" != "000" ]; then
-              echo "OPNsense web UI and API are both responding"
+            SSH_UP=$(nc -z -w3 "${OPNSENSE_HOST}" 22 2>/dev/null && echo "up" || echo "down")
+            echo "Attempt ${i}/36 — web UI: ${UI}  core API: ${API}  ssh: ${SSH_UP}"
+            if [ "$UI" != "000" ] && [ "$API" != "000" ] && [ "$SSH_UP" = "up" ]; then
+              echo "OPNsense web UI, API, and SSH are all responding"
               break
             fi
-            [ "$i" -eq 36 ] && { echo "OPNsense did not come up in 6 minutes"; exit 1; }
+            [ "$i" -eq 36 ] && { echo "OPNsense did not come up fully in 6 minutes"; exit 1; }
             sleep 10
           done
 
