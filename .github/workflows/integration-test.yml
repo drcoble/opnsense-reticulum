@@ -35,22 +35,32 @@ jobs:
           AUTH="PVEAPIToken=${PROXMOX_TOKEN_ID}=${PROXMOX_TOKEN_SECRET}"
 
           echo "Stopping VM ${PROXMOX_VM_ID} if running..."
-          curl -sf -k -X POST \
+          curl -sk -X POST \
             -H "Authorization: $AUTH" \
             "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/status/stop" \
-            -d "timeout=30" || true
+            -d "timeout=30" | python3 -c "import sys,json; d=json.load(sys.stdin); print('stop:', d.get('data') or d.get('errors') or d)" || true
           sleep 15
 
           echo "Rolling back to snapshot: ${PROXMOX_SNAPSHOT}"
-          curl -sf -k -X POST \
+          ROLLBACK_RESP=$(curl -sk -X POST \
             -H "Authorization: $AUTH" \
-            "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/snapshot/${PROXMOX_SNAPSHOT}/rollback"
+            "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/snapshot/${PROXMOX_SNAPSHOT}/rollback")
+          echo "Rollback response: $ROLLBACK_RESP"
+          echo "$ROLLBACK_RESP" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+if 'errors' in d:
+    print('ERROR:', d['errors'])
+    sys.exit(1)
+print('Rollback task:', d.get('data'))
+"
           sleep 30
 
           echo "Starting VM..."
-          curl -sf -k -X POST \
+          curl -sk -X POST \
             -H "Authorization: $AUTH" \
-            "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/status/start"
+            "${BASE}/nodes/${PROXMOX_NODE}/qemu/${PROXMOX_VM_ID}/status/start" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print('start:', d.get('data') or d.get('errors') or d)"
 
       - name: Wait for OPNsense API
         env:
