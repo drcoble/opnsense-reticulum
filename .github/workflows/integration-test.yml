@@ -18,7 +18,9 @@ jobs:
           submodules: recursive
 
       - name: Install Python test dependencies
-        run: python3 -m pip install -r tests/requirements-test.txt
+        run: |
+          sudo apt-get install -y -q python3-pip
+          python3 -m pip install -r tests/requirements-test.txt
 
       - name: Restore OPNsense VM to clean snapshot
         env:
