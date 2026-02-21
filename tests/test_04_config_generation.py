@@ -5,7 +5,6 @@ import time
 
 def test_autointerface_config_generation(api):
     """Adding an AutoInterface and reconfiguring leaves service running."""
-    # Add a test AutoInterface
     resp = api.post(
         "/api/reticulum/settings/addInterface",
         json={
@@ -64,9 +63,10 @@ def test_udp_interface_config_generation(api):
 
 def test_propagation_disabled_no_lxmd(api):
     """With propagation disabled, lxmd should not be running."""
+    # saveContainerSettings('propagation', 'propagation') expects fields under 'propagation'
     api.post(
         "/api/reticulum/settings/setPropagation",
-        json={"reticulum": {"propagation": {"enabled": "0", "enable_node": "0"}}},
+        json={"propagation": {"enabled": "0", "enable_node": "0"}},
     )
     api.post("/api/reticulum/service/reconfigure")
     time.sleep(8)

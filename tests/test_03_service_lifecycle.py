@@ -10,18 +10,23 @@ def _status(api):
 
 
 def test_service_status_endpoint(api):
-    """Status endpoint returns a valid response."""
+    """Status endpoint returns a recognised state.
+
+    'disabled' is valid when general.enabled=0 (plugin default on fresh install).
+    'stopped'  = enabled in config but not running.
+    'running'  = active.
+    """
     data = _status(api)
     assert "status" in data
-    assert data["status"] in ("running", "stopped")
+    assert data["status"] in ("running", "stopped", "disabled")
 
 
 def test_service_start(api):
-    """Enabling and starting the service brings it up."""
-    # Ensure enabled
+    """Enabling the service and running reconfigure brings it up."""
+    # saveContainerSettings('reticulum', 'general') expects flat fields under 'reticulum'
     api.post(
         "/api/reticulum/settings/set",
-        json={"reticulum": {"general": {"enabled": "1", "enable_transport": "0"}}},
+        json={"reticulum": {"enabled": "1", "enable_transport": "0"}},
     )
 
     resp = api.post("/api/reticulum/service/reconfigure")
