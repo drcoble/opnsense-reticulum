@@ -43,7 +43,9 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function getAction()
     {
-        return $this->getBase('reticulum', 'general');
+        $mdl = $this->getModel();
+        $node = $mdl->getNodeByReference('general');
+        return ['reticulum' => $node !== null ? $node->getNodes() : []];
     }
 
     /**
@@ -61,7 +63,9 @@ class SettingsController extends ApiMutableModelControllerBase
      */
     public function getPropagationAction()
     {
-        return $this->getBase('propagation', 'propagation');
+        $mdl = $this->getModel();
+        $node = $mdl->getNodeByReference('propagation');
+        return ['propagation' => $node !== null ? $node->getNodes() : []];
     }
 
     /**

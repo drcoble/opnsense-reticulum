@@ -1,0 +1,225 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: [testing]
+  workflow_dispatch:
+
+jobs:
+  integration-test:
+    name: OPNsense Integration Test
+    runs-on: [self-hosted, opnsense-test]
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Python test dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install -r tests/requirements-test.txt
+
+      - name: Restore OPNsense VM to clean snapshot
+        env:
+          PROXMOX_HOST: ${{ secrets.PROXMOX_HOST }}
+          PROXMOX_TOKEN_ID: ${{ secrets.PROXMOX_TOKEN_ID }}
+          PROXMOX_TOKEN_SECRET: ${{ secrets.PROXMOX_TOKEN_SECRET }}
+          PROXMOX_NODE: ${{ secrets.PROXMOX_NODE }}
+          PROXMOX_VM_ID: ${{ secrets.PROXMOX_VM_ID }}
+          PROXMOX_SNAPSHOT: ${{ secrets.PROXMOX_SNAPSHOT }}
+        run: |
+          python3 << 'EOF'
+          import os, sys, json, time, urllib.request, ssl
+
+          ctx = ssl.create_default_context()
+          ctx.check_hostname = False
+          ctx.verify_mode = ssl.CERT_NONE
+
+          base  = f"https://{os.environ['PROXMOX_HOST']}:8006/api2/json"
+          auth  = f"PVEAPIToken={os.environ['PROXMOX_TOKEN_ID']}={os.environ['PROXMOX_TOKEN_SECRET']}"
+          node  = os.environ['PROXMOX_NODE']
+          vmid  = os.environ['PROXMOX_VM_ID']
+          snap  = os.environ['PROXMOX_SNAPSHOT']
+
+          def api(method, path, data=None):
+              req = urllib.request.Request(
+                  f"{base}{path}",
+                  data=data.encode() if data else None,
+                  method=method,
+                  headers={"Authorization": auth,
+                           **({"Content-Type": "application/x-www-form-urlencoded"} if data else {})}
+              )
+              with urllib.request.urlopen(req, context=ctx) as r:
+                  return json.loads(r.read())
+
+          # Verify snapshot exists
+          print(f"Checking snapshots for VM {vmid} on node '{node}'...")
+          snaps = api("GET", f"/nodes/{node}/qemu/{vmid}/snapshot")
+          names = [s["name"] for s in snaps.get("data", [])]
+          print(f"Available snapshots: {names}")
+          if snap not in names:
+              print(f"ERROR: snapshot '{snap}' not found. Available: {names}")
+              sys.exit(1)
+
+          # Stop VM only if currently running
+          status = api("GET", f"/nodes/{node}/qemu/{vmid}/status/current")["data"]["status"]
+          print(f"VM current status: {status}")
+          if status == "running":
+              print("Stopping VM before rollback...")
+              api("POST", f"/nodes/{node}/qemu/{vmid}/status/stop", "timeout=30")
+              for _ in range(12):
+                  time.sleep(5)
+                  s = api("GET", f"/nodes/{node}/qemu/{vmid}/status/current")["data"]["status"]
+                  if s != "running":
+                      print(f"VM stopped (status: {s})")
+                      break
+              else:
+                  print("WARNING: VM did not stop cleanly within 60s, proceeding anyway")
+          else:
+              print("VM already stopped, skipping stop step")
+
+          # Rollback to clean snapshot
+          print(f"Rolling back to snapshot '{snap}'...")
+          result = api("POST", f"/nodes/{node}/qemu/{vmid}/snapshot/{snap}/rollback")
+          print(f"  rollback task: {result.get('data')}")
+          time.sleep(30)
+
+          # Start VM
+          print(f"Starting VM {vmid}...")
+          result = api("POST", f"/nodes/{node}/qemu/{vmid}/status/start")
+          print(f"  start task: {result.get('data')}")
+          EOF
+
+      - name: Wait for OPNsense to be ready
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
+          OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
+        run: |
+          echo "Waiting for OPNsense web UI, core API, and SSH to be ready..."
+          for i in $(seq 1 36); do
+            UI=$(curl -sk -o /dev/null -w "%{http_code}" \
+              "https://${OPNSENSE_HOST}/" 2>/dev/null || echo "000")
+            API=$(curl -sk -o /dev/null -w "%{http_code}" \
+              -u "${OPNSENSE_API_KEY}:${OPNSENSE_API_SECRET}" \
+              "https://${OPNSENSE_HOST}/api/core/firmware/status" 2>/dev/null || echo "000")
+            SSH_UP=$(nc -z -w3 "${OPNSENSE_HOST}" 22 2>/dev/null && echo "up" || echo "down")
+            echo "Attempt ${i}/36 — web UI: ${UI}  core API: ${API}  ssh: ${SSH_UP}"
+            if [ "$UI" != "000" ] && [ "$API" != "000" ] && [ "$SSH_UP" = "up" ]; then
+              echo "OPNsense web UI, API, and SSH are all responding"
+              break
+            fi
+            [ "$i" -eq 36 ] && { echo "OPNsense did not come up fully in 6 minutes"; exit 1; }
+            sleep 10
+          done
+
+      - name: Resolve branch name
+        id: branch
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          [ -z "$BRANCH" ] && BRANCH="${{ github.ref_name }}"
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Deploying branch: $BRANCH"
+
+      - name: Deploy plugin to OPNsense
+        env:
+          SSH_KEY: ${{ secrets.PNSENSE_SSH_KEY }}
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/opnsense_key
+          chmod 600 ~/.ssh/opnsense_key
+
+          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+
+          $SSH root@"$OPNSENSE_HOST" sh << ENDSSH
+            set -e
+            which git 2>/dev/null || pkg install -y git
+            rm -rf /tmp/ci-reticulum
+            git clone --recurse-submodules \
+              -b "$BRANCH" \
+              "https://github.com/$REPO.git" \
+              /tmp/ci-reticulum
+            cd /tmp/ci-reticulum/net/reticulum
+            make install
+            sh /usr/local/+POST_INSTALL
+            service configd restart
+            sleep 3
+            echo "Plugin installed successfully"
+          ENDSSH
+
+      - name: Run integration tests
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
+          OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
+        run: |
+          .venv/bin/pytest tests/ -v --tb=short --junit-xml=test-results.xml
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.run_number }}
+          path: test-results.xml
+
+      - name: Shutdown OPNsense VM
+        if: always()
+        env:
+          PROXMOX_HOST: ${{ secrets.PROXMOX_HOST }}
+          PROXMOX_TOKEN_ID: ${{ secrets.PROXMOX_TOKEN_ID }}
+          PROXMOX_TOKEN_SECRET: ${{ secrets.PROXMOX_TOKEN_SECRET }}
+          PROXMOX_NODE: ${{ secrets.PROXMOX_NODE }}
+          PROXMOX_VM_ID: ${{ secrets.PROXMOX_VM_ID }}
+        run: |
+          python3 << 'EOF'
+          import os, json, time, urllib.request, ssl
+
+          ctx = ssl.create_default_context()
+          ctx.check_hostname = False
+          ctx.verify_mode = ssl.CERT_NONE
+
+          base = f"https://{os.environ['PROXMOX_HOST']}:8006/api2/json"
+          auth = f"PVEAPIToken={os.environ['PROXMOX_TOKEN_ID']}={os.environ['PROXMOX_TOKEN_SECRET']}"
+          node = os.environ['PROXMOX_NODE']
+          vmid = os.environ['PROXMOX_VM_ID']
+
+          def api(method, path, data=None):
+              req = urllib.request.Request(
+                  f"{base}{path}",
+                  data=data.encode() if data else None,
+                  method=method,
+                  headers={"Authorization": auth,
+                           **({"Content-Type": "application/x-www-form-urlencoded"} if data else {})}
+              )
+              with urllib.request.urlopen(req, context=ctx) as r:
+                  return json.loads(r.read())
+
+          status = api("GET", f"/nodes/{node}/qemu/{vmid}/status/current")["data"]["status"]
+          print(f"VM {vmid} current status: {status}")
+
+          if status != "running":
+              print("VM is already stopped — nothing to do")
+          else:
+              print("Sending graceful ACPI shutdown...")
+              api("POST", f"/nodes/{node}/qemu/{vmid}/status/shutdown")
+              for _ in range(18):
+                  time.sleep(5)
+                  s = api("GET", f"/nodes/{node}/qemu/{vmid}/status/current")["data"]["status"]
+                  print(f"  status: {s}")
+                  if s != "running":
+                      print("VM shut down cleanly")
+                      break
+              else:
+                  print("VM did not shut down in 90s — forcing stop")
+                  api("POST", f"/nodes/{node}/qemu/{vmid}/status/stop")
+          EOF
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/opnsense_key
