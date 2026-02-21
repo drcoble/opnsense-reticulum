@@ -18,7 +18,7 @@ jobs:
           submodules: recursive
 
       - name: Install Python test dependencies
-        run: pip install -r tests/requirements-test.txt
+        run: python3 -m pip install -r tests/requirements-test.txt
 
       - name: Restore OPNsense VM to clean snapshot
         env:
@@ -113,7 +113,7 @@ jobs:
           OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
           OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
         run: |
-          pytest tests/ -v --tb=short --junit-xml=test-results.xml
+          python3 -m pytest tests/ -v --tb=short --junit-xml=test-results.xml
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
