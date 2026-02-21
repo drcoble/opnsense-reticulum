@@ -17,16 +17,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Validate required variables
-        env:
-          PROXMOX_NODE: ${{ vars.PROXMOX_NODE }}
-          PROXMOX_VM_ID: ${{ vars.PROXMOX_VM_ID }}
-          PROXMOX_SNAPSHOT: ${{ vars.PROXMOX_SNAPSHOT }}
-        run: |
-          : "${PROXMOX_NODE:?Set PROXMOX_NODE in repo Settings > Variables}"
-          : "${PROXMOX_VM_ID:?Set PROXMOX_VM_ID in repo Settings > Variables}"
-          : "${PROXMOX_SNAPSHOT:?Set PROXMOX_SNAPSHOT in repo Settings > Variables}"
-
       - name: Install Python test dependencies
         run: pip install -r tests/requirements-test.txt
 
@@ -35,9 +25,9 @@ jobs:
           PROXMOX_HOST: ${{ secrets.PROXMOX_HOST }}
           PROXMOX_TOKEN_ID: ${{ secrets.PROXMOX_TOKEN_ID }}
           PROXMOX_TOKEN_SECRET: ${{ secrets.PROXMOX_TOKEN_SECRET }}
-          PROXMOX_NODE: ${{ vars.PROXMOX_NODE }}
-          PROXMOX_VM_ID: ${{ vars.PROXMOX_VM_ID }}
-          PROXMOX_SNAPSHOT: ${{ vars.PROXMOX_SNAPSHOT }}
+          PROXMOX_NODE: ${{ secrets.PROXMOX_NODE }}
+          PROXMOX_VM_ID: ${{ secrets.PROXMOX_VM_ID }}
+          PROXMOX_SNAPSHOT: ${{ secrets.PROXMOX_SNAPSHOT }}
         run: |
           BASE="https://${PROXMOX_HOST}:8006/api2/json"
           AUTH="PVEAPIToken=${PROXMOX_TOKEN_ID}=${PROXMOX_TOKEN_SECRET}"
@@ -90,7 +80,7 @@ jobs:
 
       - name: Deploy plugin to OPNsense
         env:
-          SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
+          SSH_KEY: ${{ secrets.PNSENSE_SSH_KEY }}
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
           BRANCH: ${{ steps.branch.outputs.name }}
           REPO: ${{ github.repository }}
@@ -114,7 +104,7 @@ jobs:
             sh /usr/local/+POST_INSTALL
             service configd restart
             sleep 3
-            echo "Plugin installed"
+            echo "Plugin installed successfully"
           ENDSSH
 
       - name: Run integration tests
