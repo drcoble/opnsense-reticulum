@@ -137,7 +137,7 @@ jobs:
 
           SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
 
-          $SSH root@"$OPNSENSE_HOST" bash -s << ENDSSH
+          $SSH root@"$OPNSENSE_HOST" sh << ENDSSH
             set -e
             which git 2>/dev/null || pkg install -y git
             rm -rf /tmp/ci-reticulum
