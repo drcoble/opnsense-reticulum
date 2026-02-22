@@ -33,6 +33,6 @@ class DiagnosticsController extends \OPNsense\Base\IndexController
 {
     public function indexAction()
     {
-        $this->view->pick('OPNsense/Reticulum/diagnostics');
+        $this->response->redirect('/ui/reticulum/status');
     }
 }

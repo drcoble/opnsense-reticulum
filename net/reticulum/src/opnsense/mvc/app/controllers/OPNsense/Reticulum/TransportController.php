@@ -33,7 +33,6 @@ class TransportController extends \OPNsense\Base\IndexController
 {
     public function indexAction()
     {
-        $this->view->transportForm = $this->getForm('transport');
-        $this->view->pick('OPNsense/Reticulum/transport');
+        $this->response->redirect('/ui/reticulum/rns');
     }
 }

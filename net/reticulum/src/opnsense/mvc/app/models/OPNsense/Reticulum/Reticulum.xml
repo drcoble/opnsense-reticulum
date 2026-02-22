@@ -48,6 +48,14 @@
                     <option value="7">7 - Debug</option>
                 </OptionValues>
             </loglevel>
+            <enable_lxmf type="BooleanField">
+                <Default>0</Default>
+                <Required>Y</Required>
+            </enable_lxmf>
+            <lxmf_bind_to_rnsd type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </lxmf_bind_to_rnsd>
         </general>
 
         <!-- ============================================================ -->

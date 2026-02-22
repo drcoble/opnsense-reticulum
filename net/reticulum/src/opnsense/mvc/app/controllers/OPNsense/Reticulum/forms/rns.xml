@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form>
+    <field>
+        <id>general.enable_transport</id>
+        <label>Enable Transport Node</label>
+        <type>checkbox</type>
+        <help><![CDATA[Enable transport mode to route traffic for other peers on the Reticulum network.
+<br/><br/>
+<strong>Transport Node Best Practices:</strong>
+<ul>
+<li><strong>Stationary:</strong> Transport nodes must remain in fixed locations for reliable routing. Mobile nodes should not be transport nodes.</li>
+<li><strong>Always-on:</strong> Keep transport nodes running continuously. Intermittent transport nodes degrade network reliability.</li>
+<li><strong>Well-connected:</strong> Place transport nodes where they can reach multiple network segments or interface types.</li>
+<li><strong>Strategic placement:</strong> Only enable transport on nodes that provide connectivity between network segments — not on every node. Excessive transport nodes increase network overhead.</li>
+<li><strong>Announce rates:</strong> Configure per-interface announce rate limits in the Interfaces section to control bandwidth usage on constrained links.</li>
+</ul>
+Transport nodes maintain path tables, forward packets across multiple hops, and propagate announcements throughout the network. They act as distributed cryptographic keystores by caching public keys from announcements. A maximum of 128 hops is supported across the Reticulum network.]]></help>
+    </field>
+    <field>
+        <id>general.loglevel</id>
+        <label>Log Level</label>
+        <type>dropdown</type>
+        <help><![CDATA[Logging verbosity level for the Reticulum daemon (rnsd):
+<ul>
+<li><strong>0 - None:</strong> No logging output. Not recommended for production use.</li>
+<li><strong>1 - Critical:</strong> Only fatal errors that cause the daemon to stop.</li>
+<li><strong>2 - Error:</strong> Error conditions requiring operator attention.</li>
+<li><strong>3 - Warning:</strong> Warnings and non-fatal error conditions.</li>
+<li><strong>4 - Notice:</strong> Normal operational messages (recommended for production).</li>
+<li><strong>5 - Info:</strong> Informational messages about network activity including connection events.</li>
+<li><strong>6 - Verbose:</strong> Detailed operational information including path updates and announcements.</li>
+<li><strong>7 - Debug:</strong> Full debug output including packet-level detail. Very verbose — use only for troubleshooting.</li>
+</ul>
+Log output is viewable in the Status section under the Logs tab, or via System &gt; Log Files &gt; General (facility: reticulum).]]></help>
+    </field>
+    <field>
+        <id>general.share_instance</id>
+        <label>Share Instance</label>
+        <type>checkbox</type>
+        <help>Allow multiple programs on this system to share a single running Reticulum instance via the shared instance port. When enabled, applications such as lxmd, Nomad Network, or custom Python scripts can connect to the running rnsd instance rather than each starting their own separate Reticulum instance. This must be enabled for the LXMF service to use the locally managed rnsd. Disable only if you need strict isolation between Reticulum applications.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>general.shared_instance_port</id>
+        <label>Shared Instance Port</label>
+        <type>text</type>
+        <help>TCP port on the loopback interface (127.0.0.1) used for shared instance communication between local Reticulum-aware programs. Default is 37428. Change this only if port 37428 conflicts with another service on this system. All applications sharing this Reticulum instance must use the same port number.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>general.instance_control_port</id>
+        <label>Instance Control Port</label>
+        <type>text</type>
+        <help>TCP port on the loopback interface (127.0.0.1) used for control and management operations by local Reticulum tools such as rnstatus, rnpath, and rnid. Default is 37429. Change this only if port 37429 conflicts with another service on this system.</help>
+        <advanced>true</advanced>
+    </field>
+    <field>
+        <id>general.panic_on_interface_error</id>
+        <label>Panic on Interface Error</label>
+        <type>checkbox</type>
+        <help>Terminate the Reticulum daemon if any interface encounters a critical error during startup. When enabled, rnsd will refuse to run in a degraded state with missing interfaces. Useful in environments where all configured interfaces must be operational for the node to function correctly. Disable for more resilient startup behavior where rnsd continues running even if some interfaces fail.</help>
+        <advanced>true</advanced>
+    </field>
+</form>

@@ -2,6 +2,7 @@
 
 # OPNsense Reticulum Plugin — Service Management Script
 # Manages both rnsd (Reticulum daemon) and lxmd (LXMF propagation daemon)
+# independently based on per-service enable flags in the generated configs.
 
 RNSD_BIN="/usr/local/bin/rnsd"
 LXMD_BIN="/usr/local/bin/lxmd"
@@ -11,13 +12,25 @@ SERVICE_USER="_reticulum"
 RNSD_PID="/var/run/rnsd.pid"
 LXMD_PID="/var/run/lxmd.pid"
 
-# Check if propagation is enabled by reading the generated lxmd config
-is_propagation_enabled() {
+# Check if the LXMF service is enabled via the generated lxmd config.
+# The template writes a sentinel comment when general.enable_lxmf=1.
+is_lxmf_enabled() {
     if [ -f "${LXMD_CONFIG_DIR}/config" ]; then
-        grep -q "enable_propagation.*=.*Yes" "${LXMD_CONFIG_DIR}/config" 2>/dev/null
+        grep -q "^# __lxmf_enabled__ = yes" "${LXMD_CONFIG_DIR}/config" 2>/dev/null
         return $?
     fi
     return 1
+}
+
+# Check if lxmd must wait for rnsd before starting.
+# The template writes a sentinel comment when general.lxmf_bind_to_rnsd=1.
+is_lxmf_bound_to_rnsd() {
+    if [ -f "${LXMD_CONFIG_DIR}/config" ]; then
+        grep -q "^# __lxmf_bind_rnsd__ = yes" "${LXMD_CONFIG_DIR}/config" 2>/dev/null
+        return $?
+    fi
+    # Default: bound to rnsd for safety
+    return 0
 }
 
 start_rnsd() {
@@ -30,7 +43,7 @@ start_rnsd() {
     daemon -u ${SERVICE_USER} -p ${RNSD_PID} -o /var/log/reticulum/rnsd.log \
         ${RNSD_BIN} --config "${RNS_CONFIG_DIR}"
 
-    # Wait for rnsd to initialize
+    # Wait for rnsd to initialize and create the shared instance socket
     sleep 2
 
     if pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
@@ -46,7 +59,6 @@ stop_rnsd() {
         echo "Stopping rnsd..."
         pkill -f "${RNSD_BIN}"
         sleep 5
-        # Force kill if still running
         if pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
             pkill -9 -f "${RNSD_BIN}"
         fi
@@ -58,8 +70,8 @@ stop_rnsd() {
 }
 
 start_lxmd() {
-    if ! is_propagation_enabled; then
-        echo "Propagation node not enabled, skipping lxmd"
+    if ! is_lxmf_enabled; then
+        echo "LXMF service not enabled, skipping lxmd"
         return 0
     fi
 
@@ -68,10 +80,12 @@ start_lxmd() {
         return 0
     fi
 
-    # Ensure rnsd is running first
-    if ! pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
-        echo "ERROR: rnsd must be running before starting lxmd"
-        return 1
+    # Enforce rnsd dependency when binding is configured
+    if is_lxmf_bound_to_rnsd; then
+        if ! pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
+            echo "ERROR: rnsd must be running before starting lxmd (lxmf_bind_to_rnsd is enabled)"
+            return 1
+        fi
     fi
 
     echo "Starting lxmd..."
@@ -119,8 +133,29 @@ case "$1" in
         start_rnsd
         start_lxmd
         ;;
+    start_rnsd)
+        start_rnsd
+        ;;
+    stop_rnsd)
+        stop_rnsd
+        ;;
+    restart_rnsd)
+        stop_rnsd
+        sleep 1
+        start_rnsd
+        ;;
+    start_lxmd)
+        start_lxmd
+        ;;
+    stop_lxmd)
+        stop_lxmd
+        ;;
+    restart_lxmd)
+        stop_lxmd
+        sleep 1
+        start_lxmd
+        ;;
     status)
-        # Handled by status.py for JSON output
         if pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
             echo "rnsd is running"
         else
@@ -133,7 +168,7 @@ case "$1" in
         fi
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|status}"
+        echo "Usage: $0 {start|stop|restart|start_rnsd|stop_rnsd|restart_rnsd|start_lxmd|stop_lxmd|restart_lxmd|status}"
         exit 1
         ;;
 esac

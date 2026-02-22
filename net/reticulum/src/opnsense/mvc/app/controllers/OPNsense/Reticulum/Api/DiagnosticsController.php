@@ -35,13 +35,46 @@ use OPNsense\Core\Backend;
 class DiagnosticsController extends ApiControllerBase
 {
     /**
-     * Retrieve Reticulum network status
+     * General status: interface counts + bandwidth summary by medium type
+     * @return array
+     */
+    public function generalStatusAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('reticulum diagnostics general_status');
+        return $this->parseJsonResponse($response);
+    }
+
+    /**
+     * Retrieve Reticulum network status (rnstatus)
      * @return array
      */
     public function rnstatusAction()
     {
         $backend = new Backend();
         $response = $backend->configdRun('reticulum diagnostics rnstatus');
+        return $this->parseJsonResponse($response);
+    }
+
+    /**
+     * Retrieve RNSD daemon info: version and uptime
+     * @return array
+     */
+    public function rnsdInfoAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('reticulum diagnostics rnsd_info');
+        return $this->parseJsonResponse($response);
+    }
+
+    /**
+     * Retrieve LXMF daemon info: version and uptime
+     * @return array
+     */
+    public function lxmfInfoAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('reticulum diagnostics lxmf_info');
         return $this->parseJsonResponse($response);
     }
 
@@ -68,7 +101,7 @@ class DiagnosticsController extends ApiControllerBase
     }
 
     /**
-     * Retrieve propagation node status
+     * Retrieve propagation node status (basic)
      * @return array
      */
     public function propagationAction()
@@ -79,13 +112,35 @@ class DiagnosticsController extends ApiControllerBase
     }
 
     /**
-     * Retrieve active interface statistics
+     * Retrieve detailed propagation node status including storage, peers, errors
+     * @return array
+     */
+    public function propagationDetailAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('reticulum diagnostics propagation_detail');
+        return $this->parseJsonResponse($response);
+    }
+
+    /**
+     * Retrieve active interface statistics (rnstatus -i)
      * @return array
      */
     public function interfacesAction()
     {
         $backend = new Backend();
         $response = $backend->configdRun('reticulum diagnostics interfaces');
+        return $this->parseJsonResponse($response);
+    }
+
+    /**
+     * Retrieve detailed interface statistics (rnstatus -a)
+     * @return array
+     */
+    public function interfacesDetailAction()
+    {
+        $backend = new Backend();
+        $response = $backend->configdRun('reticulum diagnostics interfaces_detail');
         return $this->parseJsonResponse($response);
     }
 

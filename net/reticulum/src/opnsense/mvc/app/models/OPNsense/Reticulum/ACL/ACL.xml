@@ -24,9 +24,15 @@
         </patterns>
     </reticulum-service>
     <reticulum-diagnostics>
-        <name>Reticulum - Diagnostics</name>
+        <name>Reticulum - Status &amp; Diagnostics</name>
         <patterns>
             <pattern>api/reticulum/diagnostics/*</pattern>
         </patterns>
     </reticulum-diagnostics>
+    <reticulum-utilities>
+        <name>Reticulum - Utilities</name>
+        <patterns>
+            <pattern>api/reticulum/utilities/*</pattern>
+        </patterns>
+    </reticulum-utilities>
 </acl>
