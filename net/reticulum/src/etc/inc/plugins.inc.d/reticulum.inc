@@ -30,25 +30,41 @@
 use OPNsense\Reticulum\Reticulum;
 
 /**
- * Register Reticulum services with the OPNsense service manager
+ * Register Reticulum services with the OPNsense service manager.
+ * RNSD and LXMD are registered as independent services so they appear
+ * separately on the Services dashboard and can be individually controlled.
  * @return array
  */
 function reticulum_services()
 {
     $services = array();
-
     $mdl = new Reticulum();
+
     if ((string)$mdl->general->enabled === '1') {
         $services[] = array(
             'name' => 'reticulum',
-            'description' => 'Reticulum Network Daemon',
+            'description' => 'Reticulum Network Daemon (rnsd)',
             'configd' => array(
-                'start' => array('reticulum start'),
-                'stop' => array('reticulum stop'),
-                'restart' => array('reticulum restart'),
+                'start' => array('reticulum start_rnsd'),
+                'stop' => array('reticulum stop_rnsd'),
+                'restart' => array('reticulum restart_rnsd'),
             ),
             'nocheck' => false,
             'pidfile' => '/var/run/rnsd.pid'
+        );
+    }
+
+    if ((string)$mdl->general->enable_lxmf === '1') {
+        $services[] = array(
+            'name' => 'lxmf',
+            'description' => 'LXMF Messaging Daemon (lxmd)',
+            'configd' => array(
+                'start' => array('reticulum start_lxmd'),
+                'stop' => array('reticulum stop_lxmd'),
+                'restart' => array('reticulum restart_lxmd'),
+            ),
+            'nocheck' => false,
+            'pidfile' => '/var/run/lxmd.pid'
         );
     }
 
@@ -56,7 +72,7 @@ function reticulum_services()
 }
 
 /**
- * Hook called when configuration changes — regenerate configs and restart
+ * Hook called when configuration changes — regenerate configs and restart services
  * @param bool $verbose
  */
 function reticulum_configure($verbose = false)
@@ -66,20 +82,30 @@ function reticulum_configure($verbose = false)
     }
 
     $mdl = new Reticulum();
-    if ((string)$mdl->general->enabled === '1') {
-        // Regenerate configuration files from templates
+    $rnsdEnabled = (string)$mdl->general->enabled === '1';
+    $lxmdEnabled = (string)$mdl->general->enable_lxmf === '1';
+
+    // Always regenerate configuration files from templates
+    if ($rnsdEnabled || $lxmdEnabled) {
         configd_run('template reload OPNsense/Reticulum');
-        // Restart services to pick up new configuration
-        configd_run('reticulum restart');
+    }
+
+    if ($rnsdEnabled) {
+        configd_run('reticulum restart_rnsd');
     } else {
-        // If disabled, stop services
-        configd_run('reticulum stop');
+        configd_run('reticulum stop_rnsd');
+    }
+
+    if ($lxmdEnabled) {
+        configd_run('reticulum restart_lxmd');
+    } else {
+        configd_run('reticulum stop_lxmd');
     }
 }
 
 /**
- * Generate firewall rules for Reticulum interfaces
- * Dynamically creates inbound allow rules for configured listener ports
+ * Generate firewall rules for Reticulum interfaces.
+ * Dynamically creates inbound allow rules for configured listener ports.
  * @param object $fw firmware rules object
  */
 function reticulum_firewall($fw)
@@ -90,7 +116,6 @@ function reticulum_firewall($fw)
         return;
     }
 
-    // Iterate all configured interfaces and create firewall rules for listeners
     $interfaces = $mdl->interfaces->iterateItems();
     foreach ($interfaces as $uuid => $iface) {
         if ((string)$iface->enabled !== '1') {
@@ -174,7 +199,7 @@ function reticulum_firewall($fw)
 }
 
 /**
- * Register syslog facility for Reticulum
+ * Register syslog facilities for Reticulum
  * @return array
  */
 function reticulum_syslog()
@@ -196,6 +221,6 @@ function reticulum_xmlrpc_sync()
     $result['id'] = 'reticulum';
     $result['section'] = 'OPNsense.Reticulum';
     $result['description'] = 'Reticulum Network Stack';
-    $result['services'] = array('reticulum');
+    $result['services'] = array('reticulum', 'lxmf');
     return array($result);
 }

@@ -29,10 +29,11 @@
 
 namespace OPNsense\Reticulum;
 
-class PropagationController extends \OPNsense\Base\IndexController
+class LXMFController extends \OPNsense\Base\IndexController
 {
     public function indexAction()
     {
-        $this->response->redirect('/ui/reticulum/lxmf');
+        $this->view->lxmfForm = $this->getForm('lxmf');
+        $this->view->pick('OPNsense/Reticulum/lxmf');
     }
 }
