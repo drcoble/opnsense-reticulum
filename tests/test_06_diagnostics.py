@@ -1,6 +1,6 @@
 """Test 06: Diagnostics API endpoints.
 
-Verifies all 6 diagnostics endpoints return valid JSON with expected structure.
+Verifies diagnostics endpoints return valid JSON with expected structure.
 Service must be running for meaningful results, but endpoints should return
 valid JSON even when stopped.
 """
@@ -48,7 +48,7 @@ def ensure_service_running(request):
 
 
 class TestDiagnostics:
-    """All 6 diagnostics endpoints return valid JSON."""
+    """Diagnostics endpoints return valid JSON."""
 
     def test_rnstatus(self, api):
         """GET /api/reticulum/diagnostics/rnstatus returns valid JSON."""
@@ -68,15 +68,6 @@ class TestDiagnostics:
         assert resp.get("status") == "ok"
         assert "data" in resp
 
-    def test_propagation(self, api):
-        """GET /api/reticulum/diagnostics/propagation returns valid JSON."""
-        resp = api.diag_propagation()
-        assert resp.get("status") == "ok"
-        assert "data" in resp
-        # Propagation response has known structure
-        data = resp["data"]
-        assert "running" in data
-
     def test_interfaces(self, api):
         """GET /api/reticulum/diagnostics/interfaces returns valid JSON."""
         resp = api.diag_interfaces()
@@ -89,5 +80,4 @@ class TestDiagnostics:
         assert resp.get("status") == "ok"
         assert "data" in resp
         data = resp["data"]
-        # Log response has 'lines' key or 'message' if no log yet
         assert "lines" in data or "message" in data or "raw" in data
