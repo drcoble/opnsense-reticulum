@@ -65,7 +65,11 @@ jobs:
     name: Integration Tests
     needs: static-analysis
     runs-on: [self-hosted, opnsense-test]
-    if: github.event_name == 'push' || github.event.pull_request.base.ref == 'testing' || github.event.pull_request.base.ref == 'main'
+    if: >
+      github.event_name == 'push' ||
+      github.event.pull_request.base.ref == 'development' ||
+      github.event.pull_request.base.ref == 'testing' ||
+      github.event.pull_request.base.ref == 'main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

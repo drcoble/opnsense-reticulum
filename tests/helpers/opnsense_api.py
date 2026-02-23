@@ -42,14 +42,6 @@ class OPNsenseAPI:
         """Set general Reticulum settings."""
         return self.post("reticulum/settings/set", json={"reticulum": data})
 
-    def get_propagation(self):
-        """Get propagation settings."""
-        return self.get("reticulum/settings/getPropagation")
-
-    def set_propagation(self, data):
-        """Set propagation settings."""
-        return self.post("reticulum/settings/setPropagation", json={"propagation": data})
-
     # -- Interface endpoints --
 
     def search_interfaces(self):
@@ -115,10 +107,6 @@ class OPNsenseAPI:
         """Get recent announcements."""
         return self.get("reticulum/diagnostics/announces")
 
-    def diag_propagation(self):
-        """Get propagation node status."""
-        return self.get("reticulum/diagnostics/propagation")
-
     def diag_interfaces(self):
         """Get active interface statistics."""
         return self.get("reticulum/diagnostics/interfaces")
@@ -134,14 +122,6 @@ class OPNsenseAPI:
     def diag_rnsd_info(self):
         """Get RNSD daemon info (version, uptime, running state)."""
         return self.get("reticulum/diagnostics/rnsdInfo")
-
-    def diag_lxmf_info(self):
-        """Get LXMF daemon info (version, uptime, message count, running state)."""
-        return self.get("reticulum/diagnostics/lxmfInfo")
-
-    def diag_propagation_detail(self):
-        """Get detailed propagation status including storage MB and peer count."""
-        return self.get("reticulum/diagnostics/propagationDetail")
 
     def diag_interfaces_detail(self):
         """Get detailed interface statistics (rnstatus -a)."""

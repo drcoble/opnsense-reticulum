@@ -1,103 +1,111 @@
-"""Test 08: LXMF propagation node lifecycle.
+"""Test 08: LXMF removal verification.
 
-Tests enabling/disabling propagation, lxmd service start/stop,
-and config generation for the propagation node.
+Verifies that all LXMF/propagation functionality has been cleanly removed
+from the plugin. These tests confirm that removed API endpoints return 404
+and that lxmd is not present on the system.
 """
 
-import time
-
 import pytest
+import requests
 
 pytestmark = pytest.mark.integration
 
 
-@pytest.fixture(autouse=True, scope="module")
-def prepare_for_propagation(request):
-    """Enable plugin with an interface so rnsd can start."""
-    api = request.getfixturevalue("api")
+class TestLXMFEndpointsRemoved:
+    """Removed LXMF/propagation API endpoints must return 404."""
 
-    api.set_settings({"enabled": "1"})
+    def _raw_get(self, api, path):
+        """Issue a raw GET against the OPNsense API, returning the Response object."""
+        url = f"{api.base_url}/{path}"
+        resp = api.session.get(url, timeout=15)
+        return resp
 
-    result = api.add_interface({
-        "name": "CI Prop Test Auto",
-        "interfaceType": "AutoInterface",
-        "enabled": "1",
-        "auto_group_id": "ci-prop-test",
-    })
-    uuid = result.get("uuid")
+    def _raw_post(self, api, path, json=None):
+        """Issue a raw POST against the OPNsense API, returning the Response object."""
+        url = f"{api.base_url}/{path}"
+        resp = api.session.post(url, json=json or {}, timeout=15)
+        return resp
 
-    yield uuid
+    def test_get_propagation_settings_removed(self, api):
+        """GET /settings/getPropagation returns 404 (endpoint removed)."""
+        resp = self._raw_get(api, "reticulum/settings/getPropagation")
+        assert resp.status_code == 404, (
+            f"Expected 404 for removed getPropagation endpoint, got {resp.status_code}"
+        )
 
-    # Cleanup
-    try:
-        api.service_stop()
-    except Exception:
-        pass
-    time.sleep(3)
-    api.set_propagation({"enabled": "0"})
-    if uuid:
-        try:
-            api.del_interface(uuid)
-        except Exception:
-            pass
-    api.set_settings({"enabled": "0"})
+    def test_set_propagation_settings_removed(self, api):
+        """POST /settings/setPropagation returns 404 (endpoint removed)."""
+        resp = self._raw_post(api, "reticulum/settings/setPropagation",
+                              json={"propagation": {"enabled": "0"}})
+        assert resp.status_code == 404, (
+            f"Expected 404 for removed setPropagation endpoint, got {resp.status_code}"
+        )
+
+    def test_diag_propagation_removed(self, api):
+        """GET /diagnostics/propagation returns 404 (endpoint removed)."""
+        resp = self._raw_get(api, "reticulum/diagnostics/propagation")
+        assert resp.status_code == 404, (
+            f"Expected 404 for removed propagation diagnostics endpoint, got {resp.status_code}"
+        )
+
+    def test_diag_lxmf_info_removed(self, api):
+        """GET /diagnostics/lxmfInfo returns 404 (endpoint removed)."""
+        resp = self._raw_get(api, "reticulum/diagnostics/lxmfInfo")
+        assert resp.status_code == 404, (
+            f"Expected 404 for removed lxmfInfo endpoint, got {resp.status_code}"
+        )
+
+    def test_diag_propagation_detail_removed(self, api):
+        """GET /diagnostics/propagationDetail returns 404 (endpoint removed)."""
+        resp = self._raw_get(api, "reticulum/diagnostics/propagationDetail")
+        assert resp.status_code == 404, (
+            f"Expected 404 for removed propagationDetail endpoint, got {resp.status_code}"
+        )
 
 
-class TestPropagationLifecycle:
-    """Enable propagation -> start -> verify lxmd -> stop -> verify stopped."""
+class TestLXMFNotInstalled:
+    """lxmd binary and configuration must not be present."""
 
-    def test_enable_propagation(self, api):
-        """Enable propagation node via API."""
-        result = api.set_propagation({"enabled": "1"})
-        assert result.get("result") == "saved"
+    def test_lxmd_binary_not_present(self, ssh):
+        """lxmd binary is not installed on the system."""
+        _, _, rc = ssh("which lxmd 2>/dev/null || test -f /usr/local/bin/lxmd")
+        assert rc != 0, "lxmd binary found — LXMF was not cleanly removed"
 
-    def test_reconfigure_generates_lxmd_config(self, api, ssh):
-        """Reconfigure generates lxmd config file."""
-        api.set_propagation({"enabled": "1"})
-        api.service_reconfigure()
-        time.sleep(3)
+    def test_lxmd_not_running(self, ssh):
+        """No lxmd process is running."""
+        _, _, rc = ssh("pgrep -x lxmd")
+        assert rc != 0, "lxmd process found running — LXMF was not cleanly removed"
 
-        _, _, rc = ssh("test -f /usr/local/etc/lxmd/config")
-        assert rc == 0, "lxmd config file not generated after enabling propagation"
+    def test_lxmd_config_dir_absent(self, ssh):
+        """lxmd config directory /usr/local/etc/lxmd does not exist."""
+        stdout, _, _ = ssh("test -d /usr/local/etc/lxmd && echo present || echo absent")
+        assert "absent" in stdout, (
+            "lxmd config directory /usr/local/etc/lxmd still exists after removal"
+        )
 
-    def test_lxmd_starts_with_propagation(self, api, ssh, wait_for_service):
-        """Start service with propagation enabled -> lxmd should be running."""
-        api.set_propagation({"enabled": "1"})
-        api.service_reconfigure()
-        time.sleep(3)
+    def test_lxmd_db_dir_absent(self, ssh):
+        """lxmd database directory /var/db/lxmd does not exist."""
+        stdout, _, _ = ssh("test -d /var/db/lxmd && echo present || echo absent")
+        assert "absent" in stdout, (
+            "lxmd database directory /var/db/lxmd still exists after removal"
+        )
 
-        api.service_start()
-        time.sleep(5)
 
-        def check_lxmd():
-            stdout, _, rc = ssh("pgrep -f /usr/local/bin/lxmd")
-            return rc == 0
+class TestLXMFUIPageRemoved:
+    """LXMF and propagation UI pages must return 404."""
 
-        wait_for_service(check_lxmd, "lxmd started", timeout=30)
+    def test_lxmf_ui_page_removed(self, ui_session):
+        """GET /ui/reticulum/lxmf returns 404 (page removed)."""
+        url = f"{ui_session.base_url}/ui/reticulum/lxmf"
+        resp = ui_session.get(url, timeout=15, allow_redirects=False)
+        assert resp.status_code == 404, (
+            f"Expected 404 for removed /ui/reticulum/lxmf, got {resp.status_code}"
+        )
 
-    def test_propagation_diagnostics(self, api):
-        """Propagation diagnostics returns running=true when lxmd is active."""
-        resp = api.diag_propagation()
-        assert resp.get("status") == "ok"
-        data = resp.get("data", {})
-        assert data.get("running") is True
-
-    def test_disable_propagation_stops_lxmd(self, api, ssh):
-        """Disable propagation and reconfigure -> lxmd should stop."""
-        api.set_propagation({"enabled": "0"})
-        api.service_reconfigure()
-        time.sleep(5)
-
-        # After disabling, lxmd should not be running
-        stdout, _, rc = ssh("pgrep -f /usr/local/bin/lxmd")
-        # rc != 0 means lxmd not found (expected)
-        assert rc != 0, "lxmd is still running after disabling propagation"
-
-    def test_rnsd_still_running_after_lxmd_stop(self, api, ssh):
-        """rnsd should continue running even after lxmd is stopped."""
-        stdout, _, rc = ssh("pgrep -f /usr/local/bin/rnsd")
-        assert rc == 0, "rnsd stopped unexpectedly when propagation was disabled"
-
-        # Final cleanup: stop services
-        api.service_stop()
-        time.sleep(3)
+    def test_propagation_ui_page_removed(self, ui_session):
+        """GET /ui/reticulum/propagation returns 404 (page removed)."""
+        url = f"{ui_session.base_url}/ui/reticulum/propagation"
+        resp = ui_session.get(url, timeout=15, allow_redirects=False)
+        assert resp.status_code == 404, (
+            f"Expected 404 for removed /ui/reticulum/propagation, got {resp.status_code}"
+        )
