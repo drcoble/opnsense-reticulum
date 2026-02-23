@@ -1,0 +1,196 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [development, testing, main]
+  pull_request:
+    branches: [development, testing, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: false  # submodules only needed for integration tests
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linting tools
+        run: |
+          pip install ruff
+          sudo apt-get update
+          sudo apt-get install -y php-cli shellcheck libxml2-utils
+
+      - name: PHP syntax check
+        run: |
+          echo "Checking PHP files..."
+          find net/reticulum/src -name '*.php' -print0 | xargs -0 -n1 php -l
+          echo "All PHP files passed syntax check."
+
+      - name: Python lint (ruff)
+        run: |
+          ruff check net/reticulum/src/opnsense/scripts/OPNsense/Reticulum/diagnostics.py \
+                     net/reticulum/src/opnsense/scripts/OPNsense/Reticulum/status.py \
+                     net/reticulum/src/opnsense/scripts/OPNsense/Reticulum/utilities.py
+
+      - name: Python syntax check (py_compile)
+        run: |
+          python3 -m py_compile net/reticulum/src/opnsense/scripts/OPNsense/Reticulum/diagnostics.py
+          python3 -m py_compile net/reticulum/src/opnsense/scripts/OPNsense/Reticulum/status.py
+          python3 -m py_compile net/reticulum/src/opnsense/scripts/OPNsense/Reticulum/utilities.py
+
+      - name: Shell lint (shellcheck)
+        run: |
+          shellcheck -s sh net/reticulum/src/opnsense/scripts/OPNsense/Reticulum/setup.sh
+          shellcheck -s sh net/reticulum/src/+POST_INSTALL
+          shellcheck -s sh net/reticulum/src/+POST_DEINSTALL
+
+      - name: XML validation
+        run: |
+          echo "Validating XML files..."
+          find net/reticulum/src -name '*.xml' -print0 | xargs -0 -n1 xmllint --noout
+          echo "All XML files passed validation."
+
+  integration-tests:
+    name: Integration Tests
+    needs: static-analysis
+    runs-on: [self-hosted, opnsense-test]
+    if: github.event_name == 'push' || github.event.pull_request.base.ref == 'testing' || github.event.pull_request.base.ref == 'main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: Detect runner IP reachable from OPNsense VM
+        id: runner_ip
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+        run: |
+          RUNNER_IP=$(python3 -c "
+          import socket, os
+          s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+          s.connect((os.environ['OPNSENSE_HOST'], 80))
+          print(s.getsockname()[0])
+          s.close()
+          ")
+          echo "ip=${RUNNER_IP}" >> "$GITHUB_OUTPUT"
+          echo "Runner IP: ${RUNNER_IP}"
+
+      - name: Start Reticulum peer node
+        id: peer_node
+        run: |
+          python3 -c "
+          from tests.helpers.reticulum_peer import ReticulumPeer
+          import time, sys
+          peer = ReticulumPeer()
+          peer.start(listen_ip='0.0.0.0')
+          with open('/tmp/peer_hash.txt', 'w') as f:
+              f.write(peer.peer_hash)
+          print(f'Peer hash: {peer.peer_hash}', flush=True)
+          # Block until killed
+          peer._proc.wait()
+          " &
+          sleep 8
+          PEER_HASH=$(cat /tmp/peer_hash.txt 2>/dev/null || echo "")
+          if [ -z "$PEER_HASH" ]; then
+            echo "WARNING: peer hash not captured — peer connectivity tests will skip"
+          fi
+          echo "hash=${PEER_HASH}" >> "$GITHUB_OUTPUT"
+          echo "Peer hash: ${PEER_HASH}"
+
+      - name: Restore OPNsense VM snapshot
+        env:
+          PROXMOX_HOST: ${{ secrets.PROXMOX_HOST }}
+          PROXMOX_USER: ${{ secrets.PROXMOX_USER }}
+          PROXMOX_TOKEN_NAME: ${{ secrets.PROXMOX_TOKEN_NAME }}
+          PROXMOX_TOKEN_VALUE: ${{ secrets.PROXMOX_TOKEN_VALUE }}
+          PROXMOX_NODE: ${{ secrets.PROXMOX_NODE }}
+          PROXMOX_VMID: ${{ secrets.PROXMOX_VMID }}
+        run: |
+          python -c "
+          from tests.helpers.proxmox import restore_snapshot_and_wait
+          import os
+          restore_snapshot_and_wait(
+              host=os.environ['PROXMOX_HOST'],
+              user=os.environ['PROXMOX_USER'],
+              token_name=os.environ['PROXMOX_TOKEN_NAME'],
+              token_value=os.environ['PROXMOX_TOKEN_VALUE'],
+              node=os.environ['PROXMOX_NODE'],
+              vmid=os.environ['PROXMOX_VMID'],
+              snapshot='clean-base',
+              opnsense_host=os.environ.get('OPNSENSE_HOST', ''),
+          )
+          "
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+
+      - name: Deploy plugin to OPNsense VM
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          OPNSENSE_SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
+        run: |
+          python -c "
+          from tests.helpers.deploy_plugin import deploy
+          import os
+          deploy(
+              host=os.environ['OPNSENSE_HOST'],
+              ssh_key=os.environ['OPNSENSE_SSH_KEY'],
+              plugin_src='net/reticulum/src',
+          )
+          "
+
+      - name: Run integration tests
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
+          OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
+          OPNSENSE_SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
+          RUNNER_IP: ${{ steps.runner_ip.outputs.ip }}
+          RETICULUM_PEER_HASH: ${{ steps.peer_node.outputs.hash }}
+          RETICULUM_PEER_PORT: "14242"
+        run: |
+          pytest tests/ \
+            -m integration \
+            --junitxml=test-results.xml \
+            -v
+
+      - name: Stop Reticulum peer node
+        if: always()
+        run: |
+          pkill -f "reticulum_peer" || true
+          pkill -f "rnsd.*peer-test" || true
+          rm -f /tmp/peer_hash.txt
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.xml
+
+      - name: Publish test report
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Integration Test Results
+          path: test-results.xml
+          reporter: java-junit
