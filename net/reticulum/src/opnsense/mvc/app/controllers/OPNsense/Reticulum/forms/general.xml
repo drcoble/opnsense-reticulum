@@ -6,17 +6,4 @@
         <type>checkbox</type>
         <help>Enable the Reticulum network daemon (rnsd). This is the core transport node that provides connectivity over the Reticulum network.</help>
     </field>
-    <field>
-        <id>general.enable_lxmf</id>
-        <label>Enable LXMF Service</label>
-        <type>checkbox</type>
-        <help>Enable the LXMF messaging daemon (lxmd) independently. LXMF provides store-and-forward messaging over the Reticulum network. The LXMF service can be configured to run with or without requiring the RNSD service (see Advanced options).</help>
-    </field>
-    <field>
-        <id>general.lxmf_bind_to_rnsd</id>
-        <label>Bind LXMF to RNSD</label>
-        <type>checkbox</type>
-        <help>When enabled, the LXMF service (lxmd) requires the Reticulum daemon (rnsd) to be running before it will start. Disable this only if you intend to connect lxmd to an externally managed Reticulum instance rather than the locally managed rnsd. In most deployments this should remain enabled.</help>
-        <advanced>true</advanced>
-    </field>
 </form>

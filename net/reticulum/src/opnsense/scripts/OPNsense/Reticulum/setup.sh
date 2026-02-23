@@ -1,174 +1,111 @@
 #!/bin/sh
 
 # OPNsense Reticulum Plugin — Service Management Script
-# Manages both rnsd (Reticulum daemon) and lxmd (LXMF propagation daemon)
-# independently based on per-service enable flags in the generated configs.
+# Manages the rnsd (Reticulum daemon) service.
 
 RNSD_BIN="/usr/local/bin/rnsd"
-LXMD_BIN="/usr/local/bin/lxmd"
 RNS_CONFIG_DIR="/usr/local/etc/reticulum"
-LXMD_CONFIG_DIR="/usr/local/etc/lxmd"
 SERVICE_USER="_reticulum"
 RNSD_PID="/var/run/rnsd.pid"
-LXMD_PID="/var/run/lxmd.pid"
-
-# Check if the LXMF service is enabled via the generated lxmd config.
-# The template writes a sentinel comment when general.enable_lxmf=1.
-is_lxmf_enabled() {
-    if [ -f "${LXMD_CONFIG_DIR}/config" ]; then
-        grep -q "^# __lxmf_enabled__ = yes" "${LXMD_CONFIG_DIR}/config" 2>/dev/null
-        return $?
-    fi
-    return 1
-}
-
-# Check if lxmd must wait for rnsd before starting.
-# The template writes a sentinel comment when general.lxmf_bind_to_rnsd=1.
-is_lxmf_bound_to_rnsd() {
-    if [ -f "${LXMD_CONFIG_DIR}/config" ]; then
-        grep -q "^# __lxmf_bind_rnsd__ = yes" "${LXMD_CONFIG_DIR}/config" 2>/dev/null
-        return $?
-    fi
-    # Default: bound to rnsd for safety
-    return 0
-}
+RNSD_LOG="/var/log/reticulum/rnsd.log"
 
 start_rnsd() {
-    if pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
-        echo "rnsd is already running"
-        return 0
+    if [ -f "${RNSD_PID}" ]; then
+        pid=$(cat "${RNSD_PID}" 2>/dev/null)
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            echo "rnsd is already running (pid ${pid})"
+            return 0
+        fi
+        rm -f "${RNSD_PID}"
     fi
 
     echo "Starting rnsd..."
-    daemon -u ${SERVICE_USER} -p ${RNSD_PID} -o /var/log/reticulum/rnsd.log \
-        ${RNSD_BIN} --config "${RNS_CONFIG_DIR}"
+    /usr/sbin/daemon \
+        -u "${SERVICE_USER}" \
+        -p "${RNSD_PID}" \
+        -o "${RNSD_LOG}" \
+        -t "rnsd" \
+        -- "${RNSD_BIN}" --config "${RNS_CONFIG_DIR}"
 
-    # Wait for rnsd to initialize and create the shared instance socket
-    sleep 2
+    # Allow rnsd a moment to start and write the shared-instance socket
+    i=0
+    while [ $i -lt 10 ]; do
+        if [ -f "${RNSD_PID}" ] && kill -0 "$(cat "${RNSD_PID}" 2>/dev/null)" 2>/dev/null; then
+            echo "rnsd started successfully (pid $(cat "${RNSD_PID}"))"
+            return 0
+        fi
+        sleep 1
+        i=$((i + 1))
+    done
 
-    if pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
-        echo "rnsd started successfully"
-    else
-        echo "ERROR: rnsd failed to start"
-        return 1
-    fi
+    echo "ERROR: rnsd failed to start — check ${RNSD_LOG}"
+    return 1
 }
 
 stop_rnsd() {
-    if pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
-        echo "Stopping rnsd..."
-        pkill -f "${RNSD_BIN}"
-        sleep 5
-        if pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
-            pkill -9 -f "${RNSD_BIN}"
+    if [ -f "${RNSD_PID}" ]; then
+        pid=$(cat "${RNSD_PID}" 2>/dev/null)
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            echo "Stopping rnsd (pid ${pid})..."
+            kill "${pid}"
+            i=0
+            while [ $i -lt 10 ]; do
+                kill -0 "${pid}" 2>/dev/null || break
+                sleep 1
+                i=$((i + 1))
+            done
+            if kill -0 "${pid}" 2>/dev/null; then
+                echo "rnsd did not stop gracefully — sending SIGKILL"
+                kill -9 "${pid}" 2>/dev/null
+            fi
+            rm -f "${RNSD_PID}"
+            echo "rnsd stopped"
+            return 0
         fi
         rm -f "${RNSD_PID}"
+    fi
+
+    # Fallback: catch any orphaned rnsd processes not tracked by the pid file
+    if pgrep -x rnsd > /dev/null 2>&1; then
+        echo "Stopping orphaned rnsd process..."
+        pkill -x rnsd
+        sleep 2
+        pkill -9 -x rnsd 2>/dev/null || true
         echo "rnsd stopped"
     else
         echo "rnsd is not running"
     fi
 }
 
-start_lxmd() {
-    if ! is_lxmf_enabled; then
-        echo "LXMF service not enabled, skipping lxmd"
-        return 0
-    fi
-
-    if pgrep -f "${LXMD_BIN}" > /dev/null 2>&1; then
-        echo "lxmd is already running"
-        return 0
-    fi
-
-    # Enforce rnsd dependency when binding is configured
-    if is_lxmf_bound_to_rnsd; then
-        if ! pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
-            echo "ERROR: rnsd must be running before starting lxmd (lxmf_bind_to_rnsd is enabled)"
-            return 1
+status_rnsd() {
+    if [ -f "${RNSD_PID}" ]; then
+        pid=$(cat "${RNSD_PID}" 2>/dev/null)
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+            echo "rnsd is running (pid ${pid})"
+            return 0
         fi
     fi
-
-    echo "Starting lxmd..."
-    daemon -u ${SERVICE_USER} -p ${LXMD_PID} -o /var/log/reticulum/lxmd.log \
-        ${LXMD_BIN} --config "${LXMD_CONFIG_DIR}"
-
-    sleep 2
-
-    if pgrep -f "${LXMD_BIN}" > /dev/null 2>&1; then
-        echo "lxmd started successfully"
-    else
-        echo "ERROR: lxmd failed to start"
-        return 1
-    fi
-}
-
-stop_lxmd() {
-    if pgrep -f "${LXMD_BIN}" > /dev/null 2>&1; then
-        echo "Stopping lxmd..."
-        pkill -f "${LXMD_BIN}"
-        sleep 5
-        if pgrep -f "${LXMD_BIN}" > /dev/null 2>&1; then
-            pkill -9 -f "${LXMD_BIN}"
-        fi
-        rm -f "${LXMD_PID}"
-        echo "lxmd stopped"
-    else
-        echo "lxmd is not running"
-    fi
+    echo "rnsd is not running"
+    return 1
 }
 
 case "$1" in
-    start)
+    start|start_rnsd)
         start_rnsd
-        start_lxmd
         ;;
-    stop)
-        stop_lxmd
+    stop|stop_rnsd)
         stop_rnsd
         ;;
-    restart)
-        stop_lxmd
+    restart|restart_rnsd)
         stop_rnsd
         sleep 1
         start_rnsd
-        start_lxmd
-        ;;
-    start_rnsd)
-        start_rnsd
-        ;;
-    stop_rnsd)
-        stop_rnsd
-        ;;
-    restart_rnsd)
-        stop_rnsd
-        sleep 1
-        start_rnsd
-        ;;
-    start_lxmd)
-        start_lxmd
-        ;;
-    stop_lxmd)
-        stop_lxmd
-        ;;
-    restart_lxmd)
-        stop_lxmd
-        sleep 1
-        start_lxmd
         ;;
     status)
-        if pgrep -f "${RNSD_BIN}" > /dev/null 2>&1; then
-            echo "rnsd is running"
-        else
-            echo "rnsd is not running"
-        fi
-        if pgrep -f "${LXMD_BIN}" > /dev/null 2>&1; then
-            echo "lxmd is running"
-        else
-            echo "lxmd is not running"
-        fi
+        status_rnsd
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|start_rnsd|stop_rnsd|restart_rnsd|start_lxmd|stop_lxmd|restart_lxmd|status}"
+        echo "Usage: $0 {start|stop|restart|status}"
         exit 1
         ;;
 esac

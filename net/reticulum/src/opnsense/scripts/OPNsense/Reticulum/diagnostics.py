@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/local/bin/python3.11
 
 """
 OPNsense Reticulum Plugin — Diagnostics Script
@@ -11,12 +11,9 @@ import json
 import os
 import subprocess
 import sys
-import time
 
 RNS_CONFIG = '/usr/local/etc/reticulum'
-LXMD_PIDFILE = '/var/run/lxmd.pid'
 RNSD_PIDFILE = '/var/run/rnsd.pid'
-LXMD_BIN = '/usr/local/bin/lxmd'
 RNSD_BIN = '/usr/local/bin/rnsd'
 
 # Medium type classification by interface type keyword
@@ -73,8 +70,8 @@ def _run_with_json_fallback(args_with_json, args_without_json):
     return parse_json_or_raw(output)
 
 
-def _is_process_running(pidfile, binary_path):
-    """Check if a process is running using its PID file, falling back to pgrep."""
+def _is_process_running(pidfile, binary_name):
+    """Check if a process is running via its PID file, falling back to pgrep."""
     try:
         if os.path.isfile(pidfile):
             with open(pidfile) as f:
@@ -85,7 +82,7 @@ def _is_process_running(pidfile, binary_path):
         pass
     try:
         result = subprocess.run(
-            ['pgrep', '-f', binary_path],
+            ['pgrep', '-x', binary_name],
             capture_output=True,
             text=True,
             timeout=5
@@ -99,7 +96,7 @@ def _is_process_running(pidfile, binary_path):
 
 
 def _get_process_uptime(pid):
-    """Return process uptime in seconds using /proc or ps."""
+    """Return process elapsed time string using ps."""
     try:
         if pid > 0:
             result = subprocess.run(
@@ -126,21 +123,6 @@ def _get_binary_version(binary, flag='--version'):
         return 'unavailable'
 
 
-def _get_dir_size_mb(path):
-    """Return total size of a directory in MB."""
-    total = 0
-    try:
-        for dirpath, dirnames, filenames in os.walk(path):
-            for fname in filenames:
-                try:
-                    total += os.path.getsize(os.path.join(dirpath, fname))
-                except OSError:
-                    pass
-    except OSError:
-        pass
-    return round(total / (1024 * 1024), 2)
-
-
 def diag_general_status():
     """Interface counts and bandwidth summary grouped by medium type."""
     raw = _run_with_json_fallback(
@@ -152,7 +134,6 @@ def diag_general_status():
     if isinstance(raw, list):
         interfaces = raw
     elif isinstance(raw, dict):
-        # Some versions return a dict with 'interfaces' key
         interfaces = raw.get('interfaces', [])
 
     total = len(interfaces)
@@ -187,7 +168,7 @@ def diag_rnstatus():
 
 def diag_rnsd_info():
     """RNSD version and uptime."""
-    running, pid = _is_process_running(RNSD_PIDFILE, RNSD_BIN)
+    running, pid = _is_process_running(RNSD_PIDFILE, 'rnsd')
     version = _get_binary_version(RNSD_BIN)
     uptime = _get_process_uptime(pid) if (running and pid) else None
     return {
@@ -195,33 +176,6 @@ def diag_rnsd_info():
         'version': version,
         'uptime': uptime,
     }
-
-
-def diag_lxmf_info():
-    """LXMF daemon version and uptime."""
-    running, pid = _is_process_running(LXMD_PIDFILE, LXMD_BIN)
-    version = _get_binary_version(LXMD_BIN)
-    uptime = _get_process_uptime(pid) if (running and pid) else None
-
-    result = {
-        'running': running,
-        'version': version,
-        'uptime': uptime,
-    }
-
-    if running:
-        storage_path = "/var/db/lxmd/messagestore"
-        try:
-            if os.path.isdir(storage_path):
-                msg_count = sum(
-                    1 for f in os.listdir(storage_path)
-                    if os.path.isfile(os.path.join(storage_path, f))
-                )
-                result['message_count'] = msg_count
-        except OSError:
-            pass
-
-    return result
 
 
 def diag_paths():
@@ -238,82 +192,6 @@ def diag_announces():
         ['rnstatus', '-j', '-a', '--config', RNS_CONFIG],
         ['rnstatus', '-a', '--config', RNS_CONFIG],
     )
-
-
-def diag_propagation():
-    """Get LXMF propagation node status (basic)."""
-    running, _ = _is_process_running(LXMD_PIDFILE, LXMD_BIN)
-    result = {
-        "running": running,
-        "message_count": 0,
-        "peer_count": 0
-    }
-    if running:
-        storage_path = "/var/db/lxmd/messagestore"
-        try:
-            if os.path.isdir(storage_path):
-                count = sum(
-                    1 for f in os.listdir(storage_path)
-                    if os.path.isfile(os.path.join(storage_path, f))
-                )
-                result["message_count"] = count
-        except OSError:
-            pass
-    return result
-
-
-def diag_propagation_detail():
-    """Detailed propagation status including storage MB, peer count, errors."""
-    running, pid = _is_process_running(LXMD_PIDFILE, LXMD_BIN)
-
-    storage_path = "/var/db/lxmd/messagestore"
-    message_count = 0
-    storage_mb = 0.0
-
-    if running:
-        try:
-            if os.path.isdir(storage_path):
-                files = [
-                    f for f in os.listdir(storage_path)
-                    if os.path.isfile(os.path.join(storage_path, f))
-                ]
-                message_count = len(files)
-                storage_mb = _get_dir_size_mb(storage_path)
-        except OSError:
-            pass
-
-    # Read configured storage limit from lxmd config
-    storage_limit_mb = None
-    lxmd_conf = '/usr/local/etc/lxmd/config'
-    try:
-        if os.path.isfile(lxmd_conf):
-            with open(lxmd_conf) as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith('message_storage_limit'):
-                        parts = line.split('=', 1)
-                        if len(parts) == 2:
-                            val = parts[1].strip()
-                            if val.isdigit() and int(val) > 0:
-                                # Convert message count limit to estimated MB
-                                # This is an approximation; lxmd config uses message count not bytes
-                                storage_limit_mb = int(val)  # treat as message count
-    except OSError:
-        pass
-
-    storage_pct = None
-    if storage_limit_mb and storage_limit_mb > 0 and message_count > 0:
-        storage_pct = round((message_count / storage_limit_mb) * 100, 1)
-
-    return {
-        'running': running,
-        'message_count': message_count,
-        'storage_mb': storage_mb,
-        'storage_limit_messages': storage_limit_mb,
-        'storage_used_pct': storage_pct,
-        'peer_count': 0,   # Would need lxmd RPC or socket API to get live peer count
-        'errors': [],       # Would need log parsing or lxmd API
-    }
 
 
 def diag_interfaces():
@@ -360,11 +238,8 @@ def main():
         'general_status': diag_general_status,
         'rnstatus': diag_rnstatus,
         'rnsd_info': diag_rnsd_info,
-        'lxmf_info': diag_lxmf_info,
         'paths': diag_paths,
         'announces': diag_announces,
-        'propagation': diag_propagation,
-        'propagation_detail': diag_propagation_detail,
         'interfaces': diag_interfaces,
         'interfaces_detail': diag_interfaces_detail,
         'log': diag_log,

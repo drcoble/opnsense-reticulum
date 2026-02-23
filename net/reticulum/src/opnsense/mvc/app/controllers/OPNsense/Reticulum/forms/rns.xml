@@ -37,7 +37,7 @@ Log output is viewable in the Status section under the Logs tab, or via System &
         <id>general.share_instance</id>
         <label>Share Instance</label>
         <type>checkbox</type>
-        <help>Allow multiple programs on this system to share a single running Reticulum instance via the shared instance port. When enabled, applications such as lxmd, Nomad Network, or custom Python scripts can connect to the running rnsd instance rather than each starting their own separate Reticulum instance. This must be enabled for the LXMF service to use the locally managed rnsd. Disable only if you need strict isolation between Reticulum applications.</help>
+        <help>Allow multiple programs on this system to share a single running Reticulum instance via the shared instance port. When enabled, applications such as Nomad Network or custom Python scripts can connect to the running rnsd instance rather than each starting their own separate Reticulum instance. Disable only if you need strict isolation between Reticulum applications.</help>
         <advanced>true</advanced>
     </field>
     <field>

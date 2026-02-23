@@ -68,17 +68,6 @@ class DiagnosticsController extends ApiControllerBase
     }
 
     /**
-     * Retrieve LXMF daemon info: version and uptime
-     * @return array
-     */
-    public function lxmfInfoAction()
-    {
-        $backend = new Backend();
-        $response = $backend->configdRun('reticulum diagnostics lxmf_info');
-        return $this->parseJsonResponse($response);
-    }
-
-    /**
      * Retrieve path table
      * @return array
      */
@@ -97,28 +86,6 @@ class DiagnosticsController extends ApiControllerBase
     {
         $backend = new Backend();
         $response = $backend->configdRun('reticulum diagnostics announces');
-        return $this->parseJsonResponse($response);
-    }
-
-    /**
-     * Retrieve propagation node status (basic)
-     * @return array
-     */
-    public function propagationAction()
-    {
-        $backend = new Backend();
-        $response = $backend->configdRun('reticulum diagnostics propagation');
-        return $this->parseJsonResponse($response);
-    }
-
-    /**
-     * Retrieve detailed propagation node status including storage, peers, errors
-     * @return array
-     */
-    public function propagationDetailAction()
-    {
-        $backend = new Backend();
-        $response = $backend->configdRun('reticulum diagnostics propagation_detail');
         return $this->parseJsonResponse($response);
     }
 
