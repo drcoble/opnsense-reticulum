@@ -1,7 +1,7 @@
 {#
     OPNsense Reticulum Plugin — Utilities View
     Tabbed interface for Reticulum CLI tools: rnstatus, rnid, rnpath,
-    rnprobe, rncp, rnx, rnodeconf.
+    rnprobe, rnodeconf.
 #}
 
 <script>
@@ -16,10 +16,6 @@
                 runUtility('rnstatus', {});
             } else if (tab === 'rnid') {
                 runUtility('rnid', {});
-            } else if (tab === 'rncp') {
-                runUtility('rncp_info', {});
-            } else if (tab === 'rnx') {
-                runUtility('rnx_info', {});
             } else if (tab === 'rnodeconf') {
                 runUtility('rnodeconf', {});
             }
@@ -67,8 +63,6 @@
             'rnpath':     {endpoint: '/api/reticulum/utilities/rnpath',     out: '#output_rnpath'},
             'rnprobe':    {endpoint: '/api/reticulum/utilities/rnprobe',    out: '#output_rnprobe'},
             'rnodeconf':  {endpoint: '/api/reticulum/utilities/rnodeconfig', out: '#output_rnodeconf'},
-            'rncp_info':  {endpoint: '/api/reticulum/utilities/rncp',       out: '#output_rncp'},
-            'rnx_info':   {endpoint: '/api/reticulum/utilities/rnx',        out: '#output_rnx'},
         };
         var config = toolMap[tool];
         if (!config) { return; }
@@ -147,16 +141,6 @@
             <li role="presentation">
                 <a href="#tab-rnprobe" data-tab="rnprobe" role="tab" data-toggle="tab">
                     <i class="fa fa-crosshairs"></i> rnprobe
-                </a>
-            </li>
-            <li role="presentation">
-                <a href="#tab-rncp" data-tab="rncp" role="tab" data-toggle="tab">
-                    <i class="fa fa-files-o"></i> rncp
-                </a>
-            </li>
-            <li role="presentation">
-                <a href="#tab-rnx" data-tab="rnx" role="tab" data-toggle="tab">
-                    <i class="fa fa-terminal"></i> rnx
                 </a>
             </li>
             <li role="presentation">
@@ -242,31 +226,6 @@
                     </button>
                 </div>
                 <div id="output_rnprobe"></div>
-            </div>
-
-            <!-- rncp -->
-            <div role="tabpanel" class="tab-pane" id="tab-rncp">
-                <h4>{{ lang._('rncp — Remote File Copy') }}</h4>
-                <p class="text-muted">{{ lang._('rncp transfers files to or from remote Reticulum destinations. This tool is designed for interactive shell use.') }}</p>
-                <div class="alert alert-warning">
-                    <i class="fa fa-terminal"></i>
-                    {{ lang._('rncp requires shell access for interactive use. Use the command line on this system:') }}<br/>
-                    <code>rncp &lt;local_file&gt; &lt;destination_hash&gt;:&lt;remote_path&gt;</code><br/>
-                    <code>rncp &lt;destination_hash&gt;:&lt;remote_path&gt; &lt;local_file&gt;</code>
-                </div>
-                <div id="output_rncp_info"></div>
-            </div>
-
-            <!-- rnx -->
-            <div role="tabpanel" class="tab-pane" id="tab-rnx">
-                <h4>{{ lang._('rnx — Remote Execution') }}</h4>
-                <p class="text-muted">{{ lang._('rnx executes commands on remote Reticulum destinations. This tool is designed for interactive shell use.') }}</p>
-                <div class="alert alert-warning">
-                    <i class="fa fa-terminal"></i>
-                    {{ lang._('rnx requires shell access for interactive use. Use the command line on this system:') }}<br/>
-                    <code>rnx &lt;destination_hash&gt; &lt;command&gt;</code>
-                </div>
-                <div id="output_rnx_info"></div>
             </div>
 
             <!-- rnodeconf -->
