@@ -6,8 +6,12 @@ import time
 
 import paramiko
 import pytest
+import requests
+import urllib3
 
 from tests.helpers.opnsense_api import OPNsenseAPI
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def pytest_configure(config):
@@ -83,6 +87,25 @@ def wait_for_service():
             time.sleep(interval)
         raise TimeoutError(f"Timed out waiting for: {description}")
     return _wait
+
+
+@pytest.fixture(scope="module")
+def ui_session(opnsense_host):
+    """Authenticated requests session for OPNsense web UI.
+
+    Uses HTTP basic auth (API key / secret) which OPNsense accepts for the
+    web UI. Tests that need this fixture will skip when credentials are absent.
+    """
+    api_key = os.environ.get("OPNSENSE_API_KEY", "")
+    api_secret = os.environ.get("OPNSENSE_API_SECRET", "")
+    if not api_key or not api_secret:
+        pytest.skip("OPNSENSE_API_KEY / OPNSENSE_API_SECRET not set")
+
+    session = requests.Session()
+    session.auth = (api_key, api_secret)
+    session.verify = False
+    session.base_url = f"https://{opnsense_host}"
+    return session
 
 
 @pytest.fixture(scope="session")

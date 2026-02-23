@@ -2,11 +2,15 @@
 
 import time
 
+import pytest
+
+pytestmark = pytest.mark.integration
+
 
 def _status(api):
-    resp = api.get("/api/reticulum/service/status")
-    assert resp.status_code == 200
-    return resp.json()
+    data = api.service_status()
+    assert "status" in data, f"Missing 'status' key in response: {data}"
+    return data
 
 
 def test_service_status_endpoint(api):
@@ -17,20 +21,13 @@ def test_service_status_endpoint(api):
     'running'  = active.
     """
     data = _status(api)
-    assert "status" in data
     assert data["status"] in ("running", "stopped", "disabled")
 
 
 def test_service_start(api):
     """Enabling the service and running reconfigure brings it up."""
-    # saveContainerSettings('reticulum', 'general') expects flat fields under 'reticulum'
-    api.post(
-        "/api/reticulum/settings/set",
-        json={"reticulum": {"enabled": "1", "enable_transport": "0"}},
-    )
-
-    resp = api.post("/api/reticulum/service/reconfigure")
-    assert resp.status_code == 200
+    api.set_settings({"enabled": "1", "enable_transport": "0"})
+    api.service_reconfigure()
     time.sleep(8)
 
     data = _status(api)
@@ -40,8 +37,7 @@ def test_service_start(api):
 
 def test_service_restart(api):
     """Restart keeps service running."""
-    resp = api.post("/api/reticulum/service/restart")
-    assert resp.status_code == 200
+    api.service_restart()
     time.sleep(8)
 
     assert _status(api)["status"] == "running"
@@ -49,8 +45,7 @@ def test_service_restart(api):
 
 def test_service_stop(api):
     """Stopping the service changes status to stopped."""
-    resp = api.post("/api/reticulum/service/stop")
-    assert resp.status_code == 200
+    api.service_stop()
     time.sleep(5)
 
     assert _status(api)["status"] == "stopped"
@@ -58,8 +53,7 @@ def test_service_stop(api):
 
 def test_service_reconfigure_restarts(api):
     """Reconfigure when enabled brings service back up."""
-    resp = api.post("/api/reticulum/service/reconfigure")
-    assert resp.status_code == 200
+    api.service_reconfigure()
     time.sleep(8)
 
     assert _status(api)["status"] == "running"
