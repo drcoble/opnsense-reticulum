@@ -48,14 +48,6 @@
                     <option value="7">7 - Debug</option>
                 </OptionValues>
             </loglevel>
-            <enable_lxmf type="BooleanField">
-                <Default>0</Default>
-                <Required>Y</Required>
-            </enable_lxmf>
-            <lxmf_bind_to_rnsd type="BooleanField">
-                <Default>1</Default>
-                <Required>Y</Required>
-            </lxmf_bind_to_rnsd>
         </general>
 
         <!-- ============================================================ -->
@@ -423,61 +415,5 @@
                 </i2p_peers>
         </interfaces>
 
-        <!-- ============================================================ -->
-        <!-- Propagation Node Settings (LXMF)                             -->
-        <!-- ============================================================ -->
-        <propagation>
-            <enabled type="BooleanField">
-                <Default>0</Default>
-                <Required>Y</Required>
-            </enabled>
-            <enable_node type="BooleanField">
-                <Default>1</Default>
-                <Required>Y</Required>
-            </enable_node>
-            <announce_at_start type="BooleanField">
-                <Default>1</Default>
-                <Required>Y</Required>
-            </announce_at_start>
-            <autopeer type="BooleanField">
-                <Default>1</Default>
-                <Required>Y</Required>
-            </autopeer>
-            <autopeer_maxdepth type="IntegerField">
-                <Default>4</Default>
-                <MinimumValue>1</MinimumValue>
-                <MaximumValue>128</MaximumValue>
-                <Required>Y</Required>
-                <ValidationMessage>Max depth must be between 1 and 128 hops.</ValidationMessage>
-            </autopeer_maxdepth>
-            <message_storage_limit type="IntegerField">
-                <Default>2000</Default>
-                <MinimumValue>0</MinimumValue>
-                <Required>Y</Required>
-                <ValidationMessage>Must be 0 (unlimited) or a positive integer.</ValidationMessage>
-            </message_storage_limit>
-            <message_storage_path type="TextField">
-                <Default>/var/db/lxmd/messagestore</Default>
-                <Required>Y</Required>
-                <Mask>/^\/[a-zA-Z0-9._\-\/]+$/</Mask>
-                <ValidationMessage>Must be an absolute path with no special characters.</ValidationMessage>
-            </message_storage_path>
-            <lxmf_delivery_transfer_max_accepted_size type="IntegerField">
-                <Default>1000</Default>
-                <MinimumValue>1</MinimumValue>
-                <Required>Y</Required>
-                <ValidationMessage>Max accepted message size must be a positive integer (KB).</ValidationMessage>
-            </lxmf_delivery_transfer_max_accepted_size>
-            <periodic_sync_interval type="IntegerField">
-                <Default>360</Default>
-                <MinimumValue>10</MinimumValue>
-                <Required>Y</Required>
-                <ValidationMessage>Sync interval must be at least 10 seconds.</ValidationMessage>
-            </periodic_sync_interval>
-            <prioritise_local type="BooleanField">
-                <Default>1</Default>
-                <Required>Y</Required>
-            </prioritise_local>
-        </propagation>
     </items>
 </model>

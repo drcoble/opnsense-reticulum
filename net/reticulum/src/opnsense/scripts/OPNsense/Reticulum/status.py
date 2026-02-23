@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/local/bin/python3.11
 
 """
 OPNsense Reticulum Plugin — Service Status Script
@@ -10,31 +10,29 @@ import os
 import subprocess
 
 RNSD_PIDFILE = '/var/run/rnsd.pid'
-LXMD_PIDFILE = '/var/run/lxmd.pid'
 RNSD_BIN = '/usr/local/bin/rnsd'
-LXMD_BIN = '/usr/local/bin/lxmd'
 
 
-def is_process_running(pidfile, binary_path):
-    """Check if a process is running using its PID file, falling back to pgrep.
+def is_process_running(pidfile, binary_name):
+    """Check if a process is running via its PID file, falling back to pgrep.
 
-    Reads the declared PID file first (consistent with the pidfile registered
-    in plugins.inc.d/reticulum.inc). Falls back to pgrep -f if the PID file
-    is absent or stale.
+    Reads the PID file first (consistent with the pidfile registered in
+    plugins.inc.d/reticulum.inc). Falls back to pgrep -x if the PID file is
+    absent or stale.
     """
     try:
         if os.path.isfile(pidfile):
             with open(pidfile) as f:
                 pid = int(f.read().strip())
-            os.kill(pid, 0)  # signal 0: probe only, raises OSError if not running
+            os.kill(pid, 0)  # signal 0: existence check only
             return True
     except (OSError, ValueError):
         pass
 
-    # Fallback: pgrep
+    # Fallback: exact-name pgrep
     try:
         result = subprocess.run(
-            ['pgrep', '-f', binary_path],
+            ['pgrep', '-x', binary_name],
             capture_output=True,
             text=True,
             timeout=5
@@ -45,13 +43,11 @@ def is_process_running(pidfile, binary_path):
 
 
 def main():
-    rnsd_running = is_process_running(RNSD_PIDFILE, RNSD_BIN)
-    lxmd_running = is_process_running(LXMD_PIDFILE, LXMD_BIN)
+    rnsd_running = is_process_running(RNSD_PIDFILE, 'rnsd')
 
     status = {
         'status': 'running' if rnsd_running else 'stopped',
         'rnsd': rnsd_running,
-        'lxmd': lxmd_running
     }
 
     print(json.dumps(status))

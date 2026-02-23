@@ -1,6 +1,6 @@
 {#
     OPNsense Reticulum Plugin — Status View
-    Tabbed status display: General, RNSD, LXMF, Propagation, Interfaces, Logs
+    Tabbed status display: General, RNSD, Interfaces, Logs
 #}
 
 <script>
@@ -49,12 +49,10 @@
 
     function loadTab(tab) {
         switch (tab) {
-            case 'general':     loadGeneralStatus(); break;
-            case 'rnsd':        loadRNSDStatus(); break;
-            case 'lxmf':        loadLXMFStatus(); break;
-            case 'propagation': loadPropagationStatus(); break;
-            case 'interfaces':  loadInterfacesStatus(); break;
-            case 'logs':        loadLogs(); break;
+            case 'general':    loadGeneralStatus(); break;
+            case 'rnsd':       loadRNSDStatus(); break;
+            case 'interfaces': loadInterfacesStatus(); break;
+            case 'logs':       loadLogs(); break;
         }
     }
 
@@ -161,82 +159,6 @@
         });
     }
 
-    // ── LXMF Status ───────────────────────────────────────────────────────────
-    function loadLXMFStatus() {
-        setLoading('#tab-lxmf .status-content');
-        ajaxCall('/api/reticulum/diagnostics/lxmfInfo', {}, function (data) {
-            if (!data || data.status !== 'ok' || !data.data) {
-                setError('#tab-lxmf .status-content', '{{ lang._("LXMF service not running or data unavailable.") }}');
-                return;
-            }
-            var d = data.data;
-            var runningLabel = d.running
-                ? '<span class="label label-success">{{ lang._("Running") }}</span>'
-                : '<span class="label label-danger">{{ lang._("Stopped") }}</span>';
-            var html = '<table class="table table-condensed table-striped" style="max-width:600px;">';
-            html += '<tbody>';
-            html += '<tr><td>{{ lang._("Status") }}</td><td>' + runningLabel + '</td></tr>';
-            html += '<tr><td>{{ lang._("Version") }}</td><td><code>' + esc(d.version || 'unknown') + '</code></td></tr>';
-            html += '<tr><td>{{ lang._("Uptime") }}</td><td>' + esc(d.uptime || '—') + '</td></tr>';
-            if (d.message_count !== undefined) {
-                html += '<tr><td>{{ lang._("Messages in Store") }}</td><td>' + d.message_count + '</td></tr>';
-            }
-            html += '</tbody></table>';
-            $('#tab-lxmf .status-content').html(html);
-        });
-    }
-
-    // ── Propagation Status ────────────────────────────────────────────────────
-    function loadPropagationStatus() {
-        setLoading('#tab-propagation .status-content');
-        ajaxCall('/api/reticulum/diagnostics/propagationDetail', {}, function (data) {
-            if (!data || data.status !== 'ok' || !data.data) {
-                setError('#tab-propagation .status-content', '{{ lang._("Propagation service data unavailable.") }}');
-                return;
-            }
-            var d = data.data;
-            var runningLabel = d.running
-                ? '<span class="label label-success">{{ lang._("Running") }}</span>'
-                : '<span class="label label-danger">{{ lang._("Stopped") }}</span>';
-
-            var storagePct = d.storage_used_pct !== null && d.storage_used_pct !== undefined
-                ? d.storage_used_pct + '%' : '—';
-            var storageLimit = d.storage_limit_messages
-                ? d.storage_limit_messages + ' {{ lang._("messages") }}' : '{{ lang._("Unlimited") }}';
-
-            var html = '<table class="table table-condensed table-striped" style="max-width:700px;">';
-            html += '<tbody>';
-            html += '<tr><td style="width:240px;">{{ lang._("Status") }}</td><td>' + runningLabel + '</td></tr>';
-            html += '<tr><td>{{ lang._("Messages in Store") }}</td><td>' + (d.message_count || 0) + '</td></tr>';
-            html += '<tr><td>{{ lang._("Storage Used") }}</td><td>' + (d.storage_mb || 0) + ' MB</td></tr>';
-            html += '<tr><td>{{ lang._("Storage Limit") }}</td><td>' + storageLimit + '</td></tr>';
-            html += '<tr><td>{{ lang._("Storage Used (%)") }}</td><td>';
-            if (d.storage_used_pct !== null && d.storage_used_pct !== undefined) {
-                var pctClass = d.storage_used_pct > 90 ? 'danger' : (d.storage_used_pct > 70 ? 'warning' : 'success');
-                html += '<div class="progress" style="margin-bottom:0; max-width:250px;">';
-                html += '<div class="progress-bar progress-bar-' + pctClass + '" style="width:' + Math.min(100, d.storage_used_pct) + '%;">';
-                html += d.storage_used_pct + '%</div></div>';
-            } else {
-                html += '—';
-            }
-            html += '</td></tr>';
-            html += '<tr><td>{{ lang._("Active Peers") }}</td><td>' + (d.peer_count || 0) + '</td></tr>';
-            html += '</tbody></table>';
-
-            // Errors section
-            if (d.errors && d.errors.length > 0) {
-                html += '<h4>{{ lang._("Recent Errors") }}</h4>';
-                html += '<ul class="list-unstyled">';
-                $.each(d.errors, function (i, err) {
-                    html += '<li><span class="label label-danger">{{ lang._("Error") }}</span> ' + esc(err) + '</li>';
-                });
-                html += '</ul>';
-            }
-
-            $('#tab-propagation .status-content').html(html);
-        });
-    }
-
     // ── Interfaces Status ─────────────────────────────────────────────────────
     function loadInterfacesStatus() {
         setLoading('#tab-interfaces .status-content');
@@ -246,7 +168,6 @@
                 return;
             }
             var d = data.data;
-            // If data is raw text, display it in a pre block
             if (d && d.raw) {
                 $('#tab-interfaces .status-content').html(
                     '<pre class="pre-scrollable" style="max-height:500px;">' + esc(d.raw) + '</pre>'
@@ -278,7 +199,7 @@
                 html += '<td>' + formatBytes(iface.txb || 0) + '</td>';
                 html += '<td>' + formatBytes(iface.rxb || 0) + '</td>';
                 html += '<td>' + (iface.rssi !== undefined ? iface.rssi + ' dBm' : '—') + '</td>';
-                html += '<td>' + (iface.snr !== undefined ? iface.snr + ' dB' : '—') + '</td>';
+                html += '<td>' + (iface.snr  !== undefined ? iface.snr  + ' dB'  : '—') + '</td>';
                 html += '<td>' + (iface.airtime !== undefined ? iface.airtime + '%' : '—') + '</td>';
                 html += '</tr>';
             });
@@ -308,7 +229,6 @@
                 return;
             }
 
-            // Store lines globally for filter
             window._logLines = lines;
             renderLogTable(lines);
         });
@@ -321,7 +241,7 @@
             if (logFilter && line.toLowerCase().indexOf(logFilter) === -1) { return; }
             var cls = '';
             if (/error|critical|fatal/i.test(line)) { cls = 'danger'; }
-            else if (/warning|warn/i.test(line)) { cls = 'warning'; }
+            else if (/warning|warn/i.test(line))    { cls = 'warning'; }
             html += '<tr class="' + cls + '">';
             html += '<td class="text-muted">' + (i + 1) + '</td>';
             html += '<td>' + esc(line) + '</td>';
@@ -329,7 +249,6 @@
         });
         html += '</tbody></table>';
         $('#tab-logs .log-container').html(html);
-        // Scroll to bottom
         var container = $('#tab-logs .log-container');
         container.scrollTop(container[0].scrollHeight);
     }
@@ -389,16 +308,6 @@
                 </a>
             </li>
             <li role="presentation">
-                <a href="#tab-lxmf" data-tab="lxmf" role="tab" data-toggle="tab">
-                    <i class="fa fa-envelope"></i> {{ lang._('LXMF') }}
-                </a>
-            </li>
-            <li role="presentation">
-                <a href="#tab-propagation" data-tab="propagation" role="tab" data-toggle="tab">
-                    <i class="fa fa-arrows-alt"></i> {{ lang._('Propagation') }}
-                </a>
-            </li>
-            <li role="presentation">
                 <a href="#tab-interfaces" data-tab="interfaces" role="tab" data-toggle="tab">
                     <i class="fa fa-plug"></i> {{ lang._('Interfaces') }}
                 </a>
@@ -426,20 +335,6 @@
                 </div>
             </div>
 
-            <!-- LXMF Tab -->
-            <div role="tabpanel" class="tab-pane" id="tab-lxmf">
-                <div class="status-content">
-                    <i class="fa fa-spinner fa-spin"></i> {{ lang._('Loading...') }}
-                </div>
-            </div>
-
-            <!-- Propagation Tab -->
-            <div role="tabpanel" class="tab-pane" id="tab-propagation">
-                <div class="status-content">
-                    <i class="fa fa-spinner fa-spin"></i> {{ lang._('Loading...') }}
-                </div>
-            </div>
-
             <!-- Interfaces Tab -->
             <div role="tabpanel" class="tab-pane" id="tab-interfaces">
                 <div class="status-content">
@@ -456,7 +351,8 @@
                             <input type="text" id="logFilter" class="form-control"
                                    placeholder="{{ lang._('Filter log entries...') }}">
                             <span class="input-group-btn">
-                                <button class="btn btn-default" type="button" onclick="$('#logFilter').val(''); logFilter=''; applyLogFilter();">
+                                <button class="btn btn-default" type="button"
+                                        onclick="$('#logFilter').val(''); logFilter=''; applyLogFilter();">
                                     <i class="fa fa-times"></i>
                                 </button>
                             </span>

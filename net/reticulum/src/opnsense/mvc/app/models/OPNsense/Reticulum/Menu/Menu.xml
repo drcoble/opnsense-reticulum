@@ -4,10 +4,9 @@
         <Reticulum VisibleName="Reticulum" cssclass="fa fa-share-alt" order="80">
             <General VisibleName="General" url="/ui/reticulum/general" order="1"/>
             <RNS VisibleName="RNS" url="/ui/reticulum/rns" order="2"/>
-            <LXMF VisibleName="LXMF" url="/ui/reticulum/lxmf" order="3"/>
-            <Interfaces VisibleName="Interfaces" url="/ui/reticulum/interfaces" order="4"/>
-            <Utilities VisibleName="Utilities" url="/ui/reticulum/utilities" order="5"/>
-            <Status VisibleName="Status" url="/ui/reticulum/status" order="6"/>
+            <Interfaces VisibleName="Interfaces" url="/ui/reticulum/interfaces" order="3"/>
+            <Utilities VisibleName="Utilities" url="/ui/reticulum/utilities" order="4"/>
+            <Status VisibleName="Status" url="/ui/reticulum/status" order="5"/>
         </Reticulum>
     </Services>
 </menu>

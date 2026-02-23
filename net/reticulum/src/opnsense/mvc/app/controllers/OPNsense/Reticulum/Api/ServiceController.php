@@ -50,7 +50,7 @@ class ServiceController extends ApiMutableServiceControllerBase
         $mdl = $this->getModel();
         $enabled = (string)$mdl->getNodeByReference('general.enabled') === '1';
         if (!$enabled) {
-            return ['status' => 'disabled', 'rnsd' => false, 'lxmd' => false];
+            return ['status' => 'disabled', 'rnsd' => false];
         }
         $backend = new Backend();
         $response = trim($backend->configdRun('reticulum status'));

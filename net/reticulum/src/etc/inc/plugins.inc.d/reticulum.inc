@@ -30,9 +30,7 @@
 use OPNsense\Reticulum\Reticulum;
 
 /**
- * Register Reticulum services with the OPNsense service manager.
- * RNSD and LXMD are registered as independent services so they appear
- * separately on the Services dashboard and can be individually controlled.
+ * Register Reticulum with the OPNsense service manager.
  * @return array
  */
 function reticulum_services()
@@ -45,26 +43,12 @@ function reticulum_services()
             'name' => 'reticulum',
             'description' => 'Reticulum Network Daemon (rnsd)',
             'configd' => array(
-                'start' => array('reticulum start_rnsd'),
-                'stop' => array('reticulum stop_rnsd'),
+                'start'   => array('reticulum start_rnsd'),
+                'stop'    => array('reticulum stop_rnsd'),
                 'restart' => array('reticulum restart_rnsd'),
             ),
             'nocheck' => false,
-            'pidfile' => '/var/run/rnsd.pid'
-        );
-    }
-
-    if ((string)$mdl->general->enable_lxmf === '1') {
-        $services[] = array(
-            'name' => 'lxmf',
-            'description' => 'LXMF Messaging Daemon (lxmd)',
-            'configd' => array(
-                'start' => array('reticulum start_lxmd'),
-                'stop' => array('reticulum stop_lxmd'),
-                'restart' => array('reticulum restart_lxmd'),
-            ),
-            'nocheck' => false,
-            'pidfile' => '/var/run/lxmd.pid'
+            'pidfile' => '/var/run/rnsd.pid',
         );
     }
 
@@ -72,7 +56,7 @@ function reticulum_services()
 }
 
 /**
- * Hook called when configuration changes — regenerate configs and restart services
+ * Hook called when configuration changes — regenerate configs and restart service.
  * @param bool $verbose
  */
 function reticulum_configure($verbose = false)
@@ -83,29 +67,17 @@ function reticulum_configure($verbose = false)
 
     $mdl = new Reticulum();
     $rnsdEnabled = (string)$mdl->general->enabled === '1';
-    $lxmdEnabled = (string)$mdl->general->enable_lxmf === '1';
-
-    // Always regenerate configuration files from templates
-    if ($rnsdEnabled || $lxmdEnabled) {
-        configd_run('template reload OPNsense/Reticulum');
-    }
 
     if ($rnsdEnabled) {
+        configd_run('template reload OPNsense/Reticulum');
         configd_run('reticulum restart_rnsd');
     } else {
         configd_run('reticulum stop_rnsd');
     }
-
-    if ($lxmdEnabled) {
-        configd_run('reticulum restart_lxmd');
-    } else {
-        configd_run('reticulum stop_lxmd');
-    }
 }
 
 /**
- * Generate firewall rules for Reticulum interfaces.
- * Dynamically creates inbound allow rules for configured listener ports.
+ * Generate firewall rules for Reticulum listener interfaces.
  * @param object $fw firmware rules object
  */
 function reticulum_firewall($fw)
@@ -132,12 +104,12 @@ function reticulum_firewall($fw)
                     $fw->registerFilterRule(
                         500000,
                         array(
-                            'protocol' => 'tcp',
-                            'to_port' => $port,
-                            'to' => '(self)',
+                            'protocol'  => 'tcp',
+                            'to_port'   => $port,
+                            'to'        => '(self)',
                             'direction' => 'in',
-                            'label' => "Reticulum TCP: {$ifaceName}",
-                            '#ref' => "ui/reticulum/interfaces"
+                            'label'     => "Reticulum TCP: {$ifaceName}",
+                            '#ref'      => "ui/reticulum/interfaces",
                         )
                     );
                 }
@@ -149,12 +121,12 @@ function reticulum_firewall($fw)
                     $fw->registerFilterRule(
                         500000,
                         array(
-                            'protocol' => 'udp',
-                            'to_port' => $port,
-                            'to' => '(self)',
+                            'protocol'  => 'udp',
+                            'to_port'   => $port,
+                            'to'        => '(self)',
                             'direction' => 'in',
-                            'label' => "Reticulum UDP: {$ifaceName}",
-                            '#ref' => "ui/reticulum/interfaces"
+                            'label'     => "Reticulum UDP: {$ifaceName}",
+                            '#ref'      => "ui/reticulum/interfaces",
                         )
                     );
                 }
@@ -162,17 +134,17 @@ function reticulum_firewall($fw)
 
             case 'AutoInterface':
                 $discoveryPort = (string)$iface->auto_discovery_port;
-                $dataPort = (string)$iface->auto_data_port;
+                $dataPort      = (string)$iface->auto_data_port;
                 if (!empty($discoveryPort)) {
                     $fw->registerFilterRule(
                         500000,
                         array(
-                            'protocol' => 'udp',
-                            'to_port' => $discoveryPort,
-                            'to' => '(self)',
+                            'protocol'  => 'udp',
+                            'to_port'   => $discoveryPort,
+                            'to'        => '(self)',
                             'direction' => 'in',
-                            'label' => "Reticulum Auto Discovery: {$ifaceName}",
-                            '#ref' => "ui/reticulum/interfaces"
+                            'label'     => "Reticulum Auto Discovery: {$ifaceName}",
+                            '#ref'      => "ui/reticulum/interfaces",
                         )
                     );
                 }
@@ -180,18 +152,18 @@ function reticulum_firewall($fw)
                     $fw->registerFilterRule(
                         500000,
                         array(
-                            'protocol' => 'udp',
-                            'to_port' => $dataPort,
-                            'to' => '(self)',
+                            'protocol'  => 'udp',
+                            'to_port'   => $dataPort,
+                            'to'        => '(self)',
                             'direction' => 'in',
-                            'label' => "Reticulum Auto Data: {$ifaceName}",
-                            '#ref' => "ui/reticulum/interfaces"
+                            'label'     => "Reticulum Auto Data: {$ifaceName}",
+                            '#ref'      => "ui/reticulum/interfaces",
                         )
                     );
                 }
                 break;
 
-            // Serial/RNode/KISS/AX.25/I2P interfaces don't need firewall rules
+            // Serial/RNode/KISS/AX.25/I2P interfaces do not need firewall rules
             default:
                 break;
         }
@@ -199,28 +171,28 @@ function reticulum_firewall($fw)
 }
 
 /**
- * Register syslog facilities for Reticulum
+ * Register syslog facility for Reticulum.
  * @return array
  */
 function reticulum_syslog()
 {
     return array(
         'reticulum' => array(
-            'facility' => array('reticulum', 'lxmd')
-        )
+            'facility' => array('reticulum'),
+        ),
     );
 }
 
 /**
- * HA sync support for Reticulum configuration
+ * HA sync support for Reticulum configuration.
  * @return array
  */
 function reticulum_xmlrpc_sync()
 {
     $result = array();
-    $result['id'] = 'reticulum';
-    $result['section'] = 'OPNsense.Reticulum';
+    $result['id']          = 'reticulum';
+    $result['section']     = 'OPNsense.Reticulum';
     $result['description'] = 'Reticulum Network Stack';
-    $result['services'] = array('reticulum', 'lxmf');
+    $result['services']    = array('reticulum');
     return array($result);
 }

@@ -1,12 +1,9 @@
 #!/bin/sh
 
 # OPNsense Reticulum Plugin — Post-Deinstallation Script
-# Removes Reticulum and LXMF pip-installed packages on plugin removal.
+# Removes the Reticulum (RNS) pip-installed package on plugin removal.
 
 PYTHON="/usr/local/bin/python3.11"
-
-echo "Removing LXMF pip package..."
-"${PYTHON}" -m pip uninstall --quiet --yes lxmf 2>/dev/null || true
 
 echo "Removing Reticulum (rns) pip package..."
 "${PYTHON}" -m pip uninstall --quiet --yes rns 2>/dev/null || true

@@ -58,29 +58,9 @@ class SettingsController extends ApiMutableModelControllerBase
     }
 
     /**
-     * Retrieve propagation settings
-     * @return array
-     */
-    public function getPropagationAction()
-    {
-        $mdl = $this->getModel();
-        $node = $mdl->getNodeByReference('propagation');
-        return ['propagation' => $node !== null ? $node->getNodes() : []];
-    }
-
-    /**
-     * Update propagation settings (ContainerField — cannot use setBase)
-     * @return array
-     */
-    public function setPropagationAction()
-    {
-        return $this->saveContainerSettings('propagation', 'propagation');
-    }
-
-    /**
      * Save a ContainerField node from POST data.
      * setBase() calls Add() which only works on ArrayFields, so plain
-     * container nodes (general, propagation) need manual handling.
+     * container nodes (e.g. general) need manual handling.
      *
      * @param string $postKey  key in $_POST that wraps the field values
      * @param string $nodePath model node reference (e.g. 'general')
