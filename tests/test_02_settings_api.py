@@ -1,12 +1,22 @@
-"""Test 02: Settings API round-trip and validation.
-
-Tests GET/SET operations for general and propagation settings,
-including round-trip consistency and invalid input rejection.
-"""
+"""Test 02: Settings API round-trip and validation."""
 
 import pytest
 
 pytestmark = pytest.mark.integration
+
+
+def _selected_dropdown(field):
+    """Extract the selected value from an OPNsense OptionField.
+
+    OPNsense returns OptionFields as a list of dicts like:
+      [{"selected": 0, "value": "0 - None"}, {"selected": 1, "value": "7 - Debug"}, ...]
+    Falls back to str(field) for plain values.
+    """
+    if isinstance(field, list):
+        for item in field:
+            if isinstance(item, dict) and item.get("selected"):
+                return item.get("value", "")
+    return str(field) if field is not None else ""
 
 
 class TestGeneralSettings:
@@ -34,7 +44,8 @@ class TestGeneralSettings:
         assert result.get("result") == "saved"
 
         resp = api.get_settings()
-        assert resp["reticulum"]["loglevel"] == "7"
+        loglevel = _selected_dropdown(resp["reticulum"]["loglevel"])
+        assert "7" in loglevel, f"Expected loglevel containing '7', got: {loglevel}"
 
     def test_set_transport_enabled(self, api):
         """Enable transport mode."""
@@ -59,45 +70,4 @@ class TestGeneralSettings:
     def test_invalid_port_rejected(self, api):
         """POST invalid port value returns validation error."""
         result = api.set_settings({"shared_instance_port": "99999"})
-        assert "validations" in result or result.get("result") == "failed"
-
-
-class TestPropagationSettings:
-    """Propagation settings GET/SET round-trip tests."""
-
-    def test_get_defaults(self, api):
-        """GET returns default propagation settings."""
-        resp = api.get_propagation()
-        assert "propagation" in resp
-        prop = resp["propagation"]
-        assert "enabled" in prop
-        assert "message_storage_limit" in prop
-
-    def test_enable_propagation(self, api):
-        """Enable propagation node."""
-        result = api.set_propagation({"enabled": "1"})
-        assert result.get("result") == "saved"
-
-        resp = api.get_propagation()
-        assert resp["propagation"]["enabled"] == "1"
-
-    def test_set_storage_limit(self, api):
-        """Set message_storage_limit."""
-        result = api.set_propagation({"message_storage_limit": "5000"})
-        assert result.get("result") == "saved"
-
-        resp = api.get_propagation()
-        assert resp["propagation"]["message_storage_limit"] == "5000"
-
-    def test_set_sync_interval(self, api):
-        """Set periodic_sync_interval."""
-        result = api.set_propagation({"periodic_sync_interval": "600"})
-        assert result.get("result") == "saved"
-
-        resp = api.get_propagation()
-        assert resp["propagation"]["periodic_sync_interval"] == "600"
-
-    def test_invalid_sync_interval_rejected(self, api):
-        """Sync interval below minimum (10) is rejected."""
-        result = api.set_propagation({"periodic_sync_interval": "1"})
         assert "validations" in result or result.get("result") == "failed"

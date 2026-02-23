@@ -1,8 +1,6 @@
-"""Test 12: New status/diagnostics API endpoints.
+"""Test 12: Extended diagnostics API endpoints.
 
-Tests the five diagnostics endpoints added in the UI refactor:
-generalStatus, rnsdInfo, lxmfInfo, propagationDetail, interfacesDetail.
-
+Tests the diagnostics endpoints: generalStatus, rnsdInfo, interfacesDetail.
 Requires rnsd to be running with at least one interface configured.
 """
 
@@ -12,15 +10,13 @@ import pytest
 
 pytestmark = pytest.mark.integration
 
-LXMD_BIN = "/usr/local/bin/lxmd"
-
 
 @pytest.fixture(autouse=True, scope="module")
 def ensure_rnsd_running(request):
     """Start rnsd with an AutoInterface before new diagnostics tests."""
     api = request.getfixturevalue("api")
 
-    api.set_settings({"enabled": "1", "enable_lxmf": "0"})
+    api.set_settings({"enabled": "1"})
     result = api.add_interface({
         "name": "CI Diag New Test",
         "interfaceType": "AutoInterface",
@@ -46,7 +42,7 @@ def ensure_rnsd_running(request):
             api.del_interface(uuid)
         except Exception:
             pass
-    api.set_settings({"enabled": "0", "enable_lxmf": "0"})
+    api.set_settings({"enabled": "0"})
 
 
 class TestGeneralStatus:
@@ -109,85 +105,8 @@ class TestRNSDInfo:
         data = resp.get("data", {})
         uptime = data.get("uptime")
         assert uptime is not None, f"Missing uptime in rnsdInfo: {data}"
-        # uptime may be a string description or a number
         if isinstance(uptime, (int, float)):
             assert uptime >= 0
-
-
-class TestLXMFInfo:
-    """lxmfInfo endpoint — LXMD daemon state."""
-
-    def test_lxmf_info_stopped_when_disabled(self, api):
-        """lxmfInfo reports running=False when lxmd is not running."""
-        resp = api.diag_lxmf_info()
-        assert resp.get("status") == "ok", f"Unexpected status: {resp}"
-        data = resp.get("data", {})
-        assert data.get("running") is False, (
-            f"Expected running=False (lxmd disabled), got: {data}"
-        )
-
-    def test_lxmf_info_running_when_enabled(self, api, ssh, wait_for_service):
-        """lxmfInfo reports running=True when lxmd is active."""
-        # Enable LXMF unbound so it can start without rnsd dependency issues
-        api.set_settings({"enable_lxmf": "1", "lxmf_bind_to_rnsd": "0"})
-        api.set_propagation({"enabled": "1"})
-        api.service_reconfigure()
-        time.sleep(3)
-
-        ssh("configd reticulum start_lxmd", timeout=30)
-
-        def lxmd_up():
-            _, _, rc = ssh(f"pgrep -f {LXMD_BIN}")
-            return rc == 0
-
-        wait_for_service(lxmd_up, "lxmd running", timeout=30)
-
-        resp = api.diag_lxmf_info()
-        assert resp.get("status") == "ok"
-        data = resp.get("data", {})
-        assert data.get("running") is True, f"Expected running=True: {data}"
-        assert data.get("version"), f"Empty version while lxmd running: {data}"
-
-        # Cleanup
-        ssh("configd reticulum stop_lxmd", timeout=30)
-        time.sleep(2)
-        api.set_propagation({"enabled": "0"})
-        api.set_settings({"enable_lxmf": "0", "lxmf_bind_to_rnsd": "1"})
-        api.service_reconfigure()
-
-
-class TestPropagationDetail:
-    """propagationDetail endpoint structure."""
-
-    def test_propagation_detail_returns_ok(self, api):
-        """GET propagationDetail returns status=ok."""
-        resp = api.diag_propagation_detail()
-        assert resp.get("status") == "ok", f"Unexpected status: {resp}"
-
-    def test_propagation_detail_has_expected_keys(self, api):
-        """propagationDetail data contains all required keys."""
-        resp = api.diag_propagation_detail()
-        data = resp.get("data", {})
-        for key in ("running", "message_count", "storage_mb", "storage_used_pct", "peer_count", "errors"):
-            assert key in data, f"Missing key '{key}' in propagationDetail: {data}"
-
-    def test_storage_mb_is_non_negative(self, api):
-        """storage_mb is a non-negative number."""
-        resp = api.diag_propagation_detail()
-        data = resp.get("data", {})
-        storage_mb = data.get("storage_mb", -1)
-        assert isinstance(storage_mb, (int, float)) and storage_mb >= 0, (
-            f"storage_mb is not non-negative: {storage_mb}"
-        )
-
-    def test_storage_used_pct_in_range(self, api):
-        """storage_used_pct is between 0 and 100."""
-        resp = api.diag_propagation_detail()
-        data = resp.get("data", {})
-        pct = data.get("storage_used_pct", -1)
-        assert isinstance(pct, (int, float)) and 0 <= pct <= 100, (
-            f"storage_used_pct out of range: {pct}"
-        )
 
 
 class TestInterfacesDetail:
