@@ -1,5 +1,7 @@
 # os-reticulum — OPNsense Reticulum Plugin
 
+'''This is a work in progress and does not work yet'''
+
 An OPNsense plugin that turns your firewall into a fully managed [Reticulum](https://reticulum.network/) transport node and [LXMF](https://github.com/markqvist/LXMF) propagation node, with complete GUI configuration, automatic firewall rules, and real-time diagnostics.
 
 ## Overview
