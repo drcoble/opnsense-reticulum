@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<form>
-    <field>
-        <id>general.enabled</id>
-        <label>Enable RNSD</label>
-        <type>checkbox</type>
-        <help>Enable the Reticulum network daemon (rnsd). This is the core transport node that provides connectivity over the Reticulum network.</help>
-    </field>
-</form>
