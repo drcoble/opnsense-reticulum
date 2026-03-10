@@ -1,0 +1,135 @@
+#!/bin/sh
+
+set -e
+
+VENV_PATH="/usr/local/reticulum-venv"
+SVC_USER="reticulum"
+SVC_HOME="/var/db/reticulum"
+SRC_BASE="/usr/local/reticulum-src"
+
+RNS_REPO="https://github.com/markqvist/Reticulum"
+LXMF_REPO="https://github.com/markqvist/LXMF"
+RNS_SRC="${SRC_BASE}/reticulum"
+LXMF_SRC="${SRC_BASE}/lxmf"
+
+# --- Dependency check (must pass before any work) ---
+
+check_dep() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "[reticulum] ERROR: $1 not found. $2" >&2
+        exit 1
+    fi
+}
+
+check_pkg() {
+    _pkg="$1"
+    if ! pkg info -e "${_pkg}" 2>/dev/null; then
+        echo "[reticulum] ERROR: package ${_pkg} is not installed. Install with: pkg install ${_pkg}" >&2
+        exit 1
+    fi
+}
+
+check_dep python3.11  "Install with: pkg install python311"
+check_dep git         "Install with: pkg install git"
+check_dep gcc         "gcc is expected in FreeBSD base. Verify base system integrity."
+check_pkg py311-setuptools
+
+# --- Create service user if not exists ---
+
+if ! pw usershow ${SVC_USER} >/dev/null 2>&1; then
+    pw useradd ${SVC_USER} \
+        -d ${SVC_HOME} \
+        -s /usr/sbin/nologin \
+        -c "Reticulum Network Stack" \
+        -m
+fi
+
+# Add user to dialer group (serial/USB device access)
+pw groupmod dialer -m ${SVC_USER} 2>/dev/null || true
+
+# --- Create directories ---
+
+mkdir -p /usr/local/etc/reticulum
+mkdir -p /usr/local/etc/lxmf
+mkdir -p ${SVC_HOME}
+mkdir -p /var/db/lxmf
+mkdir -p /var/log/reticulum
+mkdir -p ${SRC_BASE}
+
+# Set ownership and permissions
+chown -R ${SVC_USER}:${SVC_USER} /usr/local/etc/reticulum
+chown -R ${SVC_USER}:${SVC_USER} /usr/local/etc/lxmf
+chown -R ${SVC_USER}:${SVC_USER} ${SVC_HOME}
+chown -R ${SVC_USER}:${SVC_USER} /var/db/lxmf
+chown -R ${SVC_USER}:${SVC_USER} /var/log/reticulum
+
+chmod 700 /usr/local/etc/reticulum
+chmod 700 /usr/local/etc/lxmf
+chmod 700 ${SVC_HOME}
+chmod 700 /var/db/lxmf
+chmod 750 /var/log/reticulum
+
+# --- Create or update virtualenv ---
+
+if [ ! -d "${VENV_PATH}" ]; then
+    python3.11 -m venv ${VENV_PATH}
+fi
+
+# --- Clone or update source repos ---
+
+fetch_source() {
+    _repo_url="$1"
+    _dest_dir="$2"
+    _name="$3"
+
+    if [ -d "${_dest_dir}/.git" ]; then
+        echo "Updating ${_name} source..."
+        if ! git -C "${_dest_dir}" pull; then
+            echo "[reticulum] ERROR: git pull failed for ${_name}" >&2
+            exit 1
+        fi
+    else
+        echo "Cloning ${_name} source..."
+        rm -rf "${_dest_dir}"
+        if ! git clone "${_repo_url}" "${_dest_dir}"; then
+            echo "[reticulum] ERROR: git clone failed for ${_name}" >&2
+            exit 1
+        fi
+    fi
+}
+
+fetch_source "${RNS_REPO}" "${RNS_SRC}" "Reticulum"
+fetch_source "${LXMF_REPO}" "${LXMF_SRC}" "LXMF"
+
+# --- Build and install from source into venv ---
+
+install_from_source() {
+    _src_dir="$1"
+    _name="$2"
+
+    echo "Installing ${_name} from source..."
+    if ! (cd "${_src_dir}" && ${VENV_PATH}/bin/pip install --upgrade . 2>&1); then
+        echo "[reticulum] ERROR: pip install failed for ${_name}" >&2
+        exit 1
+    fi
+}
+
+install_from_source "${RNS_SRC}" "Reticulum (rns)"
+install_from_source "${LXMF_SRC}" "LXMF"
+
+# --- Clean pip cache ---
+
+${VENV_PATH}/bin/pip cache purge 2>/dev/null || true
+
+# --- Record installed versions (git describe) ---
+
+RNS_VER=$(git -C "${RNS_SRC}" describe --tags --always 2>/dev/null)
+LXMF_VER=$(git -C "${LXMF_SRC}" describe --tags --always 2>/dev/null)
+
+printf "rns=%s\n" "${RNS_VER:-unknown}" > ${SVC_HOME}/.pkg-versions
+printf "lxmf=%s\n" "${LXMF_VER:-unknown}" >> ${SVC_HOME}/.pkg-versions
+chown ${SVC_USER}:${SVC_USER} ${SVC_HOME}/.pkg-versions
+
+echo "Reticulum installed: rns=${RNS_VER:-unknown}, lxmf=${LXMF_VER:-unknown}"
+
+exit 0

@@ -1,0 +1,696 @@
+<?xml version="1.0"?>
+<model>
+    <mount>//OPNsense/Reticulum</mount>
+    <version>1.0.0</version>
+    <description>Reticulum Network Stack and LXMF Propagation Node</description>
+    <items>
+        <general>
+            <!-- Service enable -->
+            <enabled type="BooleanField">
+                <Required>Y</Required>
+                <Default>0</Default>
+                <ValidationMessage>Service enabled state is required</ValidationMessage>
+            </enabled>
+
+            <!-- Transport -->
+            <enable_transport type="BooleanField">
+                <Default>0</Default>
+            </enable_transport>
+
+            <!-- Instance sharing -->
+            <share_instance type="BooleanField">
+                <Default>1</Default>
+            </share_instance>
+
+            <shared_instance_port type="PortField">
+                <Default>37428</Default>
+                <ValidationMessage>Must be a valid port (1-65535)</ValidationMessage>
+            </shared_instance_port>
+
+            <instance_control_port type="PortField">
+                <Default>37429</Default>
+                <ValidationMessage>Must be a valid port (1-65535)</ValidationMessage>
+            </instance_control_port>
+
+            <!-- Error handling -->
+            <panic_on_interface_error type="BooleanField">
+                <Default>0</Default>
+            </panic_on_interface_error>
+
+            <respond_to_probes type="BooleanField">
+                <Default>0</Default>
+            </respond_to_probes>
+
+            <!-- Remote management -->
+            <enable_remote_management type="BooleanField">
+                <Default>0</Default>
+            </enable_remote_management>
+
+            <remote_management_allowed type="CSVListField">
+                <Mask>/^[0-9a-f]{32,64}$/</Mask>
+                <MaskPerItem>Y</MaskPerItem>
+                <ValidationMessage>Each entry must be a valid hex identity hash (32-64 chars)</ValidationMessage>
+            </remote_management_allowed>
+
+            <!-- rpc_key: write-only (UpdateOnlyTextField never returned in GET).
+                 Empty = unset. When set, minimum 32 hex chars (128-bit security). -->
+            <rpc_key type="UpdateOnlyTextField">
+                <Mask>/^([0-9a-f]{32,128})?$/</Mask>
+                <ValidationMessage>RPC key must be empty (unset) or 32-128 lowercase hex characters</ValidationMessage>
+            </rpc_key>
+
+            <!-- Logging -->
+            <loglevel type="IntegerField">
+                <Default>4</Default>
+                <MinimumValue>0</MinimumValue>
+                <MaximumValue>7</MaximumValue>
+                <ValidationMessage>Log level must be 0-7</ValidationMessage>
+            </loglevel>
+
+            <!-- logfile: restrict to /var/log/reticulum/ to prevent path traversal -->
+            <logfile type="TextField">
+                <Default>/var/log/reticulum/rnsd.log</Default>
+                <Mask>/^\/var\/log\/reticulum\/[a-zA-Z0-9._-]{1,64}$/</Mask>
+                <ValidationMessage>Log file must be a filename under /var/log/reticulum/</ValidationMessage>
+            </logfile>
+        </general>
+
+        <interfaces>
+            <interface type="ArrayField">
+                <!-- UniqueIdField REQUIRED: provides the UUID key for all API CRUD operations
+                     (addItem/getItem/setItem/delItem). Must be first child of every ArrayField. -->
+                <uuid type="UniqueIdField">
+                    <Required>N</Required>
+                </uuid>
+
+                <!-- ===== COMMON FIELDS (all types) ===== -->
+
+                <enabled type="BooleanField">
+                    <Default>1</Default>
+                    <Required>Y</Required>
+                </enabled>
+
+                <name type="TextField">
+                    <Required>Y</Required>
+                    <Mask>/^[a-zA-Z0-9 _-]{1,64}$/</Mask>
+                    <ValidationMessage>Name required: 1-64 chars, alphanumeric/spaces/underscore/dash</ValidationMessage>
+                </name>
+
+                <type type="OptionField">
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <AutoInterface>AutoInterface</AutoInterface>
+                        <TCPServerInterface>TCPServerInterface</TCPServerInterface>
+                        <TCPClientInterface>TCPClientInterface</TCPClientInterface>
+                        <UDPInterface>UDPInterface</UDPInterface>
+                        <I2PInterface>I2PInterface</I2PInterface>
+                        <RNodeInterface>RNodeInterface</RNodeInterface>
+                        <RNodeMultiInterface>RNodeMultiInterface</RNodeMultiInterface>
+                        <SerialInterface>SerialInterface</SerialInterface>
+                        <KISSInterface>KISSInterface</KISSInterface>
+                        <AX25KISSInterface>AX25KISSInterface</AX25KISSInterface>
+                        <PipeInterface>PipeInterface</PipeInterface>
+                        <BackboneInterface>BackboneInterface</BackboneInterface>
+                    </OptionValues>
+                </type>
+
+                <mode type="OptionField">
+                    <Default>full</Default>
+                    <OptionValues>
+                        <full>Full</full>
+                        <gateway>Gateway</gateway>
+                        <access_point>Access Point</access_point>
+                        <roaming>Roaming</roaming>
+                        <boundary>Boundary</boundary>
+                    </OptionValues>
+                </mode>
+
+                <outgoing type="BooleanField">
+                    <Default>1</Default>
+                </outgoing>
+
+                <!-- IFAC settings -->
+                <!-- network_name: reject newlines and INI structural characters to prevent config injection -->
+                <network_name type="TextField">
+                    <Mask>/^[^\n\r\[\]=]{0,128}$/</Mask>
+                    <ValidationMessage>Network name must not contain newlines, brackets, or equals signs</ValidationMessage>
+                </network_name>
+
+                <!-- passphrase: write-only, never returned in GET responses -->
+                <passphrase type="UpdateOnlyTextField" />
+
+                <ifac_size type="IntegerField">
+                    <MinimumValue>8</MinimumValue>
+                    <MaximumValue>512</MaximumValue>
+                    <ValidationMessage>IFAC size must be 8-512 bits</ValidationMessage>
+                </ifac_size>
+
+                <!-- General limits -->
+                <announce_cap type="IntegerField">
+                    <MinimumValue>1</MinimumValue>
+                    <MaximumValue>100</MaximumValue>
+                    <ValidationMessage>Announce cap must be 1-100 percent</ValidationMessage>
+                </announce_cap>
+
+                <bitrate type="IntegerField">
+                    <MinimumValue>1</MinimumValue>
+                    <MaximumValue>10000000000</MaximumValue>
+                    <ValidationMessage>Bitrate must be at least 1 bps</ValidationMessage>
+                </bitrate>
+
+                <bootstrap_only type="BooleanField">
+                    <Default>0</Default>
+                </bootstrap_only>
+
+                <!-- ===== TCP/IP FIELDS ===== -->
+
+                <!-- listen_ip: restrict to valid IPv4/IPv6 address characters -->
+                <listen_ip type="TextField">
+                    <Default>0.0.0.0</Default>
+                    <Mask>/^[0-9a-fA-F:.]{1,45}$/</Mask>
+                    <ValidationMessage>Must be a valid IPv4 or IPv6 address</ValidationMessage>
+                </listen_ip>
+
+                <listen_port type="PortField">
+                    <Default>4242</Default>
+                </listen_port>
+
+                <!-- target_host: use HostnameField for built-in hostname/IP validation -->
+                <target_host type="HostnameField" />
+
+                <target_port type="PortField">
+                    <Default>4242</Default>
+                </target_port>
+
+                <!-- device: OS network interface name to bind to (e.g., em0, igb1) -->
+                <device type="TextField">
+                    <Mask>/^[a-zA-Z][a-zA-Z0-9_]{0,15}$/</Mask>
+                    <ValidationMessage>Must be a valid OS network interface name (e.g., em0)</ValidationMessage>
+                </device>
+
+                <prefer_ipv6 type="BooleanField">
+                    <Default>0</Default>
+                </prefer_ipv6>
+
+                <i2p_tunneled type="BooleanField">
+                    <Default>0</Default>
+                </i2p_tunneled>
+
+                <kiss_framing type="BooleanField">
+                    <Default>0</Default>
+                </kiss_framing>
+
+                <fixed_mtu type="IntegerField" />
+
+                <!-- UDP specific -->
+                <!-- forward_ip: restrict to valid IPv4/IPv6 address characters -->
+                <forward_ip type="TextField">
+                    <Mask>/^[0-9a-fA-F:.]{0,45}$/</Mask>
+                    <ValidationMessage>Must be a valid IPv4 or IPv6 address</ValidationMessage>
+                </forward_ip>
+
+                <forward_port type="PortField">
+                    <Default>4242</Default>
+                </forward_port>
+
+                <!-- ===== SERIAL/RADIO FIELDS ===== -->
+
+                <!-- port: serial device path — restrict to /dev/ to prevent path traversal -->
+                <port type="TextField">
+                    <Mask>/^\/dev\/[a-zA-Z0-9._-]{1,64}$/</Mask>
+                    <ValidationMessage>Must be a valid device path (e.g., /dev/cuaU0)</ValidationMessage>
+                </port>
+
+                <speed type="IntegerField">
+                    <Default>9600</Default>
+                </speed>
+
+                <databits type="IntegerField">
+                    <Default>8</Default>
+                    <MinimumValue>5</MinimumValue>
+                    <MaximumValue>8</MaximumValue>
+                </databits>
+
+                <parity type="OptionField">
+                    <Default>none</Default>
+                    <OptionValues>
+                        <none>None</none>
+                        <even>Even</even>
+                        <odd>Odd</odd>
+                    </OptionValues>
+                </parity>
+
+                <stopbits type="IntegerField">
+                    <Default>1</Default>
+                    <MinimumValue>1</MinimumValue>
+                    <MaximumValue>2</MaximumValue>
+                </stopbits>
+
+                <flow_control type="BooleanField">
+                    <Default>0</Default>
+                </flow_control>
+
+                <!-- RNode radio parameters -->
+                <!-- frequency: Hz — covers all LoRa/RNode ISM bands (100 MHz – 2.5 GHz) -->
+                <frequency type="IntegerField">
+                    <MinimumValue>100000000</MinimumValue>
+                    <MaximumValue>2500000000</MaximumValue>
+                    <ValidationMessage>Frequency must be 100000000–2500000000 Hz (100 MHz–2.5 GHz)</ValidationMessage>
+                </frequency>
+
+                <!-- bandwidth: Hz — LoRa supported values: 7800–500000 -->
+                <bandwidth type="IntegerField">
+                    <MinimumValue>7800</MinimumValue>
+                    <MaximumValue>500000</MaximumValue>
+                    <ValidationMessage>Bandwidth must be 7800–500000 Hz</ValidationMessage>
+                </bandwidth>
+
+                <txpower type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                    <MaximumValue>22</MaximumValue>
+                    <ValidationMessage>TX power must be 0-22 dBm</ValidationMessage>
+                </txpower>
+
+                <spreadingfactor type="IntegerField">
+                    <MinimumValue>7</MinimumValue>
+                    <MaximumValue>12</MaximumValue>
+                    <ValidationMessage>Spreading factor must be 7-12</ValidationMessage>
+                </spreadingfactor>
+
+                <codingrate type="IntegerField">
+                    <MinimumValue>5</MinimumValue>
+                    <MaximumValue>8</MaximumValue>
+                    <ValidationMessage>Coding rate must be 5-8</ValidationMessage>
+                </codingrate>
+
+                <airtime_limit_long type="NumericField">
+                    <MinimumValue>0</MinimumValue>
+                    <MaximumValue>100</MaximumValue>
+                    <ValidationMessage>Airtime limit must be 0-100 percent</ValidationMessage>
+                </airtime_limit_long>
+
+                <airtime_limit_short type="NumericField">
+                    <MinimumValue>0</MinimumValue>
+                    <MaximumValue>100</MaximumValue>
+                    <ValidationMessage>Airtime limit must be 0-100 percent</ValidationMessage>
+                </airtime_limit_short>
+
+                <!-- AX.25 / identification -->
+                <!-- callsign: uppercase amateur radio callsign, optionally with SSID suffix -->
+                <callsign type="TextField">
+                    <Mask>/^[A-Z0-9]{0,7}(-[0-9]{1,2})?$/</Mask>
+                    <ValidationMessage>Must be a valid uppercase callsign (e.g., N0CALL or N0CALL-5)</ValidationMessage>
+                </callsign>
+
+                <ssid type="IntegerField">
+                    <Default>0</Default>
+                    <MinimumValue>0</MinimumValue>
+                    <MaximumValue>15</MaximumValue>
+                    <ValidationMessage>SSID must be 0-15</ValidationMessage>
+                </ssid>
+
+                <!-- id_callsign: identification callsign for KISS/RNode interfaces -->
+                <id_callsign type="TextField">
+                    <Mask>/^[A-Z0-9]{0,7}(-[0-9]{1,2})?$/</Mask>
+                    <ValidationMessage>Must be a valid uppercase callsign (e.g., N0CALL)</ValidationMessage>
+                </id_callsign>
+
+                <id_interval type="IntegerField">
+                    <MinimumValue>1</MinimumValue>
+                </id_interval>
+
+                <!-- KISS TNC parameters -->
+                <preamble type="IntegerField" />
+                <txtail type="IntegerField" />
+                <persistence type="IntegerField" />
+                <slottime type="IntegerField" />
+
+                <!-- ===== AUTO INTERFACE FIELDS ===== -->
+
+                <!-- group_id: reject newlines and INI structural characters -->
+                <group_id type="TextField">
+                    <Mask>/^[^\n\r\[\]=]{0,128}$/</Mask>
+                    <ValidationMessage>Group ID must not contain newlines, brackets, or equals signs</ValidationMessage>
+                </group_id>
+
+                <multicast_address_type type="OptionField">
+                    <Default>temporary</Default>
+                    <OptionValues>
+                        <temporary>Temporary</temporary>
+                        <permanent>Permanent</permanent>
+                    </OptionValues>
+                </multicast_address_type>
+
+                <!-- devices / ignored_devices: OS network interface names (e.g., em0, igb1) -->
+                <devices type="CSVListField">
+                    <Mask>/^[a-zA-Z][a-zA-Z0-9_]{0,15}$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each entry must be a valid OS interface name (e.g., em0)</ValidationMessage>
+                </devices>
+
+                <ignored_devices type="CSVListField">
+                    <Mask>/^[a-zA-Z][a-zA-Z0-9_]{0,15}$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each entry must be a valid OS interface name (e.g., em0)</ValidationMessage>
+                </ignored_devices>
+
+                <discovery_scope type="OptionField">
+                    <Default>link</Default>
+                    <OptionValues>
+                        <link>Link</link>
+                        <admin>Admin</admin>
+                        <site>Site</site>
+                        <organisation>Organisation</organisation>
+                        <global>Global</global>
+                    </OptionValues>
+                </discovery_scope>
+
+                <discovery_port type="PortField">
+                    <Default>29716</Default>
+                </discovery_port>
+
+                <data_port type="PortField">
+                    <Default>42671</Default>
+                </data_port>
+
+                <!-- ===== I2P FIELDS ===== -->
+
+                <connectable type="BooleanField">
+                    <Default>0</Default>
+                </connectable>
+
+                <!-- i2p_peers: rendered into INI config as `peers = ...`
+                     Validate per-item to prevent INI injection via newlines/brackets.
+                     I2P base32 addresses are 52 lowercase base32 chars + .b32.i2p suffix. -->
+                <i2p_peers type="CSVListField">
+                    <Mask>/^[a-z2-7]{52}\.b32\.i2p$/</Mask>
+                    <MaskPerItem>Y</MaskPerItem>
+                    <ValidationMessage>Each entry must be a valid I2P base32 address (52 chars + .b32.i2p)</ValidationMessage>
+                </i2p_peers>
+
+                <!-- ===== PIPE FIELDS ===== -->
+
+                <!-- command: SECURITY NOTE — this value is rendered directly into the Reticulum
+                     INI config and executed by rnsd as a subprocess under the reticulum service
+                     user. The Mask below rejects newlines and INI structural characters to
+                     prevent config injection. The Phase 3 template must NOT emit this field
+                     without newline escaping. Restrict to absolute executable paths in the GUI.
+                     The reticulum user has access to identity keys, serial devices (dialer group),
+                     and all data in /var/db/reticulum/ and /var/db/lxmf/. -->
+                <command type="TextField">
+                    <Mask>/^[^\n\r\[\]]{0,512}$/</Mask>
+                    <ValidationMessage>Command must not contain newlines or INI section characters</ValidationMessage>
+                </command>
+
+                <respawn_delay type="IntegerField">
+                    <Default>5</Default>
+                    <MinimumValue>1</MinimumValue>
+                </respawn_delay>
+
+                <!-- ===== RNODEMULTI RAW BLOCK ===== -->
+
+                <!-- sub_interfaces_raw: SECURITY NOTE — this field is emitted verbatim into the
+                     Reticulum config file by the Phase 3 template (required because OPNsense
+                     ArrayField cannot nest sub-interfaces). Any authenticated admin with the
+                     reticulum ACL privilege can inject arbitrary INI content through this field.
+                     This is an accepted architectural trade-off. The GUI (Phase 5) must display
+                     a prominent warning. No Mask is applied because the field intentionally
+                     contains newlines and INI structure. -->
+                <sub_interfaces_raw type="TextField" />
+
+                <!-- ===== DISCOVERABLE SETTINGS (server/backbone) ===== -->
+
+                <discoverable type="BooleanField">
+                    <Default>0</Default>
+                </discoverable>
+
+                <!-- discovery_name: reject newlines and INI structural characters -->
+                <discovery_name type="TextField">
+                    <Mask>/^[^\n\r\[\]=]{0,128}$/</Mask>
+                    <ValidationMessage>Discovery name must not contain newlines, brackets, or equals signs</ValidationMessage>
+                </discovery_name>
+
+                <announce_interval type="IntegerField">
+                    <MinimumValue>5</MinimumValue>
+                    <ValidationMessage>Announce interval must be at least 5 minutes</ValidationMessage>
+                </announce_interval>
+
+                <!-- reachable_on: reject newlines and INI structural characters -->
+                <reachable_on type="TextField">
+                    <Mask>/^[^\n\r\[\]=]{0,255}$/</Mask>
+                    <ValidationMessage>Reachable-on value must not contain newlines, brackets, or equals signs</ValidationMessage>
+                </reachable_on>
+
+                <discovery_stamp_value type="IntegerField" />
+
+                <discovery_encrypt type="BooleanField">
+                    <Default>0</Default>
+                </discovery_encrypt>
+
+                <publish_ifac type="BooleanField">
+                    <Default>0</Default>
+                </publish_ifac>
+
+                <!-- Geolocation: valid geographic coordinate ranges -->
+                <latitude type="NumericField">
+                    <MinimumValue>-90</MinimumValue>
+                    <MaximumValue>90</MaximumValue>
+                    <ValidationMessage>Latitude must be -90 to 90</ValidationMessage>
+                </latitude>
+
+                <longitude type="NumericField">
+                    <MinimumValue>-180</MinimumValue>
+                    <MaximumValue>180</MaximumValue>
+                    <ValidationMessage>Longitude must be -180 to 180</ValidationMessage>
+                </longitude>
+
+                <height type="NumericField" />
+
+                <!-- ===== ANNOUNCE RATE CONTROL ===== -->
+
+                <announce_rate_target type="IntegerField">
+                    <MinimumValue>1</MinimumValue>
+                </announce_rate_target>
+
+                <announce_rate_grace type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                </announce_rate_grace>
+
+                <announce_rate_penalty type="IntegerField">
+                    <MinimumValue>0</MinimumValue>
+                </announce_rate_penalty>
+
+                <!-- ===== INGRESS CONTROL ===== -->
+
+                <ingress_control type="BooleanField">
+                    <Default>0</Default>
+                </ingress_control>
+
+                <ic_new_time type="IntegerField" />
+                <ic_burst_freq_new type="NumericField" />
+                <ic_burst_freq type="NumericField" />
+                <ic_max_held_announces type="IntegerField" />
+                <ic_burst_hold type="IntegerField" />
+                <ic_burst_penalty type="IntegerField" />
+                <ic_held_release_interval type="IntegerField" />
+            </interface>
+        </interfaces>
+
+        <lxmf>
+            <!-- Service -->
+            <enabled type="BooleanField">
+                <Required>Y</Required>
+                <Default>0</Default>
+            </enabled>
+
+            <!-- display_name: explicit newline rejection -->
+            <display_name type="TextField">
+                <Default>Anonymous Peer</Default>
+                <Mask>/^[^\n\r]{0,128}$/</Mask>
+                <ValidationMessage>Display name must be 128 characters or fewer with no newlines</ValidationMessage>
+            </display_name>
+
+            <!-- LXMF announce -->
+            <lxmf_announce_at_start type="BooleanField">
+                <Default>0</Default>
+            </lxmf_announce_at_start>
+
+            <lxmf_announce_interval type="IntegerField">
+                <MinimumValue>1</MinimumValue>
+                <MaximumValue>44640</MaximumValue>
+                <ValidationMessage>Announce interval must be 1-44640 minutes (max 31 days)</ValidationMessage>
+            </lxmf_announce_interval>
+
+            <!-- Delivery -->
+            <!-- INI key: delivery_transfer_max_accepted_size — unit: KB -->
+            <delivery_transfer_max_size type="NumericField">
+                <Default>1000</Default>
+                <MinimumValue>0.38</MinimumValue>
+                <ValidationMessage>Delivery transfer max size must be at least 0.38 KB</ValidationMessage>
+            </delivery_transfer_max_size>
+
+            <!-- on_inbound: path to a script executed by lxmd on every inbound LXMF message.
+                 SECURITY: if the script is writable by the reticulum user, this is a backdoor
+                 triggered by network traffic. Restrict to absolute paths only.
+                 Reject NUL, newlines, and INI section brackets to prevent config injection. -->
+            <on_inbound type="TextField">
+                <Mask>/^(\/[^\x00\n\r\[\]]{1,255})?$/</Mask>
+                <ValidationMessage>Must be an absolute path (starting with /) or empty</ValidationMessage>
+            </on_inbound>
+
+            <!-- Propagation node -->
+            <enable_node type="BooleanField">
+                <Default>0</Default>
+            </enable_node>
+
+            <!-- node_name: explicit newline rejection -->
+            <node_name type="TextField">
+                <Mask>/^[^\n\r]{0,128}$/</Mask>
+                <ValidationMessage>Node name must be 128 characters or fewer with no newlines</ValidationMessage>
+            </node_name>
+
+            <announce_interval type="IntegerField">
+                <Default>360</Default>
+                <MinimumValue>1</MinimumValue>
+                <MaximumValue>44640</MaximumValue>
+                <ValidationMessage>Announce interval must be 1-44640 minutes (max 31 days)</ValidationMessage>
+            </announce_interval>
+
+            <announce_at_start type="BooleanField">
+                <Default>1</Default>
+            </announce_at_start>
+
+            <!-- message_storage_limit: unit MB -->
+            <message_storage_limit type="NumericField">
+                <Default>500</Default>
+                <MinimumValue>0.005</MinimumValue>
+                <ValidationMessage>Message storage limit must be at least 0.005 MB</ValidationMessage>
+            </message_storage_limit>
+
+            <!-- INI key: propagation_message_max_accepted_size — unit: KB -->
+            <propagation_message_max_size type="NumericField">
+                <Default>256</Default>
+                <MinimumValue>0.38</MinimumValue>
+                <ValidationMessage>Propagation message max size must be at least 0.38 KB</ValidationMessage>
+            </propagation_message_max_size>
+
+            <!-- INI key: propagation_sync_max_accepted_size — unit: KB -->
+            <propagation_sync_max_size type="NumericField">
+                <Default>10240</Default>
+                <MinimumValue>0.38</MinimumValue>
+                <ValidationMessage>Propagation sync max size must be at least 0.38 KB</ValidationMessage>
+            </propagation_sync_max_size>
+
+            <!-- Stamp / peering costs -->
+            <!-- INI key: propagation_stamp_cost_target -->
+            <stamp_cost_target type="IntegerField">
+                <Default>16</Default>
+                <MinimumValue>13</MinimumValue>
+                <MaximumValue>64</MaximumValue>
+                <ValidationMessage>Stamp cost target must be 13-64</ValidationMessage>
+            </stamp_cost_target>
+
+            <!-- INI key: propagation_stamp_cost_flexibility -->
+            <!-- Cross-field constraint: stamp_cost_target - stamp_cost_flexibility >= 13 -->
+            <stamp_cost_flexibility type="IntegerField">
+                <Default>3</Default>
+                <MinimumValue>0</MinimumValue>
+                <MaximumValue>16</MaximumValue>
+                <ValidationMessage>Stamp cost flexibility must be 0-16</ValidationMessage>
+            </stamp_cost_flexibility>
+
+            <peering_cost type="IntegerField">
+                <Default>18</Default>
+                <MinimumValue>13</MinimumValue>
+                <MaximumValue>64</MaximumValue>
+                <ValidationMessage>Peering cost must be 13-64</ValidationMessage>
+            </peering_cost>
+
+            <remote_peering_cost_max type="IntegerField">
+                <Default>26</Default>
+                <MinimumValue>1</MinimumValue>
+                <MaximumValue>64</MaximumValue>
+                <ValidationMessage>Remote peering cost max must be 1-64</ValidationMessage>
+            </remote_peering_cost_max>
+
+            <!-- Peering -->
+            <max_peers type="IntegerField">
+                <Default>20</Default>
+                <MinimumValue>1</MinimumValue>
+                <MaximumValue>1000</MaximumValue>
+                <ValidationMessage>Max peers must be 1-1000</ValidationMessage>
+            </max_peers>
+
+            <autopeer type="BooleanField">
+                <Default>1</Default>
+            </autopeer>
+
+            <autopeer_maxdepth type="IntegerField">
+                <Default>6</Default>
+                <MinimumValue>1</MinimumValue>
+                <MaximumValue>128</MaximumValue>
+                <ValidationMessage>Autopeer max depth must be 1-128</ValidationMessage>
+            </autopeer_maxdepth>
+
+            <from_static_only type="BooleanField">
+                <Default>0</Default>
+            </from_static_only>
+
+            <static_peers type="CSVListField">
+                <Mask>/^[0-9a-f]{32}$/</Mask>
+                <MaskPerItem>Y</MaskPerItem>
+                <ValidationMessage>Each peer must be a 32-character lowercase hex hash</ValidationMessage>
+            </static_peers>
+
+            <!-- Access control -->
+            <auth_required type="BooleanField">
+                <Default>0</Default>
+            </auth_required>
+
+            <control_allowed type="CSVListField">
+                <Mask>/^[0-9a-f]{32}$/</Mask>
+                <MaskPerItem>Y</MaskPerItem>
+                <ValidationMessage>Each entry must be a 32-character lowercase hex hash</ValidationMessage>
+            </control_allowed>
+
+            <prioritise_destinations type="CSVListField">
+                <Mask>/^[0-9a-f]{32}$/</Mask>
+                <MaskPerItem>Y</MaskPerItem>
+                <ValidationMessage>Each entry must be a 32-character lowercase hex hash</ValidationMessage>
+            </prioritise_destinations>
+
+            <!-- allowed_identities: TEMPLATE NOTE — lxmd stores this as a flat file
+                 (/usr/local/etc/lxmf/allowed, one hash per line), not an INI key.
+                 Phase 3 template must write this field to that file, not into the INI config. -->
+            <allowed_identities type="CSVListField">
+                <Mask>/^[0-9a-f]{32}$/</Mask>
+                <MaskPerItem>Y</MaskPerItem>
+                <ValidationMessage>Each entry must be a 32-character lowercase hex hash</ValidationMessage>
+            </allowed_identities>
+
+            <!-- ignored_destinations: TEMPLATE NOTE — lxmd stores this as a flat file
+                 (/usr/local/etc/lxmf/ignored, one hash per line), not an INI key.
+                 Phase 3 template must write this field to that file, not into the INI config. -->
+            <ignored_destinations type="CSVListField">
+                <Mask>/^[0-9a-f]{32}$/</Mask>
+                <MaskPerItem>Y</MaskPerItem>
+                <ValidationMessage>Each entry must be a 32-character lowercase hex hash</ValidationMessage>
+            </ignored_destinations>
+
+            <!-- Logging -->
+            <loglevel type="IntegerField">
+                <Default>4</Default>
+                <MinimumValue>0</MinimumValue>
+                <MaximumValue>7</MaximumValue>
+                <ValidationMessage>Log level must be 0-7</ValidationMessage>
+            </loglevel>
+
+            <!-- logfile: restrict to /var/log/reticulum/ to prevent path traversal -->
+            <logfile type="TextField">
+                <Default>/var/log/reticulum/lxmd.log</Default>
+                <Mask>/^\/var\/log\/reticulum\/[a-zA-Z0-9._-]{1,64}$/</Mask>
+                <ValidationMessage>Log file must be a filename under /var/log/reticulum/</ValidationMessage>
+            </logfile>
+        </lxmf>
+    </items>
+</model>

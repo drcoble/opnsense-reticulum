@@ -1,0 +1,49 @@
+#!/bin/sh
+
+# PROVIDE: rnsd
+# REQUIRE: NETWORKING
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="rnsd"
+rcvar="rnsd_enable"
+
+load_rc_config $name
+
+: ${rnsd_enable:="NO"}
+: ${rnsd_user:="reticulum"}
+: ${rnsd_config:="/usr/local/etc/reticulum"}
+
+pidfile="/var/run/${name}.pid"
+command="/usr/local/reticulum-venv/bin/rnsd"
+command_args="--service -s --config ${rnsd_config}"
+
+# Use daemon(8) to background the process and create pidfile
+command_interpreter="/usr/local/reticulum-venv/bin/python3.11"
+rnsd_flags=""
+
+start_precmd="${name}_prestart"
+stop_postcmd="${name}_poststop"
+
+rnsd_prestart()
+{
+    # Ensure config directory exists and is owned correctly
+    if [ ! -d "${rnsd_config}" ]; then
+        mkdir -p "${rnsd_config}"
+        chown ${rnsd_user}:${rnsd_user} "${rnsd_config}"
+    fi
+
+    # Ensure log directory exists
+    if [ ! -d "/var/log/reticulum" ]; then
+        mkdir -p /var/log/reticulum
+        chown ${rnsd_user}:${rnsd_user} /var/log/reticulum
+    fi
+}
+
+rnsd_poststop()
+{
+    rm -f ${pidfile}
+}
+
+run_rc_command "$1"

@@ -1,0 +1,13 @@
+<metadata>
+    <widget>
+        <id>Reticulum</id>
+        <title>Reticulum</title>
+        <filename>Reticulum.js</filename>
+        <endpoints>
+            <endpoint>api/reticulum/service/rnsdStatus</endpoint>
+            <endpoint>api/reticulum/service/lxmdStatus</endpoint>
+            <endpoint>api/reticulum/service/rnstatus</endpoint>
+            <endpoint>api/reticulum/service/info</endpoint>
+        </endpoints>
+    </widget>
+</metadata>

@@ -1,0 +1,55 @@
+#!/bin/sh
+
+# PROVIDE: lxmd
+# REQUIRE: rnsd
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="lxmd"
+rcvar="lxmd_enable"
+
+load_rc_config $name
+
+: ${lxmd_enable:="NO"}
+: ${lxmd_user:="reticulum"}
+: ${lxmd_config:="/usr/local/etc/lxmf"}
+: ${lxmd_rnsconfig:="/usr/local/etc/reticulum"}
+: ${lxmd_propagation:="YES"}
+
+pidfile="/var/run/${name}.pid"
+command="/usr/local/reticulum-venv/bin/lxmd"
+
+# Build command args
+lxmd_flags=""
+if checkyesno lxmd_propagation; then
+    lxmd_flags="-p"
+fi
+command_args="--service -s ${lxmd_flags} --config ${lxmd_config} --rnsconfig ${lxmd_rnsconfig}"
+
+command_interpreter="/usr/local/reticulum-venv/bin/python3.11"
+
+start_precmd="${name}_prestart"
+stop_postcmd="${name}_poststop"
+
+lxmd_prestart()
+{
+    # Check that rnsd is running
+    if ! service rnsd status >/dev/null 2>&1; then
+        echo "rnsd is not running. lxmd requires rnsd to be started first."
+        return 1
+    fi
+
+    # Ensure config directory exists
+    if [ ! -d "${lxmd_config}" ]; then
+        mkdir -p "${lxmd_config}"
+        chown ${lxmd_user}:${lxmd_user} "${lxmd_config}"
+    fi
+}
+
+lxmd_poststop()
+{
+    rm -f ${pidfile}
+}
+
+run_rc_command "$1"

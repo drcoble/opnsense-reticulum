@@ -1,0 +1,8 @@
+{% set general = OPNsense.Reticulum.general %}
+{% set lxmf = OPNsense.Reticulum.lxmf %}
+lxmd_enable="{% if lxmf.enabled|default('0') == '1' and general.enabled|default('0') == '1' %}YES{% else %}NO{% endif %}"
+{% if lxmf.enable_node|default('0') == '1' %}
+lxmd_propagation="YES"
+{% else %}
+lxmd_propagation="NO"
+{% endif %}
