@@ -18,9 +18,8 @@ load_rc_config $name
 pidfile="/var/run/${name}.pid"
 command="/usr/local/reticulum-venv/bin/rnsd"
 command_args="--service -s --config ${rnsd_config}"
-
-# Use daemon(8) to background the process and create pidfile
 command_interpreter="/usr/local/reticulum-venv/bin/python3.11"
+command_user="${rnsd_user}"
 rnsd_flags=""
 
 start_precmd="${name}_prestart"
@@ -28,17 +27,21 @@ stop_postcmd="${name}_poststop"
 
 rnsd_prestart()
 {
-    # Ensure config directory exists and is owned correctly
+    # Ensure config directory exists with restrictive permissions (identity keys inside)
     if [ ! -d "${rnsd_config}" ]; then
         mkdir -p "${rnsd_config}"
-        chown ${rnsd_user}:${rnsd_user} "${rnsd_config}"
     fi
+    chown ${rnsd_user}:${rnsd_user} "${rnsd_config}"
+    chmod 700 "${rnsd_config}"
 
     # Ensure log directory exists
     if [ ! -d "/var/log/reticulum" ]; then
         mkdir -p /var/log/reticulum
         chown ${rnsd_user}:${rnsd_user} /var/log/reticulum
     fi
+
+    # Ensure identity key files created by rnsd are not world-readable
+    umask 077
 }
 
 rnsd_poststop()

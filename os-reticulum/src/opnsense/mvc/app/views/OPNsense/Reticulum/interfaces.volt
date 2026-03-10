@@ -1504,8 +1504,10 @@ $(document).ready(function() {
         }
         if (conflict) {
             $('#interface-name-conflict').show();
+            $('#btn-save-interface').prop('disabled', true);
         } else {
             $('#interface-name-conflict').hide();
+            $('#btn-save-interface').prop('disabled', false);
         }
     }
 

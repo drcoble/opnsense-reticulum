@@ -473,6 +473,7 @@
                 </label>
                 <div class="col-sm-10">
                     <input type="text" class="form-control" id="lxmf.on_inbound" />
+                    <span class="text-warning small"><i class="fa fa-exclamation-triangle"></i> {{ lang._('Security: This script is executed on every inbound message received from the network. Ensure the script is owned by root and is not writable by the reticulum user.') }}</span>
                     <div class="hidden" data-for="help_for_lxmf.on_inbound">
                         <small>{{ lang._('Absolute path to a script or executable to run when the LXMF service receives an inbound message. The script receives message metadata as arguments. Leave blank to disable. Useful for custom notification or integration workflows.') }}</small>
                     </div>

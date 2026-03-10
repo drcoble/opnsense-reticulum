@@ -8,6 +8,36 @@
 
 ---
 
+## Quick Start
+
+Run these five commands to go from a fresh plugin installation to running the first P0 tests. Substitute `<VM-IP>` with your OPNsense VM's LAN address.
+
+```sh
+# 1. Build the package (on your workstation)
+cd /path/to/os-reticulum && make package
+
+# 2. Copy and install on the VM
+scp os-reticulum-*.pkg root@<VM-IP>:/tmp/
+ssh root@<VM-IP> "pkg install /tmp/os-reticulum-*.pkg"
+
+# 3. Run the smoke test to confirm installation artifacts
+scp tests/service/smoke_test.sh root@<VM-IP>:/tmp/
+ssh root@<VM-IP> "sh /tmp/smoke_test.sh"
+
+# 4. Run local template and model tests (no VM required)
+pip install jinja2 pytest
+pytest tests/template/ tests/model/ -v
+
+# 5. On the VM: trigger a template reload and inspect generated configs
+ssh root@<VM-IP> "configctl template reload OPNsense/Reticulum && cat /usr/local/etc/reticulum/config"
+```
+
+All five commands should complete without errors before working through the individual test categories below. If the smoke test reports any FAIL lines, stop and investigate before proceeding.
+
+For full VM setup instructions, see `docs/phase7-vm-setup.md`.
+
+---
+
 ## Table of Contents
 
 1. [Prerequisites](#1-prerequisites)

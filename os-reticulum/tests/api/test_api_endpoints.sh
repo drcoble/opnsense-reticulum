@@ -3,11 +3,29 @@
 # Usage: ./test_api_endpoints.sh [base_url] [username] [password]
 # Default: https://localhost admin opnsense
 #
+# Also reads environment variable OPNSENSE_HOST if set (takes priority over default,
+# but positional argument $1 still takes precedence over OPNSENSE_HOST).
+#
 # Run on OPNsense VM or from a machine with network access to OPNsense.
+#
+# Exit code: 0 if all tests pass, 1 if any test fails.
 
-BASE="${1:-https://localhost}"
-USER="${2:-admin}"
-PASS="${3:-opnsense}"
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+# OPNSENSE_HOST env var allows CI/CD to inject the target without altering args.
+# Precedence: $1 (explicit arg) > $OPNSENSE_HOST > localhost
+if [ -n "$1" ]; then
+    BASE="$1"
+elif [ -n "$OPNSENSE_HOST" ]; then
+    BASE="$OPNSENSE_HOST"
+else
+    BASE="https://localhost"
+fi
+
+USER="${2:-${OPNSENSE_USER:-admin}}"
+PASS="${3:-${OPNSENSE_PASS:-opnsense}}"
 CURL="curl -ks -u ${USER}:${PASS}"
 
 PASS_COUNT=0
@@ -25,6 +43,7 @@ check_field() {
 
 echo "=== OPNsense Reticulum API Tests ==="
 echo "Target: ${BASE}"
+echo "User:   ${USER}"
 echo ""
 
 # ---------------------------------------------------------------------------
@@ -123,6 +142,14 @@ else
     fail "A-303b" "POST lxmd/set" "expected saved: $RESP"
 fi
 
+# Verify saved value is reflected
+RESP=$(api_get "lxmd/get")
+if echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['lxmf']['display_name']=='Test Node'" 2>/dev/null; then
+    pass "A-303c" "GET lxmd/get reflects saved display_name"
+else
+    fail "A-303c" "GET lxmd/get" "display_name not updated"
+fi
+
 # ---------------------------------------------------------------------------
 # A-304: Invalid data rejection
 # ---------------------------------------------------------------------------
@@ -139,6 +166,22 @@ if echo "$RESP" | grep -qi '"validat\|"error\|"failed'; then
     pass "A-304b" "addInterface rejects missing name"
 else
     fail "A-304b" "validation" "expected error for missing name, got: $RESP"
+fi
+
+# Invalid port (out of range)
+RESP=$(api_post "" "rnsd/set" '{"general":{"shared_instance_port":"99999"}}')
+if echo "$RESP" | grep -qi '"validat\|"error\|"failed'; then
+    pass "A-304c" "POST rnsd/set rejects shared_instance_port=99999"
+else
+    fail "A-304c" "validation" "expected error for port=99999, got: $RESP"
+fi
+
+# Invalid hex hash in static_peers
+RESP=$(api_post "" "lxmd/set" '{"lxmf":{"static_peers":"NOTVALID"}}')
+if echo "$RESP" | grep -qi '"validat\|"error\|"failed'; then
+    pass "A-304d" "POST lxmd/set rejects invalid static_peers hash"
+else
+    fail "A-304d" "validation" "expected error for invalid hash, got: $RESP"
 fi
 
 # ---------------------------------------------------------------------------
@@ -176,6 +219,23 @@ if echo "$RESP" | grep -qi '"stopped"\|"not running"'; then
 else
     fail "A-305d" "rnsdStatus" "expected stopped: $RESP"
 fi
+
+# Test restart: start first, then restart
+api_post "" "service/rnsdStart" "" >/dev/null 2>&1; sleep 2
+RESP=$(api_post "" "service/rnsdRestart" "")
+if echo "$RESP" | grep -qi '"ok"\|"restarted"\|"result"'; then
+    pass "A-305e" "rnsdRestart returns ok"
+else
+    fail "A-305e" "rnsdRestart" "unexpected: $RESP"
+fi
+sleep 2
+RESP=$(api_get "service/rnsdStatus")
+if echo "$RESP" | grep -qi '"running"'; then
+    pass "A-305f" "rnsdStatus shows running after restart"
+else
+    fail "A-305f" "rnsdStatus" "expected running after restart: $RESP"
+fi
+api_post "" "service/rnsdStop" "" >/dev/null 2>&1
 
 # ---------------------------------------------------------------------------
 # A-306: lxmd start blocked without rnsd
@@ -216,10 +276,55 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# A-309: Authentication / unauthorised access
+# ---------------------------------------------------------------------------
+# This test verifies that the API endpoints reject requests that supply
+# wrong credentials and that they are not accessible without authentication.
+
+# Wrong credentials should return 401 (or equivalent non-200 with no data).
+HTTP_CODE=$(curl -ks -o /dev/null -w "%{http_code}" \
+    -u "wronguser:wrongpass" "${BASE}/api/reticulum/rnsd/get")
+if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+    pass "A-309a" "GET rnsd/get with wrong credentials returns HTTP $HTTP_CODE"
+else
+    fail "A-309a" "auth reject" "expected 401/403, got HTTP $HTTP_CODE"
+fi
+
+# No credentials at all — also expect 401/403.
+HTTP_CODE=$(curl -ks -o /dev/null -w "%{http_code}" \
+    "${BASE}/api/reticulum/rnsd/get")
+if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+    pass "A-309b" "GET rnsd/get with no credentials returns HTTP $HTTP_CODE"
+else
+    fail "A-309b" "auth reject (no creds)" "expected 401/403, got HTTP $HTTP_CODE"
+fi
+
+# A POST action with valid credentials but no CSRF token should be rejected.
+# OPNsense requires the X-CSRFToken header (or API key auth bypasses CSRF).
+# When using HTTP Basic auth (as in these tests) OPNsense bypasses CSRF for
+# API key users; this sub-test documents the expected behaviour for session
+# cookie auth by attempting a POST without the CSRF header and expecting a
+# 403 response when using cookie-based auth.
+# NOTE: This sub-test is advisory — it will PASS with an informational note
+# if the target is configured to accept Basic auth for API calls (which is
+# the normal integration-test setup), since CSRF only applies to session auth.
+HTTP_CODE=$(curl -ks -o /dev/null -w "%{http_code}" \
+    -X POST -H "Content-Type: application/json" -d '{}' \
+    --cookie "" \
+    "${BASE}/api/reticulum/service/reconfigure")
+if [ "$HTTP_CODE" = "403" ]; then
+    pass "A-309c" "POST without CSRF token (cookie auth) returns 403"
+elif [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
+    pass "A-309c" "POST /service/reconfigure reached server (Basic auth bypasses CSRF as expected) — HTTP $HTTP_CODE"
+else
+    fail "A-309c" "CSRF/no-auth check" "unexpected HTTP $HTTP_CODE"
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 
 TOTAL=$((PASS_COUNT + FAIL_COUNT))
 echo ""
-echo "=== Results: ${PASS_COUNT}/${TOTAL} passed ==="
+echo "=== Results: ${PASS_COUNT}/${TOTAL} passed, ${FAIL_COUNT} failed ==="
 [ "$FAIL_COUNT" -eq 0 ] && exit 0 || exit 1

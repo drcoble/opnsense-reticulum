@@ -19,9 +19,9 @@ jobs:
       - name: Extract version from Makefile
         id: ver
         run: |
-          NAME=$(awk '/^PLUGIN_NAME[[:space:]]/{print $NF}' net/reticulum/Makefile)
-          VERSION=$(awk '/^PLUGIN_VERSION[[:space:]]/{print $NF}' net/reticulum/Makefile)
-          REVISION=$(awk '/^PLUGIN_REVISION[[:space:]]/{print $NF}' net/reticulum/Makefile)
+          NAME=$(awk '/^PLUGIN_NAME[[:space:]]/{print $NF}' os-reticulum/Makefile)
+          VERSION=$(awk '/^PLUGIN_VERSION[[:space:]]/{print $NF}' os-reticulum/Makefile)
+          REVISION=$(awk '/^PLUGIN_REVISION[[:space:]]/{print $NF}' os-reticulum/Makefile)
           TAG="v${VERSION}_${REVISION}"
           ARCHIVE="os-${NAME}-${VERSION}_${REVISION}.tar.gz"
           echo "name=$NAME"     >> "$GITHUB_OUTPUT"
@@ -50,7 +50,7 @@ jobs:
             --exclude='.git' \
             --exclude='*.pyc' \
             --exclude='__pycache__' \
-            net/reticulum/
+            os-reticulum/
 
       - name: Create GitHub release
         if: steps.check.outputs.exists == 'false'

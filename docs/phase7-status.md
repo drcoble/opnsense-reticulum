@@ -1,6 +1,6 @@
 # Phase 7 — Test Status Tracker
 
-**Plugin version tested:** ___________
+**Plugin version tested:** 1.0.0
 **OPNsense version:** ___________
 **Tester:** ___________
 **Date started:** ___________

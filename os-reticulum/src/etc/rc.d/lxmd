@@ -28,6 +28,7 @@ fi
 command_args="--service -s ${lxmd_flags} --config ${lxmd_config} --rnsconfig ${lxmd_rnsconfig}"
 
 command_interpreter="/usr/local/reticulum-venv/bin/python3.11"
+command_user="${lxmd_user}"
 
 start_precmd="${name}_prestart"
 stop_postcmd="${name}_poststop"
@@ -40,11 +41,15 @@ lxmd_prestart()
         return 1
     fi
 
-    # Ensure config directory exists
+    # Ensure config directory exists with restrictive permissions (identity keys inside)
     if [ ! -d "${lxmd_config}" ]; then
         mkdir -p "${lxmd_config}"
-        chown ${lxmd_user}:${lxmd_user} "${lxmd_config}"
     fi
+    chown ${lxmd_user}:${lxmd_user} "${lxmd_config}"
+    chmod 700 "${lxmd_config}"
+
+    # Ensure identity key files created by lxmd are not world-readable
+    umask 077
 }
 
 lxmd_poststop()

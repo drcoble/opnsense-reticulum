@@ -46,7 +46,7 @@
   network_name = {{ iface.network_name|replace('\n', '')|replace('\r', '')|replace('[', '') }}
 {% endif %}
 {% if iface.passphrase|default('') != '' %}
-  passphrase = {{ iface.passphrase|replace('\n', '')|replace('\r', '') }}
+  passphrase = {{ iface.passphrase|replace('\n', '')|replace('\r', '')|replace('[', '') }}
 {% endif %}
 {% if iface.ifac_size|default('') != '' %}
   ifac_size = {{ iface.ifac_size }}
@@ -108,7 +108,7 @@
 {# === AutoInterface === #}
 {% elif iface.type == 'AutoInterface' %}
 {% if iface.group_id|default('') != '' %}
-  group_id = {{ iface.group_id }}
+  group_id = {{ iface.group_id|replace('\n', '')|replace('\r', '')|replace('[', '') }}
 {% endif %}
 {% if iface.multicast_address_type|default('temporary') != 'temporary' %}
   multicast_address_type = {{ iface.multicast_address_type }}

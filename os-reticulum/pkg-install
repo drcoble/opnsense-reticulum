@@ -1,16 +1,8 @@
 #!/bin/sh
 
-set -e
-
 VENV_PATH="/usr/local/reticulum-venv"
 SVC_USER="reticulum"
 SVC_HOME="/var/db/reticulum"
-SRC_BASE="/usr/local/reticulum-src"
-
-RNS_REPO="https://github.com/markqvist/Reticulum"
-LXMF_REPO="https://github.com/markqvist/LXMF"
-RNS_SRC="${SRC_BASE}/reticulum"
-LXMF_SRC="${SRC_BASE}/lxmf"
 
 # --- Dependency check (must pass before any work) ---
 
@@ -30,8 +22,6 @@ check_pkg() {
 }
 
 check_dep python3.11  "Install with: pkg install python311"
-check_dep git         "Install with: pkg install git"
-check_dep gcc         "gcc is expected in FreeBSD base. Verify base system integrity."
 check_pkg py311-setuptools
 
 # --- Create service user if not exists ---
@@ -54,7 +44,6 @@ mkdir -p /usr/local/etc/lxmf
 mkdir -p ${SVC_HOME}
 mkdir -p /var/db/lxmf
 mkdir -p /var/log/reticulum
-mkdir -p ${SRC_BASE}
 
 # Set ownership and permissions
 chown -R ${SVC_USER}:${SVC_USER} /usr/local/etc/reticulum
@@ -63,73 +52,44 @@ chown -R ${SVC_USER}:${SVC_USER} ${SVC_HOME}
 chown -R ${SVC_USER}:${SVC_USER} /var/db/lxmf
 chown -R ${SVC_USER}:${SVC_USER} /var/log/reticulum
 
+# Config dirs: 700 (only service user can read keys/identity)
 chmod 700 /usr/local/etc/reticulum
 chmod 700 /usr/local/etc/lxmf
-chmod 700 ${SVC_HOME}
-chmod 700 /var/db/lxmf
-chmod 750 /var/log/reticulum
+# Runtime data and log dirs: 755 (world-readable to allow configd/scripts to check paths)
+chmod 755 ${SVC_HOME}
+chmod 755 /var/db/lxmf
+chmod 755 /var/log/reticulum
 
 # --- Create or update virtualenv ---
 
 if [ ! -d "${VENV_PATH}" ]; then
-    python3.11 -m venv ${VENV_PATH}
+    python3.11 -m venv "${VENV_PATH}"
 fi
 
-# --- Clone or update source repos ---
+# Upgrade pip itself to avoid legacy resolver issues on FreeBSD
+"${VENV_PATH}/bin/pip" install --upgrade pip --quiet
 
-fetch_source() {
-    _repo_url="$1"
-    _dest_dir="$2"
-    _name="$3"
+# Install rns and lxmf from PyPI
+echo "[reticulum] Installing rns and lxmf from PyPI..."
+if ! "${VENV_PATH}/bin/pip" install --upgrade rns lxmf; then
+    echo "[reticulum] ERROR: pip install of rns/lxmf failed." >&2
+    exit 1
+fi
 
-    if [ -d "${_dest_dir}/.git" ]; then
-        echo "Updating ${_name} source..."
-        if ! git -C "${_dest_dir}" pull; then
-            echo "[reticulum] ERROR: git pull failed for ${_name}" >&2
-            exit 1
-        fi
-    else
-        echo "Cloning ${_name} source..."
-        rm -rf "${_dest_dir}"
-        if ! git clone "${_repo_url}" "${_dest_dir}"; then
-            echo "[reticulum] ERROR: git clone failed for ${_name}" >&2
-            exit 1
-        fi
-    fi
-}
+# Clean pip cache to reclaim space
+"${VENV_PATH}/bin/pip" cache purge 2>/dev/null || true
 
-fetch_source "${RNS_REPO}" "${RNS_SRC}" "Reticulum"
-fetch_source "${LXMF_REPO}" "${LXMF_SRC}" "LXMF"
+# --- Record installed versions ---
 
-# --- Build and install from source into venv ---
+RNS_VER=$("${VENV_PATH}/bin/python3.11" -c \
+    "import importlib.metadata; print(importlib.metadata.version('rns'))" 2>/dev/null || echo "unknown")
+LXMF_VER=$("${VENV_PATH}/bin/python3.11" -c \
+    "import importlib.metadata; print(importlib.metadata.version('lxmf'))" 2>/dev/null || echo "unknown")
 
-install_from_source() {
-    _src_dir="$1"
-    _name="$2"
+printf "rns=%s\n"  "${RNS_VER}"  > "${SVC_HOME}/.pkg-versions"
+printf "lxmf=%s\n" "${LXMF_VER}" >> "${SVC_HOME}/.pkg-versions"
+chown ${SVC_USER}:${SVC_USER} "${SVC_HOME}/.pkg-versions"
 
-    echo "Installing ${_name} from source..."
-    if ! (cd "${_src_dir}" && ${VENV_PATH}/bin/pip install --upgrade . 2>&1); then
-        echo "[reticulum] ERROR: pip install failed for ${_name}" >&2
-        exit 1
-    fi
-}
-
-install_from_source "${RNS_SRC}" "Reticulum (rns)"
-install_from_source "${LXMF_SRC}" "LXMF"
-
-# --- Clean pip cache ---
-
-${VENV_PATH}/bin/pip cache purge 2>/dev/null || true
-
-# --- Record installed versions (git describe) ---
-
-RNS_VER=$(git -C "${RNS_SRC}" describe --tags --always 2>/dev/null)
-LXMF_VER=$(git -C "${LXMF_SRC}" describe --tags --always 2>/dev/null)
-
-printf "rns=%s\n" "${RNS_VER:-unknown}" > ${SVC_HOME}/.pkg-versions
-printf "lxmf=%s\n" "${LXMF_VER:-unknown}" >> ${SVC_HOME}/.pkg-versions
-chown ${SVC_USER}:${SVC_USER} ${SVC_HOME}/.pkg-versions
-
-echo "Reticulum installed: rns=${RNS_VER:-unknown}, lxmf=${LXMF_VER:-unknown}"
+echo "[reticulum] Installed: rns=${RNS_VER}, lxmf=${LXMF_VER}"
 
 exit 0
