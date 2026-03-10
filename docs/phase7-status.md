@@ -199,7 +199,7 @@ Record any gaps discovered during testing that are not covered by an existing te
 
 | Date | Description | Severity | Status |
 |------|-------------|----------|--------|
-| | | | |
+| 2026-03-10 | PHP fatal error in IndexController due to conflicting `use` statement (`use OPNsense\Base\IndexController` shadowed the class declaration in the same namespace); blocked all PHP syntax checks in CI run #22921038989 | High | Fixed (commit e04b99b) |
 
 ### Sign-off
 

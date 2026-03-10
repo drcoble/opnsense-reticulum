@@ -13,9 +13,8 @@ fi
 
 # Get node identity from rnstatus (if running)
 NODE_ID=""
-RNSTATUS=$(timeout 5 ${VENV}/bin/rnstatus --config /usr/local/etc/reticulum --json 2>/dev/null)
-if [ $? -eq 0 ] && [ -n "${RNSTATUS}" ]; then
-    NODE_ID=$(echo "${RNSTATUS}" | ${VENV}/bin/python3.11 -c "import sys,json; d=json.load(sys.stdin); print(d.get('identity',''))" 2>/dev/null)
+if RNSTATUS=$(timeout 5 "${VENV}/bin/rnstatus" --config /usr/local/etc/reticulum --json 2>/dev/null) && [ -n "${RNSTATUS}" ]; then
+    NODE_ID=$(echo "${RNSTATUS}" | "${VENV}/bin/python3.11" -c "import sys,json; d=json.load(sys.stdin); print(d.get('identity',''))" 2>/dev/null)
 fi
 
 printf '{"rns_version":"%s","lxmf_version":"%s","node_identity":"%s"}\n' "${RNS_VER}" "${LXMF_VER}" "${NODE_ID}"
