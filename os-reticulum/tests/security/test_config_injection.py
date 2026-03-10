@@ -65,7 +65,7 @@ def test_X710_injected_reticulum_section_does_not_override():
 
     # The first [reticulum] section comes from the legitimate template
     lines = output.splitlines()
-    first_reticulum_idx = next(i for i, l in enumerate(lines) if l.strip() == "[reticulum]")
+    first_reticulum_idx = next(i for i, line in enumerate(lines) if line.strip() == "[reticulum]")
     # enable_transport should be False in the legitimate section
     section_after = "\n".join(lines[first_reticulum_idx:first_reticulum_idx + 10])
     assert "enable_transport = False" in section_after, \

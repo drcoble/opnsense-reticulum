@@ -9,7 +9,7 @@ import os
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from conftest import make_ctx, render, REFERENCE_DIR
+from conftest import REFERENCE_DIR
 
 
 def load_reference(name: str) -> str:
@@ -285,7 +285,7 @@ def test_T111_acl_file_one_hash_per_line(render_allowed):
     """T-111: allowed_identities CSV renders to one hash per line in the ACL file."""
     hashes = "aaaabbbbccccdddd1111222233334444,bbbbccccddddeeee5555666677778888"
     output = render_allowed(lxmf={"allowed_identities": hashes})
-    lines = [l.strip() for l in output.strip().splitlines() if l.strip()]
+    lines = [ln.strip() for ln in output.strip().splitlines() if ln.strip()]
     assert lines == [
         "aaaabbbbccccdddd1111222233334444",
         "bbbbccccddddeeee5555666677778888",
