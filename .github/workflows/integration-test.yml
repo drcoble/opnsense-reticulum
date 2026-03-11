@@ -202,8 +202,8 @@ jobs:
           SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
         run: |
-          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
-          $SSH root@"$OPNSENSE_HOST" sh << 'ENDSSH'
+          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=6"
+          timeout 180 $SSH root@"$OPNSENSE_HOST" sh << 'ENDSSH'
             echo "=== lighttpd/PHP error log ==="
             tail -30 /var/log/lighttpd/error.log 2>/dev/null || echo 'no lighttpd log'
 
@@ -212,7 +212,7 @@ jobs:
             cat /usr/local/opnsense/service/conf/actions.d/actions_reticulum.conf 2>/dev/null || echo 'action file not readable'
 
             echo "=== configd status.rnsd via configctl ==="
-            configctl reticulum status.rnsd 2>&1 || echo 'configctl call failed'
+            timeout 10 configctl reticulum status.rnsd 2>&1 || echo 'configctl call failed or timed out'
 
             echo "=== Reticulum venv ==="
             ls -la /usr/local/reticulum-venv/bin/ 2>/dev/null | grep -E 'rnsd|lxmd|python' || echo 'venv not found'
@@ -244,16 +244,17 @@ jobs:
             timeout 5 /usr/local/reticulum-venv/bin/rnsd --service --config /usr/local/etc/reticulum >> /tmp/rnsd-root.log 2>&1 &
             RPID=$!
             sleep 3
-            kill $RPID 2>/dev/null
-            wait $RPID 2>/dev/null
+            kill -9 $RPID 2>/dev/null
+            # Kill any orphaned rnsd children; do not wait (wait can hang on orphans)
+            pkill -9 -f 'rnsd --service' 2>/dev/null || true
             echo "rnsd root run log:"
             cat /tmp/rnsd-root.log 2>/dev/null || echo "(empty)"
 
             echo "=== Python RNS import test ==="
-            /usr/local/reticulum-venv/bin/python3 -c "import RNS; print('RNS import OK, version:', RNS.__version__)" 2>&1 || echo 'RNS import FAILED'
+            timeout 10 /usr/local/reticulum-venv/bin/python3 -c "import RNS; print('RNS import OK, version:', RNS.__version__)" 2>&1 || echo 'RNS import FAILED or timed out'
 
             echo "=== service rnsd onestart output ==="
-            service rnsd onestart 2>&1 || true
+            timeout 15 service rnsd onestart 2>&1 || echo 'service start failed or timed out'
             sleep 4
             echo "=== pgrep all python/rnsd/daemon ==="
             pgrep -lax python 2>/dev/null || echo 'no python processes'
@@ -271,7 +272,7 @@ jobs:
             ls -la /usr/local/opnsense/scripts/OPNsense/Reticulum/ 2>/dev/null
 
             echo "=== Test status script directly ==="
-            /usr/local/opnsense/scripts/OPNsense/Reticulum/rnsd_status.sh 2>&1 || echo 'status script failed'
+            timeout 10 /usr/local/opnsense/scripts/OPNsense/Reticulum/rnsd_status.sh 2>&1 || echo 'status script failed or timed out'
 
             echo "=== PHP syntax: Model ==="
             php -l /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/Reticulum.php 2>&1
@@ -280,11 +281,15 @@ jobs:
             php -l /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/Api/RnsdController.php 2>&1
 
             echo "=== curl rnsd/get from localhost ==="
-            curl -sk -u "$(cat /conf/config.xml | grep -o '<apikey>[^<]*' | head -1 | sed 's/<apikey>//')":X \
-              https://127.0.0.1/api/reticulum/rnsd/get 2>/dev/null | head -c 500 || echo 'curl failed'
+            timeout 10 curl -sk -u "$(cat /conf/config.xml | grep -o '<apikey>[^<]*' | head -1 | sed 's/<apikey>//')":X \
+              https://127.0.0.1/api/reticulum/rnsd/get 2>/dev/null | head -c 500 || echo 'curl failed or timed out'
 
             echo "=== PHP include test ==="
-            php -r "spl_autoload_register(function(\$c){@include '/usr/local/opnsense/mvc/app/Library/' . str_replace('\\\\','/',\$c) . '.php';}); try { \$m = new OPNsense\Reticulum\Reticulum(); echo 'model OK\n'; } catch(Throwable \$e) { echo 'ERROR: ' . \$e->getMessage() . '\n'; }" 2>&1 || echo 'php test failed'
+            timeout 10 php -r "spl_autoload_register(function(\$c){@include '/usr/local/opnsense/mvc/app/Library/' . str_replace('\\\\','/',\$c) . '.php';}); try { \$m = new OPNsense\Reticulum\Reticulum(); echo 'model OK\n'; } catch(Throwable \$e) { echo 'ERROR: ' . \$e->getMessage() . '\n'; }" 2>&1 || echo 'php test failed or timed out'
+
+            # Clean up: stop rnsd if we started it, kill any stray processes
+            timeout 10 service rnsd onestop 2>/dev/null || true
+            pkill -9 -f 'rnsd' 2>/dev/null || true
           ENDSSH
 
       - name: Run API endpoint tests
