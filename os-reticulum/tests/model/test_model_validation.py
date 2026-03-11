@@ -7,6 +7,9 @@ by directly applying the same validation logic (regex masks, integer ranges) in 
 Run with: pytest tests/model/
 """
 import re
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 # ---------------------------------------------------------------------------

@@ -11,6 +11,8 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from conftest import REFERENCE_DIR
 
+pytestmark = pytest.mark.unit
+
 
 def load_reference(name: str) -> str:
     path = os.path.join(REFERENCE_DIR, name)

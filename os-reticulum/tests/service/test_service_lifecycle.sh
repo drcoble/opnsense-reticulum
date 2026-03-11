@@ -6,6 +6,9 @@
 # Example: sh test_service_lifecycle.sh S-402
 # Without argument: runs all tests sequentially (requires user confirmation between stages)
 
+# CI=1 enables non-interactive mode (skips confirm() prompts, skips destructive S-407)
+CI="${CI:-0}"
+
 RED='\033[0;31m'
 GRN='\033[0;32m'
 YEL='\033[0;33m'
@@ -16,7 +19,14 @@ PASS=0; FAIL=0
 ok()   { printf "${GRN}PASS${RST}  %s: %s\n" "$1" "$2"; PASS=$((PASS+1)); }
 err()  { printf "${RED}FAIL${RST}  %s: %s\n" "$1" "$2"; FAIL=$((FAIL+1)); }
 info() { printf "${YEL}INFO${RST}  %s\n" "$1"; }
-confirm() { printf "\n>>> %s\nPress Enter when ready (Ctrl+C to skip)..." "$1"; read -r _; }
+confirm() {
+    if [ "$CI" = "1" ]; then
+        printf "  [CI] skipping confirmation: %s\n" "$1"
+        return 0
+    fi
+    printf "\n>>> %s\nPress Enter when ready (Ctrl+C to skip)..." "$1"
+    read -r _
+}
 
 # ---------------------------------------------------------------------------
 # S-402: Configure and start rnsd
@@ -226,7 +236,11 @@ case "${1:-all}" in
         test_S404
         test_S405
         test_S406
-        test_S407
+        if [ "$CI" != "1" ]; then
+            test_S407
+        else
+            printf "${YEL}SKIP${RST}  S-407: clean uninstall — skipped in CI mode\n"
+        fi
         ;;
     *) echo "Unknown test: $1"; echo "Valid: S-402 S-403 S-404 S-405 S-406 S-407 all"; exit 1 ;;
 esac

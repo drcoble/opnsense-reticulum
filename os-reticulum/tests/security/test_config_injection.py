@@ -24,6 +24,8 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from conftest import make_ctx, render
 
+pytestmark = pytest.mark.unit
+
 
 INJECTED_RAW = """[[[SubA]]]
   frequency = 915000000

@@ -11,7 +11,8 @@
 #   OPNSENSE_HOST   If set, also runs smoke_test.sh against that host.
 #                   Example: OPNSENSE_HOST=https://192.168.1.1 sh tests/run_all.sh
 #   OPNSENSE_USER   OPNsense admin username (default: admin)
-#   OPNSENSE_PASS   OPNsense admin password (default: opnsense)
+#   OPNSENSE_PASS          OPNsense admin password (default: opnsense)
+#   OPNSENSE_SSH_KEY_PATH  Path to SSH private key for connecting to OPNsense VM.
 #
 # Exit code: 0 if all executed suites pass, 1 if any suite fails.
 
@@ -140,6 +141,31 @@ if [ -n "$OPNSENSE_HOST" ]; then
         "${TESTS_DIR}/service/smoke_test.sh"
 else
     suite_skip "smoke test (S-401)" "set OPNSENSE_HOST to run against a live OPNsense instance"
+fi
+
+# ---------------------------------------------------------------------------
+# Suite 5: API endpoint tests (A-301–A-309) — only if OPNSENSE_HOST is set
+# ---------------------------------------------------------------------------
+
+if [ -n "$OPNSENSE_HOST" ]; then
+    run_shell "API endpoint tests (A-301–309)" \
+        "${TESTS_DIR}/api/test_api_endpoints.sh" \
+        "$OPNSENSE_HOST" \
+        "${OPNSENSE_USER:-admin}" \
+        "${OPNSENSE_PASS:-opnsense}"
+else
+    suite_skip "API endpoint tests (A-301–309)" "set OPNSENSE_HOST to run against a live OPNsense instance"
+fi
+
+# ---------------------------------------------------------------------------
+# Suite 6: Service lifecycle tests (S-402–S-406) — only if OPNSENSE_HOST is set and SSH access available
+# ---------------------------------------------------------------------------
+
+if [ -n "$OPNSENSE_HOST" ] && [ -n "$OPNSENSE_SSH_KEY_PATH" ]; then
+    run_shell "service lifecycle tests (S-402–406)" \
+        "${TESTS_DIR}/service/test_service_lifecycle.sh"
+else
+    suite_skip "service lifecycle tests (S-402–406)" "set OPNSENSE_HOST and OPNSENSE_SSH_KEY_PATH to run"
 fi
 
 # ---------------------------------------------------------------------------
