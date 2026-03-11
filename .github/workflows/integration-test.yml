@@ -174,14 +174,15 @@ jobs:
         run: |
           SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
           $SSH root@"$OPNSENSE_HOST" sh << 'ENDSSH'
-            echo "=== PHP/nginx error log ==="
-            tail -30 /var/log/nginx/error.log 2>/dev/null || echo 'no nginx log'
+            echo "=== lighttpd/PHP error log ==="
+            tail -30 /var/log/lighttpd/error.log 2>/dev/null || echo 'no lighttpd log'
 
-            echo "=== Installed controllers ==="
-            ls -la /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/Api/ 2>/dev/null
+            echo "=== configd actions (reticulum) ==="
+            ls -la /usr/local/opnsense/service/conf/actions.d/ 2>/dev/null | grep -i reticulum || echo 'no reticulum action file'
+            cat /usr/local/opnsense/service/conf/actions.d/actions_reticulum.conf 2>/dev/null || echo 'action file not readable'
 
-            echo "=== Installed model files ==="
-            ls -la /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/ 2>/dev/null
+            echo "=== configd status.rnsd via configctl ==="
+            configctl reticulum status.rnsd 2>&1 || echo 'configctl call failed'
 
             echo "=== Installed scripts ==="
             ls -la /usr/local/opnsense/scripts/OPNsense/Reticulum/ 2>/dev/null
@@ -189,14 +190,18 @@ jobs:
             echo "=== Test status script directly ==="
             /usr/local/opnsense/scripts/OPNsense/Reticulum/rnsd_status.sh 2>&1 || echo 'status script failed'
 
-            echo "=== PHP syntax check: Model ==="
+            echo "=== PHP syntax: Model ==="
             php -l /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/Reticulum.php 2>&1
 
-            echo "=== PHP syntax check: RnsdController ==="
+            echo "=== PHP syntax: RnsdController ==="
             php -l /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/Api/RnsdController.php 2>&1
 
-            echo "=== OPNsense / system log ==="
-            tail -30 /var/log/opnsense.log 2>/dev/null || tail -30 /var/log/system.log 2>/dev/null || echo 'no system log'
+            echo "=== curl rnsd/get from localhost ==="
+            curl -sk -u "$(cat /conf/config.xml | grep -o '<apikey>[^<]*' | head -1 | sed 's/<apikey>//')":X \
+              https://127.0.0.1/api/reticulum/rnsd/get 2>/dev/null | head -c 500 || echo 'curl failed'
+
+            echo "=== PHP include test ==="
+            php -r "spl_autoload_register(function(\$c){@include '/usr/local/opnsense/mvc/app/Library/' . str_replace('\\\\','/',\$c) . '.php';}); try { \$m = new OPNsense\Reticulum\Reticulum(); echo 'model OK\n'; } catch(Throwable \$e) { echo 'ERROR: ' . \$e->getMessage() . '\n'; }" 2>&1 || echo 'php test failed'
           ENDSSH
 
       - name: Run API endpoint tests

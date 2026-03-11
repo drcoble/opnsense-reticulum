@@ -37,12 +37,19 @@ class RnsdController extends ApiMutableModelControllerBase
     {
         $result = ['result' => 'failed'];
         if ($this->request->isPost()) {
-            Config::getInstance()->lock();
             $mdl = $this->getModel();
-            $mdl->general->setNodes($this->request->getPost('general'));
-            $result = $this->validate();
-            if (empty($result['result'])) {
-                return $this->save(false, true);
+            $mdl->general->setNodes($this->request->getPost('general') ?? []);
+            $msgs = $mdl->performValidation();
+            foreach ($msgs as $msg) {
+                if (!isset($result['validations'])) {
+                    $result['validations'] = [];
+                }
+                $result['validations'][$msg->getField()] = $msg->getMessage();
+            }
+            if (empty($result['validations'])) {
+                $mdl->serializeToConfig();
+                Config::getInstance()->save();
+                $result['result'] = 'saved';
             }
         }
         return $result;

@@ -37,12 +37,19 @@ class LxmdController extends ApiMutableModelControllerBase
     {
         $result = ['result' => 'failed'];
         if ($this->request->isPost()) {
-            Config::getInstance()->lock();
             $mdl = $this->getModel();
-            $mdl->lxmf->setNodes($this->request->getPost('lxmf'));
-            $result = $this->validate();
-            if (empty($result['result'])) {
-                return $this->save(false, true);
+            $mdl->lxmf->setNodes($this->request->getPost('lxmf') ?? []);
+            $msgs = $mdl->performValidation();
+            foreach ($msgs as $msg) {
+                if (!isset($result['validations'])) {
+                    $result['validations'] = [];
+                }
+                $result['validations'][$msg->getField()] = $msg->getMessage();
+            }
+            if (empty($result['validations'])) {
+                $mdl->serializeToConfig();
+                Config::getInstance()->save();
+                $result['result'] = 'saved';
             }
         }
         return $result;
