@@ -45,16 +45,17 @@ rnsd_prestart()
 rnsd_start()
 {
     echo "Starting ${name}."
-    /usr/sbin/daemon \
-        -P "${pidfile}" \
-        -u "${rnsd_user}" \
-        -o "${rnsd_log}" \
-        ${command} ${command_args}
-    sleep 2
-    if pgrep -qF "${pidfile}" 2>/dev/null; then
-        echo "${name} started."
+    # Use /bin/sh -c wrapper so shell handles log redirection inside the child,
+    # then daemon(8) tracks the sh process PID in the pidfile.
+    # -p (lowercase) writes the child PID; works on FreeBSD 12/13/14.
+    /usr/sbin/daemon -p "${pidfile}" -u "${rnsd_user}" \
+        /bin/sh -c "${command} ${command_args} >> ${rnsd_log} 2>&1"
+    sleep 3
+    if [ -f "${pidfile}" ] && kill -0 "$(cat ${pidfile})" 2>/dev/null; then
+        echo "${name} started (PID: $(cat ${pidfile}))"
     else
         echo "WARNING: failed to start ${name} — check ${rnsd_log}"
+        rm -f "${pidfile}"
         return 1
     fi
 }
@@ -62,7 +63,7 @@ rnsd_start()
 rnsd_stop()
 {
     if [ -f "${pidfile}" ]; then
-        kill $(cat "${pidfile}") 2>/dev/null || true
+        kill "$(cat ${pidfile})" 2>/dev/null || true
     fi
 }
 

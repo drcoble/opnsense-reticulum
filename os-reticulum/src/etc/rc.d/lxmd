@@ -36,7 +36,7 @@ stop_postcmd="${name}_poststop"
 lxmd_prestart()
 {
     # Check that rnsd is running
-    if ! pgrep -qF /var/run/rnsd.pid 2>/dev/null; then
+    if ! [ -f /var/run/rnsd.pid ] || ! kill -0 "$(cat /var/run/rnsd.pid)" 2>/dev/null; then
         echo "rnsd is not running. lxmd requires rnsd to be started first."
         return 1
     fi
@@ -55,16 +55,14 @@ lxmd_prestart()
 lxmd_start()
 {
     echo "Starting ${name}."
-    /usr/sbin/daemon \
-        -P "${pidfile}" \
-        -u "${lxmd_user}" \
-        -o "${lxmd_log}" \
-        ${command} ${command_args}
-    sleep 2
-    if pgrep -qF "${pidfile}" 2>/dev/null; then
-        echo "${name} started."
+    /usr/sbin/daemon -p "${pidfile}" -u "${lxmd_user}" \
+        /bin/sh -c "${command} ${command_args} >> ${lxmd_log} 2>&1"
+    sleep 3
+    if [ -f "${pidfile}" ] && kill -0 "$(cat ${pidfile})" 2>/dev/null; then
+        echo "${name} started (PID: $(cat ${pidfile}))"
     else
         echo "WARNING: failed to start ${name} — check ${lxmd_log}"
+        rm -f "${pidfile}"
         return 1
     fi
 }
@@ -72,7 +70,7 @@ lxmd_start()
 lxmd_stop()
 {
     if [ -f "${pidfile}" ]; then
-        kill $(cat "${pidfile}") 2>/dev/null || true
+        kill "$(cat ${pidfile})" 2>/dev/null || true
     fi
 }
 
