@@ -153,6 +153,7 @@ jobs:
             done
             make install
             chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/*.sh
+            chmod +x /usr/local/etc/rc.d/rnsd /usr/local/etc/rc.d/lxmd 2>/dev/null || true
 
             # Create reticulum system user (required by rc.d/rnsd)
             pw user show reticulum >/dev/null 2>&1 || \
