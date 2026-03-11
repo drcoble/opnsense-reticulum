@@ -25,9 +25,9 @@ lxmd_flags=""
 if checkyesno lxmd_propagation; then
     lxmd_flags="-p"
 fi
-command_args="--service -s ${lxmd_flags} --config ${lxmd_config} --rnsconfig ${lxmd_rnsconfig}"
+command_args="${lxmd_flags} --config ${lxmd_config} --rnsconfig ${lxmd_rnsconfig}"
 
-command_interpreter="/usr/local/reticulum-venv/bin/python3.11"
+command_interpreter="/usr/local/reticulum-venv/bin/python3"
 command_user="${lxmd_user}"
 
 start_precmd="${name}_prestart"

@@ -17,8 +17,8 @@ load_rc_config $name
 
 pidfile="/var/run/${name}.pid"
 command="/usr/local/reticulum-venv/bin/rnsd"
-command_args="--service -s --config ${rnsd_config}"
-command_interpreter="/usr/local/reticulum-venv/bin/python3.11"
+command_args="--config ${rnsd_config}"
+command_interpreter="/usr/local/reticulum-venv/bin/python3"
 command_user="${rnsd_user}"
 rnsd_flags=""
 
