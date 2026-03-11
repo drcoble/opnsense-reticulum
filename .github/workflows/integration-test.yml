@@ -184,6 +184,21 @@ jobs:
             echo "=== configd status.rnsd via configctl ==="
             configctl reticulum status.rnsd 2>&1 || echo 'configctl call failed'
 
+            echo "=== Reticulum venv ==="
+            ls -la /usr/local/reticulum-venv/bin/ 2>/dev/null | grep -E 'rnsd|lxmd|python' || echo 'venv not found'
+
+            echo "=== reticulum user ==="
+            id reticulum 2>/dev/null || echo 'reticulum user not found'
+
+            echo "=== rc.conf enable flags ==="
+            grep -E 'rnsd|lxmd' /etc/rc.conf /etc/rc.conf.local 2>/dev/null || echo 'no rnsd/lxmd enable flags found'
+
+            echo "=== service rnsd onestart output ==="
+            service rnsd onestart 2>&1 || true
+            sleep 2
+            echo "=== pgrep rnsd ==="
+            pgrep -ax rnsd 2>/dev/null || echo 'rnsd not running'
+
             echo "=== Installed scripts ==="
             ls -la /usr/local/opnsense/scripts/OPNsense/Reticulum/ 2>/dev/null
 
