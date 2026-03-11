@@ -169,8 +169,9 @@ jobs:
                 echo "WARNING: could not install system cryptography — pip may build from source"
               # Create venv inheriting system site-packages (avoids building cryptography)
               python3 -m venv --system-site-packages /usr/local/reticulum-venv
-              /usr/local/reticulum-venv/bin/pip install --quiet rns lxmf
-              echo "Reticulum installed OK"
+              # Force reinstall to ensure entry points (rnsd, lxmd) are installed to venv/bin
+              /usr/local/reticulum-venv/bin/pip install --quiet --force-reinstall rns lxmf
+              echo "Reticulum installed OK (rnsd: \$(/usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo NOT FOUND))"
             else
               echo "Reticulum venv already present"
             fi
@@ -220,11 +221,24 @@ jobs:
             echo "=== rc.conf enable flags ==="
             grep -E 'rnsd|lxmd' /etc/rc.conf /etc/rc.conf.local 2>/dev/null || echo 'no rnsd/lxmd enable flags found'
 
+            echo "=== Reticulum venv contents ==="
+            ls -la /usr/local/reticulum-venv/bin/ 2>/dev/null | head -20 || echo 'no venv'
+
+            echo "=== rnsd binary check ==="
+            /usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo 'rnsd not found in venv'
+            ls -la /usr/local/bin/rnsd 2>/dev/null || echo 'no rnsd in /usr/local/bin'
+
+            echo "=== python3 version ==="
+            python3 --version 2>&1
+            ls -la /usr/local/reticulum-venv/bin/python* 2>/dev/null || echo 'no python in venv'
+
             echo "=== service rnsd onestart output ==="
             service rnsd onestart 2>&1 || true
-            sleep 2
-            echo "=== pgrep rnsd ==="
-            pgrep -ax rnsd 2>/dev/null || echo 'rnsd not running'
+            sleep 3
+            echo "=== pgrep all python/rnsd ==="
+            pgrep -lax python 2>/dev/null || echo 'no python processes'
+            pgrep -F /var/run/rnsd.pid 2>/dev/null && echo 'pidfile valid' || echo 'pidfile missing or invalid'
+            ls -la /var/run/rnsd.pid 2>/dev/null || echo 'no pidfile'
 
             echo "=== Installed scripts ==="
             ls -la /usr/local/opnsense/scripts/OPNsense/Reticulum/ 2>/dev/null
