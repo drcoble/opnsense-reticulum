@@ -162,9 +162,14 @@ jobs:
             # Install Reticulum Python environment if not already present
             if [ ! -f /usr/local/reticulum-venv/bin/rnsd ]; then
               echo "Installing Reticulum Python environment..."
-              python3 -m venv /usr/local/reticulum-venv
+              # Install cryptography from FreeBSD pkg to avoid Rust/maturin build
+              pkg install -y py311-cryptography 2>/dev/null || \
+                pkg install -y py39-cryptography 2>/dev/null || \
+                echo "WARNING: could not install system cryptography — pip may build from source"
+              # Create venv inheriting system site-packages (avoids building cryptography)
+              python3 -m venv --system-site-packages /usr/local/reticulum-venv
               /usr/local/reticulum-venv/bin/pip install --quiet rns lxmf
-              echo "Reticulum installed: \$(/usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo 'version check failed')"
+              echo "Reticulum installed OK"
             else
               echo "Reticulum venv already present"
             fi
