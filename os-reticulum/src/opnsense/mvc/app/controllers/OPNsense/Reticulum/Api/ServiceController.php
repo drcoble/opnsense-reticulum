@@ -55,7 +55,15 @@ class ServiceController extends ApiControllerBase
      */
     public function rnsdStatusAction()
     {
-        exec('pgrep -F /var/run/rnsd.pid 2>/dev/null', $pids, $code);
+        $pidfile = '/var/run/rnsd.pid';
+        if (!file_exists($pidfile)) {
+            return ['status' => 'stopped'];
+        }
+        $pid = trim(file_get_contents($pidfile));
+        if (!ctype_digit($pid)) {
+            return ['status' => 'stopped'];
+        }
+        exec("kill -0 $pid 2>/dev/null", $out, $code);
         return ['status' => $code === 0 ? 'running' : 'stopped'];
     }
 
@@ -71,8 +79,9 @@ class ServiceController extends ApiControllerBase
             $backend = new Backend();
 
             // Check rnsd is running first
-            exec('pgrep -F /var/run/rnsd.pid 2>/dev/null', $pids, $code);
-            if ($code !== 0) {
+            $rnsdPid = file_exists('/var/run/rnsd.pid') ? trim(file_get_contents('/var/run/rnsd.pid')) : '';
+            exec("kill -0 $rnsdPid 2>/dev/null", $chk, $rnsdCode);
+            if (!ctype_digit($rnsdPid) || $rnsdCode !== 0) {
                 return [
                     'result' => 'error',
                     'message' => 'Cannot start lxmd: rnsd is not running. Start rnsd first.'
@@ -108,8 +117,9 @@ class ServiceController extends ApiControllerBase
             $backend = new Backend();
 
             // Check rnsd is running first
-            exec('pgrep -F /var/run/rnsd.pid 2>/dev/null', $pids, $code);
-            if ($code !== 0) {
+            $rnsdPid = file_exists('/var/run/rnsd.pid') ? trim(file_get_contents('/var/run/rnsd.pid')) : '';
+            exec("kill -0 $rnsdPid 2>/dev/null", $chk, $rnsdCode);
+            if (!ctype_digit($rnsdPid) || $rnsdCode !== 0) {
                 return [
                     'result' => 'error',
                     'message' => 'Cannot restart lxmd: rnsd is not running. Start rnsd first.'
@@ -129,7 +139,15 @@ class ServiceController extends ApiControllerBase
      */
     public function lxmdStatusAction()
     {
-        exec('pgrep -F /var/run/lxmd.pid 2>/dev/null', $pids, $code);
+        $pidfile = '/var/run/lxmd.pid';
+        if (!file_exists($pidfile)) {
+            return ['status' => 'stopped'];
+        }
+        $pid = trim(file_get_contents($pidfile));
+        if (!ctype_digit($pid)) {
+            return ['status' => 'stopped'];
+        }
+        exec("kill -0 $pid 2>/dev/null", $out, $code);
         return ['status' => $code === 0 ? 'running' : 'stopped'];
     }
 
