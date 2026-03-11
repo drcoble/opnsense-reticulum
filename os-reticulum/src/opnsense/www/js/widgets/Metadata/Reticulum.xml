@@ -1,7 +1,7 @@
 <metadata>
     <widget>
         <id>Reticulum</id>
-        <title>Reticulum</title>
+        <title>Reticulum Status</title>
         <filename>Reticulum.js</filename>
         <endpoints>
             <endpoint>api/reticulum/service/rnsdStatus</endpoint>

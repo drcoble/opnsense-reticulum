@@ -7,7 +7,7 @@
             <Interfaces VisibleName="Interfaces"
                         url="/ui/reticulum/interfaces"
                         order="200" />
-            <Lxmf VisibleName="LXMF / Propagation Node"
+            <Lxmf VisibleName="Propagation Node"
                    url="/ui/reticulum/lxmf"
                    order="300" />
             <Logs VisibleName="Log Viewer"

@@ -16,7 +16,7 @@
         <button class="btn btn-primary" id="addInterfaceBtn" type="button">
             <i class="fa fa-plus"></i> {{ lang._('Add Interface') }}
         </button>
-        <button class="btn btn-default" id="applyInterfacesBtn" type="button" style="float:right;">
+        <button class="btn btn-default pull-right" id="applyInterfacesBtn" type="button">
             <i class="fa fa-check"></i> {{ lang._('Apply Changes') }}
         </button>
     </div>
@@ -29,7 +29,7 @@
 {# ======================== Interface Grid ======================== #}
 <table id="grid-interfaces" class="table table-condensed table-hover bootgrid-table"
        data-editDialog="DialogInterface"
-       data-empty="{{ lang._('No interfaces configured. Click \\'Add Interface\\' to create your first Reticulum interface.') }}">
+       data-empty="{{ lang._('No interfaces configured. Use the Add Interface button to create one.') }}">
     <thead>
         <tr>
             <th data-column-id="name" data-type="string">{{ lang._('Name') }}</th>
@@ -1397,8 +1397,7 @@ $(document).ready(function() {
         deleteUuid = $(this).data('row-id');
         var name = $(this).data('row-name');
         $('#delete-confirm-msg').text(
-            '{{ lang._("Are you sure you want to delete the interface") }} "' + name + '"? ' +
-            '{{ lang._("This cannot be undone.") }}'
+            '{{ lang._("Are you sure you want to delete the interface \"%s\"? This action cannot be undone.") }}'.replace('%s', name)
         );
         $('#DialogDeleteInterface').modal('show');
     });

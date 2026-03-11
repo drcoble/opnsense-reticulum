@@ -81,8 +81,8 @@
 <ul class="nav nav-tabs" data-tabs="tabs" id="maintabs" style="margin-top:12px;">
     <li class="active"><a data-toggle="tab" href="#tab-general">{{ lang._('General') }}</a></li>
     <li><a data-toggle="tab" href="#tab-propagation">{{ lang._('Propagation') }}</a></li>
-    <li class="propagation-dep-tab"><a data-toggle="tab" href="#tab-costs">{{ lang._('Stamp Costs') }}</a></li>
-    <li class="propagation-dep-tab"><a data-toggle="tab" href="#tab-peering">{{ lang._('Peering') }}</a></li>
+    <li class="propagation-dep-tab" style="display:none;"><a data-toggle="tab" href="#tab-costs">{{ lang._('Stamp Costs') }}</a></li>
+    <li class="propagation-dep-tab" style="display:none;"><a data-toggle="tab" href="#tab-peering">{{ lang._('Peering') }}</a></li>
     <li><a data-toggle="tab" href="#tab-acl">{{ lang._('Access Control') }}</a></li>
     <li><a data-toggle="tab" href="#tab-logging">{{ lang._('Logging') }}</a></li>
 </ul>
@@ -175,6 +175,11 @@
                     </div>
                 </div>
             </div>
+
+            <p id="propagation-disabled-msg" class="text-muted" style="display:none; margin-left:16px; margin-top:4px;">
+                <i class="fa fa-info-circle"></i>
+                {{ lang._('These settings are inactive because Enable Propagation Node is disabled.') }}
+            </p>
 
             <div class="form-group propagation-dep">
                 <label class="col-sm-2 control-label">
@@ -519,7 +524,7 @@
                 </label>
                 <div class="col-sm-10">
                     <input type="text" class="form-control" id="lxmf.on_inbound" />
-                    <span class="text-warning small"><i class="fa fa-exclamation-triangle"></i> {{ lang._('Security: This script is executed on every inbound message received from the network. Ensure the script is owned by root and is not writable by the reticulum user.') }}</span>
+                    <span id="on-inbound-warn" class="text-warning small" style="display:none;"><i class="fa fa-exclamation-triangle"></i> {{ lang._('Security: This script is executed on every inbound message received from the network. Ensure the script is owned by root and is not writable by the reticulum user.') }}</span>
                     <div class="hidden" data-for="help_for_lxmf.on_inbound">
                         <small>{{ lang._('Absolute path to a script or executable to run when the LXMF service receives an inbound message. The script receives message metadata as arguments. Leave blank to disable. Useful for custom notification or integration workflows.') }}</small>
                     </div>
@@ -533,7 +538,7 @@
     <div class="row">
         <div class="col-md-12 text-right">
             <button class="btn btn-primary" id="saveBtn" type="button">
-                <i class="fa fa-save"></i> {{ lang._('Save') }}
+                <i class="fa fa-floppy-o"></i> {{ lang._('Save') }}
             </button>
             <button class="btn btn-default" id="applyBtn" type="button"
                     title="{{ lang._('Saves and signals lxmd to reload its configuration. A full service restart may occur.') }}">
@@ -685,9 +690,11 @@ $(document).ready(function() {
         if ($('#lxmf\\.enable_node').is(':checked')) {
             $('.propagation-dep').show();
             $('.propagation-dep-tab').show();
+            $('#propagation-disabled-msg').hide();
         } else {
             $('.propagation-dep').hide();
             $('.propagation-dep-tab').hide();
+            $('#propagation-disabled-msg').show();
         }
     }
 
@@ -732,6 +739,20 @@ $(document).ready(function() {
     }
 
     /**
+     * Show or hide the on_inbound security warning based on whether the
+     * field contains a non-empty value. The warning is only relevant when
+     * a script path has actually been entered.
+     */
+    function updateOnInboundWarn() {
+        var val = $('#lxmf\\.on_inbound').val();
+        if (val && val.trim() !== '') {
+            $('#on-inbound-warn').show();
+        } else {
+            $('#on-inbound-warn').hide();
+        }
+    }
+
+    /**
      * Warn when from_static_only is checked but no static peers are configured.
      */
     function checkStaticOnlyWarn() {
@@ -756,6 +777,7 @@ $(document).ready(function() {
             checkStampFloor();
             checkSyncSize();
             checkStaticOnlyWarn();
+            updateOnInboundWarn();
             // Fetch both service statuses after the form is ready
             updateRnsdStatus();
             updateLxmdStatus();
@@ -797,6 +819,9 @@ $(document).ready(function() {
     // Static-only peering warning
     $('#lxmf\\.from_static_only').change(checkStaticOnlyWarn);
     $('#lxmf\\.static_peers').on('change', checkStaticOnlyWarn);
+
+    // on_inbound security warning — only shown when a script path is present
+    $('#lxmf\\.on_inbound').on('input change', updateOnInboundWarn);
 
     // Save form data
     $('#saveBtn').click(function() {

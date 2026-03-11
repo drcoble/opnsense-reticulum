@@ -6,6 +6,13 @@
  * Interface table: name, up/down status, per-interface TX/RX.
  *
  * Extends BaseTableWidget (OPNsense 24.x widget framework).
+ *
+ * i18n: UI strings are English-only. The OPNsense JS widget framework
+ * (BaseTableWidget / BaseWidget) does not provide a client-side translation
+ * helper equivalent to Volt's lang._(). This matches the convention used by
+ * built-in widgets (Traffic, Thermal, CPU, etc.). If framework-level JS i18n
+ * support is added in a future OPNsense release, these strings should be
+ * wrapped accordingly.
  */
 
 import BaseTableWidget from "./BaseTableWidget.js";
@@ -281,6 +288,7 @@ export default class Reticulum extends BaseTableWidget {
      * Truncates identity to 8 chars; full hash available on hover.
      */
     _updateInfo(data) {
+        // htmlEncode() inherited from BaseTableWidget — sanitizes strings for safe HTML insertion
         let rnsVer  = data.rns_version  ? this.htmlEncode(data.rns_version)  : '?';
         let lxmfVer = data.lxmf_version ? this.htmlEncode(data.lxmf_version) : null;
 

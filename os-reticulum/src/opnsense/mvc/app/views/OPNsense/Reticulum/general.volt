@@ -10,7 +10,7 @@
 
 <div id="service_status_container"></div>
 
-<div id="rnsd-runtime-info" class="row" style="margin-top:8px;">
+<div id="rnsd-runtime-info" class="row">
     <div class="col-sm-12">
         <small>
             <strong>{{ lang._('Version') }}:</strong> <span id="rnsd-version">{{ lang._('loading...') }}</span>
@@ -23,7 +23,7 @@
     </div>
 </div>
 
-<ul class="nav nav-tabs" data-tabs="tabs" id="maintabs" style="margin-top:12px;">
+<ul class="nav nav-tabs" data-tabs="tabs" id="maintabs">
     <li class="active"><a data-toggle="tab" href="#tab-general">{{ lang._('General') }}</a></li>
     <li><a data-toggle="tab" href="#tab-transport">{{ lang._('Transport') }}</a></li>
     <li><a data-toggle="tab" href="#tab-sharing">{{ lang._('Sharing') }}</a></li>
@@ -255,7 +255,7 @@
         </div>
     </div>
 
-    <div id="apply-success-msg" class="alert alert-info" style="display:none; margin-top:12px;">
+    <div id="apply-success-msg" class="alert alert-info" style="display:none;">
         {{ lang._('Configuration applied. The service is reloading — the status indicator above will update shortly.') }}
     </div>
 </div>
