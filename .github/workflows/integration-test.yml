@@ -147,6 +147,9 @@ jobs:
               "https://github.com/$REPO.git" \
               /tmp/ci-reticulum
             cd /tmp/ci-reticulum/os-reticulum
+            mkdir -p /tmp/Mk
+            fetch -qo /tmp/Mk/plugins.mk \
+              "https://raw.githubusercontent.com/opnsense/plugins/master/Mk/plugins.mk"
             make install
             service configd restart
             sleep 3
