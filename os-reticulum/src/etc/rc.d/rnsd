@@ -14,15 +14,15 @@ load_rc_config $name
 : ${rnsd_enable:="NO"}
 : ${rnsd_user:="reticulum"}
 : ${rnsd_config:="/usr/local/etc/reticulum"}
+: ${rnsd_log:="/var/log/reticulum/rnsd.log"}
 
 pidfile="/var/run/${name}.pid"
 command="/usr/local/reticulum-venv/bin/rnsd"
-command_args="--config ${rnsd_config}"
-command_interpreter="/usr/local/reticulum-venv/bin/python3"
-command_user="${rnsd_user}"
-rnsd_flags=""
+command_args="--service --config ${rnsd_config}"
 
 start_precmd="${name}_prestart"
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
 stop_postcmd="${name}_poststop"
 
 rnsd_prestart()
@@ -34,14 +34,36 @@ rnsd_prestart()
     chown ${rnsd_user}:${rnsd_user} "${rnsd_config}"
     chmod 700 "${rnsd_config}"
 
-    # Ensure log directory exists
-    if [ ! -d "/var/log/reticulum" ]; then
-        mkdir -p /var/log/reticulum
-        chown ${rnsd_user}:${rnsd_user} /var/log/reticulum
-    fi
+    # Ensure log directory exists and is writable by service user
+    mkdir -p /var/log/reticulum
+    chown ${rnsd_user}:${rnsd_user} /var/log/reticulum
 
     # Ensure identity key files created by rnsd are not world-readable
     umask 077
+}
+
+rnsd_start()
+{
+    echo "Starting ${name}."
+    /usr/sbin/daemon \
+        -P "${pidfile}" \
+        -u "${rnsd_user}" \
+        -o "${rnsd_log}" \
+        ${command} ${command_args}
+    sleep 2
+    if pgrep -qF "${pidfile}" 2>/dev/null; then
+        echo "${name} started."
+    else
+        echo "WARNING: failed to start ${name} — check ${rnsd_log}"
+        return 1
+    fi
+}
+
+rnsd_stop()
+{
+    if [ -f "${pidfile}" ]; then
+        kill $(cat "${pidfile}") 2>/dev/null || true
+    fi
 }
 
 rnsd_poststop()
