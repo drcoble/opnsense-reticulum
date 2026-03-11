@@ -53,9 +53,8 @@ class ServiceController extends ApiControllerBase
      */
     public function rnsdStatusAction()
     {
-        $backend = new Backend();
-        $response = trim($backend->configdRun('reticulum status.rnsd'));
-        return json_decode($response, true) ?: ['status' => 'unknown'];
+        exec('pgrep -x rnsd 2>/dev/null', $pids, $code);
+        return ['status' => $code === 0 ? 'running' : 'stopped'];
     }
 
     // ==================== lxmd ====================
@@ -70,11 +69,8 @@ class ServiceController extends ApiControllerBase
             $backend = new Backend();
 
             // Check rnsd is running first
-            $rnsdStatus = json_decode(
-                trim($backend->configdRun('reticulum status.rnsd')),
-                true
-            );
-            if (!isset($rnsdStatus['status']) || $rnsdStatus['status'] !== 'running') {
+            exec('pgrep -x rnsd 2>/dev/null', $pids, $code);
+            if ($code !== 0) {
                 return [
                     'result' => 'error',
                     'message' => 'Cannot start lxmd: rnsd is not running. Start rnsd first.'
@@ -110,11 +106,8 @@ class ServiceController extends ApiControllerBase
             $backend = new Backend();
 
             // Check rnsd is running first
-            $rnsdStatus = json_decode(
-                trim($backend->configdRun('reticulum status.rnsd')),
-                true
-            );
-            if (!isset($rnsdStatus['status']) || $rnsdStatus['status'] !== 'running') {
+            exec('pgrep -x rnsd 2>/dev/null', $pids, $code);
+            if ($code !== 0) {
                 return [
                     'result' => 'error',
                     'message' => 'Cannot restart lxmd: rnsd is not running. Start rnsd first.'
@@ -132,9 +125,8 @@ class ServiceController extends ApiControllerBase
      */
     public function lxmdStatusAction()
     {
-        $backend = new Backend();
-        $response = trim($backend->configdRun('reticulum status.lxmd'));
-        return json_decode($response, true) ?: ['status' => 'unknown'];
+        exec('pgrep -x lxmd 2>/dev/null', $pids, $code);
+        return ['status' => $code === 0 ? 'running' : 'stopped'];
     }
 
     // ==================== Shared ====================
