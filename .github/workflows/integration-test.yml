@@ -169,8 +169,10 @@ jobs:
                 echo "WARNING: could not install system cryptography — pip may build from source"
               # Create venv inheriting system site-packages (avoids building cryptography)
               python3 -m venv --system-site-packages /usr/local/reticulum-venv
-              # Force reinstall to ensure entry points (rnsd, lxmd) are installed to venv/bin
-              /usr/local/reticulum-venv/bin/pip install --quiet --force-reinstall rns lxmf
+              # Install rns/lxmf (uses system cryptography via --system-site-packages)
+              /usr/local/reticulum-venv/bin/pip install --quiet rns lxmf
+              # Force-reinstall only rns/lxmf without rebuilding deps (ensures entry points in venv/bin)
+              /usr/local/reticulum-venv/bin/pip install --quiet --force-reinstall --no-deps rns lxmf
               echo "Reticulum installed OK (rnsd: \$(/usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo NOT FOUND))"
             else
               echo "Reticulum venv already present"
