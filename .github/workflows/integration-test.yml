@@ -152,6 +152,7 @@ jobs:
               fetch -qo /tmp/Mk/\${_mk} "https://raw.githubusercontent.com/opnsense/plugins/master/Mk/\${_mk}"
             done
             make install
+            chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/*.sh
             service configd restart
             sleep 3
             echo "Plugin installed successfully"
@@ -164,6 +165,39 @@ jobs:
           OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
         run: |
           .venv/bin/pytest os-reticulum/tests/ -v --tb=short -m integration --junit-xml=test-results.xml
+
+      - name: Capture VM diagnostics on failure
+        if: failure()
+        env:
+          SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+        run: |
+          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+          $SSH root@"$OPNSENSE_HOST" sh << 'ENDSSH'
+            echo "=== PHP/nginx error log ==="
+            tail -30 /var/log/nginx/error.log 2>/dev/null || echo 'no nginx log'
+
+            echo "=== Installed controllers ==="
+            ls -la /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/Api/ 2>/dev/null
+
+            echo "=== Installed model files ==="
+            ls -la /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/ 2>/dev/null
+
+            echo "=== Installed scripts ==="
+            ls -la /usr/local/opnsense/scripts/OPNsense/Reticulum/ 2>/dev/null
+
+            echo "=== Test status script directly ==="
+            /usr/local/opnsense/scripts/OPNsense/Reticulum/rnsd_status.sh 2>&1 || echo 'status script failed'
+
+            echo "=== PHP syntax check: Model ==="
+            php -l /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/Reticulum.php 2>&1
+
+            echo "=== PHP syntax check: RnsdController ==="
+            php -l /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/Api/RnsdController.php 2>&1
+
+            echo "=== OPNsense / system log ==="
+            tail -30 /var/log/opnsense.log 2>/dev/null || tail -30 /var/log/system.log 2>/dev/null || echo 'no system log'
+          ENDSSH
 
       - name: Run API endpoint tests
         env:
