@@ -149,8 +149,7 @@ jobs:
             cd /tmp/ci-reticulum/os-reticulum
             mkdir -p /tmp/Mk
             for _mk in common.mk contrib.mk defaults.mk devel.mk git.mk lint.mk plugins.mk style.mk sweep.mk; do
-              fetch -qo /tmp/Mk/${_mk} \
-                "https://raw.githubusercontent.com/opnsense/plugins/master/Mk/${_mk}"
+              fetch -qo /tmp/Mk/${_mk} "https://raw.githubusercontent.com/opnsense/plugins/master/Mk/${_mk}"
             done
             make install
             service configd restart
