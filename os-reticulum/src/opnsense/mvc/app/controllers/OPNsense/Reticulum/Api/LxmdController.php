@@ -3,6 +3,7 @@
 namespace OPNsense\Reticulum\Api;
 
 use OPNsense\Base\ApiMutableModelControllerBase;
+use OPNsense\Core\Config;
 
 class LxmdController extends ApiMutableModelControllerBase
 {
@@ -11,19 +12,39 @@ class LxmdController extends ApiMutableModelControllerBase
 
     /**
      * GET api/reticulum/lxmd/get
-     * Returns the lxmf settings node
+     * Returns the lxmf settings node.
+     *
+     * Note: getBase() is designed for ArrayField items and calls Add() which
+     * does not exist on flat container nodes. For flat settings sections we
+     * must access the model node directly via getNodes().
      */
     public function getAction()
     {
-        return $this->getBase('lxmf', 'lxmf');
+        return ['lxmf' => $this->getModel()->lxmf->getNodes()];
     }
 
     /**
      * POST api/reticulum/lxmd/set
-     * Saves lxmf settings
+     * Saves lxmf settings.
+     *
+     * Note: setBase() requires a UUID (ArrayField pattern) and will either
+     * throw a TypeError or skip the update when called without one. For flat
+     * settings sections we apply the post data directly to the model node,
+     * validate, and save — mirroring the parent setAction() pattern but
+     * scoped to the 'lxmf' subtree.
      */
     public function setAction()
     {
-        return $this->setBase('lxmf', 'lxmf');
+        $result = ['result' => 'failed'];
+        if ($this->request->isPost()) {
+            Config::getInstance()->lock();
+            $mdl = $this->getModel();
+            $mdl->lxmf->setNodes($this->request->getPost('lxmf'));
+            $result = $this->validate();
+            if (empty($result['result'])) {
+                return $this->save(false, true);
+            }
+        }
+        return $result;
     }
 }

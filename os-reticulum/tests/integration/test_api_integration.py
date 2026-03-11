@@ -332,14 +332,36 @@ class TestA309Auth:
             f"Expected 401/403, got {r.status_code}"
 
     def test_a309b_no_credentials_rejected(self):
-        """A-309b: GET rnsd/get with no credentials returns 401 or 403."""
+        """A-309b: No-credential request must not return real API data.
+
+        OPNsense behaviour: when no Authorization header is provided,
+        OPNsense serves its HTML login page with HTTP 200 (session-based
+        redirect) rather than a 401/403.  It only returns 401/403 when
+        *wrong* credentials are explicitly supplied (see test_a309a).
+
+        We accept any of: 401, 403 (traditional rejection), or 200 with a
+        non-JSON / non-API body (HTML login page = access control enforced).
+        A 200 that contains actual API data (e.g. a 'general' key) is a
+        security failure.
+        """
         r = requests.get(
             f"https://{OPNSENSE_HOST}/api/reticulum/rnsd/get",
             verify=False,
             timeout=10,
         )
-        assert r.status_code in (401, 403), \
-            f"Expected 401/403, got {r.status_code}"
+        if r.status_code in (401, 403):
+            pass  # traditional HTTP auth rejection
+        elif r.status_code == 200:
+            # OPNsense serves HTML login page (not API data) for no-credential requests
+            try:
+                data = r.json()
+                # If we got valid JSON with "general" key, it's a real auth bypass
+                assert "general" not in data, \
+                    f"SECURITY: No-credential request returned API data: {r.text[:200]}"
+            except (ValueError, requests.exceptions.JSONDecodeError):
+                pass  # HTML response = login page = access control enforced
+        else:
+            pytest.fail(f"Unexpected status {r.status_code}")
 
     def test_a309c_post_without_csrf_documented(self):
         """A-309c: POST without CSRF token — documents OPNsense CSRF behaviour.

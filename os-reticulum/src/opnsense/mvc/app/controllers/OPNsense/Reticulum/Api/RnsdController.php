@@ -3,6 +3,7 @@
 namespace OPNsense\Reticulum\Api;
 
 use OPNsense\Base\ApiMutableModelControllerBase;
+use OPNsense\Core\Config;
 
 class RnsdController extends ApiMutableModelControllerBase
 {
@@ -11,20 +12,40 @@ class RnsdController extends ApiMutableModelControllerBase
 
     /**
      * GET api/reticulum/rnsd/get
-     * Returns the general settings node
+     * Returns the general settings node.
+     *
+     * Note: getBase() is designed for ArrayField items and calls Add() which
+     * does not exist on flat container nodes. For flat settings sections we
+     * must access the model node directly via getNodes().
      */
     public function getAction()
     {
-        return $this->getBase('general', 'general');
+        return ['general' => $this->getModel()->general->getNodes()];
     }
 
     /**
      * POST api/reticulum/rnsd/set
-     * Saves general settings
+     * Saves general settings.
+     *
+     * Note: setBase() requires a UUID (ArrayField pattern) and will either
+     * throw a TypeError or skip the update when called without one. For flat
+     * settings sections we apply the post data directly to the model node,
+     * validate, and save — mirroring the parent setAction() pattern but
+     * scoped to the 'general' subtree.
      */
     public function setAction()
     {
-        return $this->setBase('general', 'general');
+        $result = ['result' => 'failed'];
+        if ($this->request->isPost()) {
+            Config::getInstance()->lock();
+            $mdl = $this->getModel();
+            $mdl->general->setNodes($this->request->getPost('general'));
+            $result = $this->validate();
+            if (empty($result['result'])) {
+                return $this->save(false, true);
+            }
+        }
+        return $result;
     }
 
     /**
