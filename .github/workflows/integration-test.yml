@@ -240,15 +240,29 @@ jobs:
             echo "=== daemon -p flag test ==="
             /usr/sbin/daemon -p /tmp/dtest.pid /usr/bin/true 2>&1 && echo 'daemon -p OK' || echo 'daemon -p FAILED'
 
-            echo "=== Direct rnsd run as root (5s) ==="
-            timeout 5 /usr/local/reticulum-venv/bin/rnsd --service --config /usr/local/etc/reticulum >> /tmp/rnsd-root.log 2>&1 &
-            RPID=$!
-            sleep 3
-            kill -9 $RPID 2>/dev/null
-            # Kill any orphaned rnsd children; do not wait (wait can hang on orphans)
+            echo "=== Direct rnsd run as reticulum user (8s) ==="
+            rm -f /tmp/rnsd-reticulum.log /var/run/rnsd-test.pid
+            /usr/sbin/daemon -p /var/run/rnsd-test.pid -u reticulum \
+              /bin/sh -c "/usr/local/reticulum-venv/bin/rnsd --service --config /usr/local/etc/reticulum >> /tmp/rnsd-reticulum.log 2>&1"
+            sleep 6
+            echo "rnsd daemon stdout/stderr (usually empty with --service):"
+            cat /tmp/rnsd-reticulum.log 2>/dev/null || echo "(empty)"
+            echo "RNS internal logfile (configdir/logfile):"
+            tail -50 /usr/local/etc/reticulum/logfile 2>/dev/null || echo "(no RNS logfile found)"
+            echo "ls of config dir after run:"
+            ls -la /usr/local/etc/reticulum/ 2>/dev/null
+            echo "test pidfile status:"
+            if [ -f /var/run/rnsd-test.pid ]; then
+              TPID=$(cat /var/run/rnsd-test.pid)
+              echo "pidfile exists, PID=$TPID"
+              ps -p "$TPID" -o pid,user,command 2>/dev/null || echo "process dead (pid=$TPID)"
+            else
+              echo "no test pidfile — daemon+rnsd exited before check"
+            fi
+            # Cleanup
+            kill "$(cat /var/run/rnsd-test.pid 2>/dev/null)" 2>/dev/null || true
             pkill -9 -f 'rnsd --service' 2>/dev/null || true
-            echo "rnsd root run log:"
-            cat /tmp/rnsd-root.log 2>/dev/null || echo "(empty)"
+            rm -f /var/run/rnsd-test.pid
 
             echo "=== Python RNS import test ==="
             timeout 10 /usr/local/reticulum-venv/bin/python3 -c "import RNS; print('RNS import OK, version:', RNS.__version__)" 2>&1 || echo 'RNS import FAILED or timed out'
@@ -267,6 +281,16 @@ jobs:
 
             echo "=== rnsd log (last 30 lines) ==="
             tail -30 /var/log/reticulum/rnsd.log 2>/dev/null || echo 'no rnsd log'
+
+            echo "=== RNS internal logfile (configdir/logfile) ==="
+            tail -50 /usr/local/etc/reticulum/logfile 2>/dev/null || echo 'no RNS logfile'
+
+            echo "=== ps -p pidfile check (www-user-compatible) ==="
+            if [ -f /var/run/rnsd.pid ]; then
+              PID2=$(cat /var/run/rnsd.pid)
+              echo "pidfile PID: $PID2"
+              ps -p "$PID2" -o pid,user,command 2>/dev/null || echo "process dead via ps -p"
+            fi
 
             echo "=== Installed scripts ==="
             ls -la /usr/local/opnsense/scripts/OPNsense/Reticulum/ 2>/dev/null

@@ -63,7 +63,9 @@ class ServiceController extends ApiControllerBase
         if (!ctype_digit($pid)) {
             return ['status' => 'stopped'];
         }
-        exec("kill -0 $pid 2>/dev/null", $out, $code);
+        // Use ps -p instead of kill -0: ps can check any process regardless of
+        // ownership (PHP runs as www, rnsd runs as reticulum — kill -0 returns EPERM).
+        exec("ps -p $pid -o pid= 2>/dev/null", $out, $code);
         return ['status' => $code === 0 ? 'running' : 'stopped'];
     }
 
@@ -78,9 +80,9 @@ class ServiceController extends ApiControllerBase
         if ($this->request->isPost()) {
             $backend = new Backend();
 
-            // Check rnsd is running first
+            // Check rnsd is running first (use ps -p: PHP runs as www, rnsd as reticulum)
             $rnsdPid = file_exists('/var/run/rnsd.pid') ? trim(file_get_contents('/var/run/rnsd.pid')) : '';
-            exec("kill -0 $rnsdPid 2>/dev/null", $chk, $rnsdCode);
+            exec("ps -p $rnsdPid -o pid= 2>/dev/null", $chk, $rnsdCode);
             if (!ctype_digit($rnsdPid) || $rnsdCode !== 0) {
                 return [
                     'result' => 'error',
@@ -116,9 +118,9 @@ class ServiceController extends ApiControllerBase
         if ($this->request->isPost()) {
             $backend = new Backend();
 
-            // Check rnsd is running first
+            // Check rnsd is running first (use ps -p: PHP runs as www, rnsd as reticulum)
             $rnsdPid = file_exists('/var/run/rnsd.pid') ? trim(file_get_contents('/var/run/rnsd.pid')) : '';
-            exec("kill -0 $rnsdPid 2>/dev/null", $chk, $rnsdCode);
+            exec("ps -p $rnsdPid -o pid= 2>/dev/null", $chk, $rnsdCode);
             if (!ctype_digit($rnsdPid) || $rnsdCode !== 0) {
                 return [
                     'result' => 'error',
@@ -147,7 +149,9 @@ class ServiceController extends ApiControllerBase
         if (!ctype_digit($pid)) {
             return ['status' => 'stopped'];
         }
-        exec("kill -0 $pid 2>/dev/null", $out, $code);
+        // Use ps -p instead of kill -0: ps can check any process regardless of
+        // ownership (PHP runs as www, lxmd runs as reticulum — kill -0 returns EPERM).
+        exec("ps -p $pid -o pid= 2>/dev/null", $out, $code);
         return ['status' => $code === 0 ? 'running' : 'stopped'];
     }
 
