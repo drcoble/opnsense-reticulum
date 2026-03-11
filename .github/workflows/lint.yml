@@ -17,7 +17,7 @@ jobs:
           errors=0
           while IFS= read -r -d '' f; do
             php -l "$f" >/dev/null 2>&1 || { echo "FAIL: $f"; errors=$((errors+1)); }
-          done < <(find net/reticulum/src -name "*.php" -print0)
+          done < <(find os-reticulum/src -name "*.php" -print0)
           [ "$errors" -eq 0 ] || { echo "$errors file(s) failed PHP syntax check"; exit 1; }
           echo "PHP syntax OK"
 
@@ -33,7 +33,7 @@ jobs:
           errors=0
           while IFS= read -r -d '' f; do
             xmllint --noout "$f" 2>&1 || { echo "FAIL: $f"; errors=$((errors+1)); }
-          done < <(find net/reticulum/src -name "*.xml" -print0)
+          done < <(find os-reticulum/src -name "*.xml" -print0)
           [ "$errors" -eq 0 ] || { echo "$errors file(s) failed XML validation"; exit 1; }
           echo "XML validation OK"
 
@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ludeeus/action-shellcheck@2.0.0
         with:
-          scandir: "./net/reticulum/src"
+          scandir: "./os-reticulum/src"
           severity: warning
 
   python:
@@ -57,6 +57,6 @@ jobs:
           errors=0
           while IFS= read -r -d '' f; do
             python3 -m py_compile "$f" 2>&1 || { echo "FAIL: $f"; errors=$((errors+1)); }
-          done < <(find net/reticulum/src -name "*.py" -print0)
+          done < <(find os-reticulum/src -name "*.py" -print0)
           [ "$errors" -eq 0 ] || { echo "$errors file(s) failed Python syntax check"; exit 1; }
           echo "Python syntax OK"

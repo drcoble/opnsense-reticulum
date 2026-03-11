@@ -1,0 +1,95 @@
+#!/bin/sh
+
+VENV_PATH="/usr/local/reticulum-venv"
+SVC_USER="reticulum"
+SVC_HOME="/var/db/reticulum"
+
+# --- Dependency check (must pass before any work) ---
+
+check_dep() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "[reticulum] ERROR: $1 not found. $2" >&2
+        exit 1
+    fi
+}
+
+check_pkg() {
+    _pkg="$1"
+    if ! pkg info -e "${_pkg}" 2>/dev/null; then
+        echo "[reticulum] ERROR: package ${_pkg} is not installed. Install with: pkg install ${_pkg}" >&2
+        exit 1
+    fi
+}
+
+check_dep python3.11  "Install with: pkg install python311"
+check_pkg py311-setuptools
+
+# --- Create service user if not exists ---
+
+if ! pw usershow ${SVC_USER} >/dev/null 2>&1; then
+    pw useradd ${SVC_USER} \
+        -d ${SVC_HOME} \
+        -s /usr/sbin/nologin \
+        -c "Reticulum Network Stack" \
+        -m
+fi
+
+# Add user to dialer group (serial/USB device access)
+pw groupmod dialer -m ${SVC_USER} 2>/dev/null || true
+
+# --- Create directories ---
+
+mkdir -p /usr/local/etc/reticulum
+mkdir -p /usr/local/etc/lxmf
+mkdir -p ${SVC_HOME}
+mkdir -p /var/db/lxmf
+mkdir -p /var/log/reticulum
+
+# Set ownership and permissions
+chown -R ${SVC_USER}:${SVC_USER} /usr/local/etc/reticulum
+chown -R ${SVC_USER}:${SVC_USER} /usr/local/etc/lxmf
+chown -R ${SVC_USER}:${SVC_USER} ${SVC_HOME}
+chown -R ${SVC_USER}:${SVC_USER} /var/db/lxmf
+chown -R ${SVC_USER}:${SVC_USER} /var/log/reticulum
+
+# Config dirs: 700 (only service user can read keys/identity)
+chmod 700 /usr/local/etc/reticulum
+chmod 700 /usr/local/etc/lxmf
+# Runtime data and log dirs: 755 (world-readable to allow configd/scripts to check paths)
+chmod 755 ${SVC_HOME}
+chmod 755 /var/db/lxmf
+chmod 755 /var/log/reticulum
+
+# --- Create or update virtualenv ---
+
+if [ ! -d "${VENV_PATH}" ]; then
+    python3.11 -m venv "${VENV_PATH}"
+fi
+
+# Upgrade pip itself to avoid legacy resolver issues on FreeBSD
+"${VENV_PATH}/bin/pip" install --upgrade pip --quiet
+
+# Install rns and lxmf from PyPI
+echo "[reticulum] Installing rns and lxmf from PyPI..."
+if ! "${VENV_PATH}/bin/pip" install --upgrade rns lxmf; then
+    echo "[reticulum] ERROR: pip install of rns/lxmf failed." >&2
+    exit 1
+fi
+
+# Clean pip cache to reclaim space
+"${VENV_PATH}/bin/pip" cache purge 2>/dev/null || true
+
+# --- Record installed versions ---
+
+RNS_VER=$("${VENV_PATH}/bin/python3.11" -c \
+    "import importlib.metadata; print(importlib.metadata.version('rns'))" 2>/dev/null || echo "unknown")
+LXMF_VER=$("${VENV_PATH}/bin/python3.11" -c \
+    "import importlib.metadata; print(importlib.metadata.version('lxmf'))" 2>/dev/null || echo "unknown")
+
+printf "rns=%s\n"  "${RNS_VER}"  > "${SVC_HOME}/.pkg-versions"
+printf "lxmf=%s\n" "${LXMF_VER}" >> "${SVC_HOME}/.pkg-versions"
+chown ${SVC_USER}:${SVC_USER} "${SVC_HOME}/.pkg-versions"
+
+echo "[reticulum] Installed: rns=${RNS_VER}, lxmf=${LXMF_VER}"
+
+exit 0

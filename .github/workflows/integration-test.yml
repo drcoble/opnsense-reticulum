@@ -2,7 +2,7 @@ name: Integration Tests
 
 on:
   pull_request:
-    branches: [testing]
+    branches: [testing, main, development]
   workflow_dispatch:
 
 jobs:
@@ -20,7 +20,8 @@ jobs:
       - name: Install Python test dependencies
         run: |
           python3 -m venv .venv
-          .venv/bin/pip install -r tests/requirements-test.txt
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r os-reticulum/tests/requirements-test.txt
 
       - name: Restore OPNsense VM to clean snapshot
         env:
@@ -126,7 +127,7 @@ jobs:
 
       - name: Deploy plugin to OPNsense
         env:
-          SSH_KEY: ${{ secrets.PNSENSE_SSH_KEY }}
+          SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
           BRANCH: ${{ steps.branch.outputs.name }}
           REPO: ${{ github.repository }}
@@ -145,9 +146,8 @@ jobs:
               -b "$BRANCH" \
               "https://github.com/$REPO.git" \
               /tmp/ci-reticulum
-            cd /tmp/ci-reticulum/net/reticulum
+            cd /tmp/ci-reticulum/os-reticulum
             make install
-            sh /usr/local/+POST_INSTALL
             service configd restart
             sleep 3
             echo "Plugin installed successfully"
@@ -159,7 +159,19 @@ jobs:
           OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
           OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
         run: |
-          .venv/bin/pytest tests/ -v --tb=short --junit-xml=test-results.xml
+          .venv/bin/pytest os-reticulum/tests/ -v --tb=short -m integration --junit-xml=test-results.xml
+
+      - name: Run API endpoint tests
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
+          OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
+        run: |
+          # OPNsense API uses HTTP Basic auth: API key = username, secret = password.
+          sh os-reticulum/tests/api/test_api_endpoints.sh \
+            "https://${OPNSENSE_HOST}" \
+            "${OPNSENSE_API_KEY}" \
+            "${OPNSENSE_API_SECRET}"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

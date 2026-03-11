@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# Regenerate Reticulum config files from OPNsense config.xml on boot
+/usr/local/bin/configctl template reload OPNsense/Reticulum 2>/dev/null || true

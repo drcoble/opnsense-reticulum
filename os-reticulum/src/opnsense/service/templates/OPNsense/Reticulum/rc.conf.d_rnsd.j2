@@ -1,0 +1,2 @@
+{% set general = OPNsense.Reticulum.general %}
+rnsd_enable="{% if general.enabled|default('0') == '1' %}YES{% else %}NO{% endif %}"
