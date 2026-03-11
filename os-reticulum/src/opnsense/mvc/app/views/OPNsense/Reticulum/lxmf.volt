@@ -12,16 +12,62 @@
     {{ lang._('LXMF (Lightweight Extensible Message Format) is the messaging layer that runs over Reticulum. The Reticulum service (rnsd) must be running before LXMF can start.') }}
 </p>
 
-{# ======================== Dual Service Status Bars ======================== #}
-<div class="content-box" style="padding:8px 16px;">
-    <div class="row" style="margin-bottom:4px;">
-        <div class="col-sm-2"><strong>{{ lang._('Transport Node') }}:</strong></div>
-        <div class="col-sm-10" id="service_status_container_rnsd"></div>
+{# ======================== Dual Service Status Section ========================
+     Neither service uses updateServiceControlUI() here because that function
+     hardcodes #service_status_container as its target and can only control one
+     service per page. Instead:
+       - rnsd row: read-only status badge via direct ajaxCall to rnsdStatus
+       - lxmd row: custom toolbar with Start/Stop/Restart buttons via direct
+                   ajaxCall to lxmdStart / lxmdStop / lxmdRestart / lxmdStatus
+     Both rows are polled on the same interval as the rnsd dependency banner.
+#}
+<div class="content-box" style="padding:10px 16px;">
+
+    {# ---- Transport Node (rnsd) — read-only status ---- #}
+    <div class="row" style="margin-bottom:8px; align-items:center; display:flex;">
+        <div class="col-sm-2">
+            <strong>{{ lang._('Transport Node') }}:</strong>
+        </div>
+        <div class="col-sm-10" id="rnsd-status-row">
+            {# Populated by updateRnsdStatusBadge() #}
+            <span id="rnsd-status-badge" class="label label-default" style="font-size:0.85em; padding:4px 8px;">
+                {{ lang._('loading...') }}
+            </span>
+            <small class="text-muted" style="margin-left:8px;">
+                {{ lang._('Managed on the') }}
+                <a href="/ui/reticulum/general">{{ lang._('General') }}</a>
+                {{ lang._('page.') }}
+            </small>
+        </div>
     </div>
-    <div class="row">
-        <div class="col-sm-2"><strong>{{ lang._('Propagation Node') }}:</strong></div>
-        <div class="col-sm-10" id="service_status_container_lxmd"></div>
+
+    {# ---- Propagation Node (lxmd) — full service control ---- #}
+    <div class="row" style="align-items:center; display:flex;">
+        <div class="col-sm-2">
+            <strong>{{ lang._('Propagation Node') }}:</strong>
+        </div>
+        <div class="col-sm-10">
+            <div class="btn-group" role="group" style="margin-right:10px;">
+                <button type="button" class="btn btn-xs btn-success" id="lxmd-btn-start"
+                        title="{{ lang._('Start the LXMF propagation node (lxmd). Requires Transport Node to be running.') }}">
+                    <i class="fa fa-play"></i> {{ lang._('Start') }}
+                </button>
+                <button type="button" class="btn btn-xs btn-danger" id="lxmd-btn-stop"
+                        title="{{ lang._('Stop the LXMF propagation node (lxmd).') }}">
+                    <i class="fa fa-stop"></i> {{ lang._('Stop') }}
+                </button>
+                <button type="button" class="btn btn-xs btn-default" id="lxmd-btn-restart"
+                        title="{{ lang._('Restart the LXMF propagation node (lxmd). Requires Transport Node to be running.') }}">
+                    <i class="fa fa-refresh"></i> {{ lang._('Restart') }}
+                </button>
+            </div>
+            <span id="lxmd-status-badge" class="label label-default" style="font-size:0.85em; padding:4px 8px;">
+                {{ lang._('loading...') }}
+            </span>
+            <span id="lxmd-action-msg" class="text-muted small" style="margin-left:8px; display:none;"></span>
+        </div>
     </div>
+
 </div>
 
 {# ======================== rnsd Dependency Warning ======================== #}
@@ -489,33 +535,148 @@
             <button class="btn btn-primary" id="saveBtn" type="button">
                 <i class="fa fa-save"></i> {{ lang._('Save') }}
             </button>
-            <button class="btn btn-default" id="applyBtn" type="button">
+            <button class="btn btn-default" id="applyBtn" type="button"
+                    title="{{ lang._('Saves and signals lxmd to reload its configuration. A full service restart may occur.') }}">
                 <i class="fa fa-check"></i> {{ lang._('Apply Changes') }}
             </button>
         </div>
     </div>
 
     <div id="apply-success-msg" class="alert alert-info" style="display:none; margin-top:12px;">
-        {{ lang._('Configuration applied successfully.') }}
+        {{ lang._('Configuration applied. The service is reloading — the status indicator above will update shortly.') }}
     </div>
 </div>
 
 <script>
 $(document).ready(function() {
 
+    // -----------------------------------------------------------------------
+    // Status badge helpers
+    // -----------------------------------------------------------------------
+
     /**
-     * Check whether the Reticulum (rnsd) service is running and show or
-     * hide the dependency warning banner accordingly.
+     * Apply a Bootstrap label class and text to a badge element.
+     * @param {jQuery} $badge  The <span> element to update.
+     * @param {string} status  'running' | 'stopped' | 'loading' | 'error'
+     * @param {string} text    Display text (already translated at call site).
      */
-    function checkRnsdDependency() {
+    function applyBadge($badge, status, text) {
+        $badge.removeClass('label-default label-success label-danger label-warning');
+        switch (status) {
+            case 'running':
+                $badge.addClass('label-success');
+                break;
+            case 'stopped':
+                $badge.addClass('label-danger');
+                break;
+            case 'error':
+                $badge.addClass('label-warning');
+                break;
+            default:
+                $badge.addClass('label-default');
+        }
+        $badge.text(text);
+    }
+
+    // -----------------------------------------------------------------------
+    // rnsd — read-only status badge + dependency warning
+    // -----------------------------------------------------------------------
+
+    /**
+     * Poll /api/reticulum/service/rnsdStatus and update:
+     *   - the read-only badge in the rnsd status row
+     *   - the #rnsd-warning dependency banner
+     *   - the disabled state of the lxmd Start/Restart buttons
+     *
+     * This single function replaces the former separate checkRnsdDependency()
+     * call, avoiding two redundant AJAX requests per polling cycle.
+     */
+    function updateRnsdStatus() {
         ajaxCall('/api/reticulum/service/rnsdStatus', {}, function(data) {
-            if (data && data.status !== 'running') {
-                $('#rnsd-warning').show();
-            } else {
+            var running = (data && data.status === 'running');
+            var $badge = $('#rnsd-status-badge');
+
+            if (running) {
+                applyBadge($badge, 'running', '{{ lang._("Running") }}');
                 $('#rnsd-warning').hide();
+            } else {
+                applyBadge($badge, 'stopped', '{{ lang._("Stopped") }}');
+                $('#rnsd-warning').show();
             }
+
+            // Disable lxmd Start and Restart when rnsd is not running — the
+            // server enforces this too, but disabling the buttons avoids a
+            // confusing error response reaching the user.
+            $('#lxmd-btn-start, #lxmd-btn-restart').prop('disabled', !running);
         });
     }
+
+    // -----------------------------------------------------------------------
+    // lxmd — custom service control toolbar
+    // -----------------------------------------------------------------------
+
+    /**
+     * Poll /api/reticulum/service/lxmdStatus and update the status badge.
+     * Button enabled/disabled state is managed by updateRnsdStatus() (for
+     * rnsd dependency) and the action handlers themselves (during in-flight
+     * requests to prevent double-clicks).
+     */
+    function updateLxmdStatus() {
+        ajaxCall('/api/reticulum/service/lxmdStatus', {}, function(data) {
+            var running = (data && data.status === 'running');
+            applyBadge(
+                $('#lxmd-status-badge'),
+                running ? 'running' : 'stopped',
+                running ? '{{ lang._("Running") }}' : '{{ lang._("Stopped") }}'
+            );
+        });
+    }
+
+    /**
+     * Show a transient action message below the lxmd toolbar, then fade it
+     * out after a short delay. Avoids browser alert() per OPNsense UI convention.
+     * @param {string} msg   Message text.
+     * @param {string} cls   CSS class to apply (e.g. 'text-danger', 'text-muted').
+     */
+    function showLxmdMsg(msg, cls) {
+        var $msg = $('#lxmd-action-msg');
+        $msg.removeClass('text-muted text-danger text-warning')
+            .addClass(cls)
+            .text(msg)
+            .show();
+        setTimeout(function() { $msg.fadeOut(400); }, 4000);
+    }
+
+    /**
+     * Lock all lxmd toolbar buttons during an in-flight action, then unlock
+     * them and refresh both service statuses once the action completes.
+     * @param {string}   endpoint  API path, e.g. '/api/reticulum/service/lxmdStart'
+     * @param {string}   label     Human-readable action label for the message.
+     */
+    function lxmdAction(endpoint, label) {
+        // Disable all buttons to prevent concurrent actions
+        $('#lxmd-btn-start, #lxmd-btn-stop, #lxmd-btn-restart').prop('disabled', true);
+
+        ajaxCall(endpoint, {}, function(data) {
+            if (data && data.result === 'error') {
+                // Server rejected the action (e.g. rnsd dependency check failed)
+                var detail = data.message || '{{ lang._("Unknown error") }}';
+                showLxmdMsg(label + ': ' + detail, 'text-danger');
+            } else {
+                showLxmdMsg(label + ' ' + '{{ lang._("command sent.") }}', 'text-muted');
+            }
+            // Refresh both rows after a brief settle delay to give the
+            // service time to transition before we read status back.
+            setTimeout(function() {
+                updateRnsdStatus();
+                updateLxmdStatus();
+            }, 1200);
+        });
+    }
+
+    // -----------------------------------------------------------------------
+    // Propagation field visibility
+    // -----------------------------------------------------------------------
 
     /**
      * Show or hide propagation-dependent fields based on the enable_node checkbox.
@@ -529,6 +690,10 @@ $(document).ready(function() {
             $('.propagation-dep-tab').hide();
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Cross-field validators
+    // -----------------------------------------------------------------------
 
     /**
      * Validate that stamp_cost_target - stamp_cost_flexibility >= 13.
@@ -579,26 +744,44 @@ $(document).ready(function() {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Initialisation
+    // -----------------------------------------------------------------------
+
     // Load settings from the API and populate the form
     ajaxCall('/api/reticulum/lxmd/get', {}, function(data, status) {
         mapDataToFormUI(data).done(function() {
             formatTokenizersUI();
-            updateServiceControlUI('reticulum', 'lxmd');
-            updateServiceControlUI('reticulum', 'rnsd');
-            checkRnsdDependency();
             updatePropagationVisibility();
             checkStampFloor();
             checkSyncSize();
             checkStaticOnlyWarn();
+            // Fetch both service statuses after the form is ready
+            updateRnsdStatus();
+            updateLxmdStatus();
         });
     });
 
-    // Poll service status and rnsd dependency every 10 seconds
+    // Poll both service statuses every 10 seconds
     setInterval(function() {
-        updateServiceControlUI('reticulum', 'lxmd');
-        updateServiceControlUI('reticulum', 'rnsd');
-        checkRnsdDependency();
+        updateRnsdStatus();
+        updateLxmdStatus();
     }, 10000);
+
+    // -----------------------------------------------------------------------
+    // Event bindings
+    // -----------------------------------------------------------------------
+
+    // lxmd service control buttons
+    $('#lxmd-btn-start').click(function() {
+        lxmdAction('/api/reticulum/service/lxmdStart', '{{ lang._("Start") }}');
+    });
+    $('#lxmd-btn-stop').click(function() {
+        lxmdAction('/api/reticulum/service/lxmdStop', '{{ lang._("Stop") }}');
+    });
+    $('#lxmd-btn-restart').click(function() {
+        lxmdAction('/api/reticulum/service/lxmdRestart', '{{ lang._("Restart") }}');
+    });
 
     // Propagation fields visibility toggle
     $('#lxmf\\.enable_node').change(function() {
@@ -620,11 +803,14 @@ $(document).ready(function() {
         saveFormToEndpoint('/api/reticulum/lxmd/set', 'lxmf', function() {});
     });
 
-    // Apply changes (triggers configd reconfigure)
+    // Apply changes (triggers configd reconfigure for both services)
     $('#applyBtn').click(function() {
         ajaxCall('/api/reticulum/service/reconfigure', {}, function(data) {
-            updateServiceControlUI('reticulum', 'lxmd');
-            updateServiceControlUI('reticulum', 'rnsd');
+            // Refresh both status badges after reconfigure settles
+            setTimeout(function() {
+                updateRnsdStatus();
+                updateLxmdStatus();
+            }, 1200);
             $('#apply-success-msg').fadeIn().delay(3000).fadeOut();
         });
     });

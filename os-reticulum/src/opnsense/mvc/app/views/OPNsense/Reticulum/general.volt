@@ -318,14 +318,14 @@ $(document).ready(function() {
             updateShareInstanceVisibility();
             updateRemoteMgmtVisibility();
             checkPortConflict();
-            updateServiceControlUI('reticulum', 'rnsd');
+            updateServiceControlUI('reticulum');
             updateRnsdRuntimeInfo();
         });
     });
 
     // Refresh service status and runtime info every 10 seconds
     setInterval(function() {
-        updateServiceControlUI('reticulum', 'rnsd');
+        updateServiceControlUI('reticulum');
         updateRnsdRuntimeInfo();
     }, 10000);
 
@@ -363,7 +363,7 @@ $(document).ready(function() {
     // Apply changes (triggers configd reconfigure)
     $('#applyBtn').click(function() {
         ajaxCall('/api/reticulum/service/reconfigure', {}, function(data) {
-            updateServiceControlUI('reticulum', 'rnsd');
+            updateServiceControlUI('reticulum');
             $('#apply-success-msg').fadeIn().delay(3000).fadeOut();
         });
     });

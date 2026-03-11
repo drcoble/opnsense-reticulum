@@ -1270,9 +1270,9 @@ $(document).ready(function() {
     };
 
     // Service status indicator (read-only rnsd dot — no Start/Stop on this page)
-    updateServiceControlUI('reticulum', 'rnsd');
+    updateServiceControlUI('reticulum');
     setInterval(function() {
-        updateServiceControlUI('reticulum', 'rnsd');
+        updateServiceControlUI('reticulum');
     }, 10000);
 
     // Initialize the interface grid
@@ -1465,7 +1465,7 @@ $(document).ready(function() {
     // Apply Changes — triggers configd reconfigure
     $('#applyInterfacesBtn').click(function() {
         ajaxCall('/api/reticulum/service/reconfigure', {}, function(data) {
-            updateServiceControlUI('reticulum', 'rnsd');
+            updateServiceControlUI('reticulum');
             $('#apply-success-msg').fadeIn().delay(3000).fadeOut();
         });
     });

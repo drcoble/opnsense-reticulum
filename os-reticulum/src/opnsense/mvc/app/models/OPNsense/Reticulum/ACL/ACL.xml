@@ -16,6 +16,7 @@
             <pattern>api/reticulum/rnsd/searchInterfaces</pattern>
             <pattern>api/reticulum/rnsd/getInterface/*</pattern>
             <pattern>api/reticulum/lxmd/get</pattern>
+            <pattern>api/reticulum/service/status</pattern>
             <pattern>api/reticulum/service/rnsdStatus</pattern>
             <pattern>api/reticulum/service/lxmdStatus</pattern>
             <pattern>api/reticulum/service/rnstatus</pattern>

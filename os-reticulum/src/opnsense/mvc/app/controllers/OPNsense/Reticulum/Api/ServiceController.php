@@ -7,7 +7,74 @@ use OPNsense\Core\Backend;
 
 class ServiceController extends ApiControllerBase
 {
-    // ==================== rnsd ====================
+    // ==================== Standard service endpoints ====================
+    // These are required by the OPNsense core updateServiceControlUI() function,
+    // which calls GET /api/{module}/service/status and POST start/stop/restart.
+    // They control the primary service (rnsd). The existing rnsd*/lxmd* endpoints
+    // below are kept for the dashboard widget and custom AJAX calls.
+
+    /**
+     * GET api/reticulum/service/status
+     * Standard OPNsense service status endpoint for updateServiceControlUI().
+     * Returns rnsd (primary service) status.
+     */
+    public function statusAction()
+    {
+        $pidfile = '/var/run/rnsd.pid';
+        if (!file_exists($pidfile)) {
+            return ['status' => 'stopped'];
+        }
+        $pid = trim(file_get_contents($pidfile));
+        if (!ctype_digit($pid)) {
+            return ['status' => 'stopped'];
+        }
+        exec("ps -p $pid -o pid= 2>/dev/null", $out, $code);
+        return ['status' => $code === 0 ? 'running' : 'stopped'];
+    }
+
+    /**
+     * POST api/reticulum/service/start
+     * Standard OPNsense service start endpoint for updateServiceControlUI().
+     */
+    public function startAction()
+    {
+        if ($this->request->isPost()) {
+            $backend = new Backend();
+            $result = trim($backend->configdRun('reticulum start.rnsd'));
+            return ['result' => $result];
+        }
+        return ['result' => 'error', 'message' => 'POST required'];
+    }
+
+    /**
+     * POST api/reticulum/service/stop
+     * Standard OPNsense service stop endpoint for updateServiceControlUI().
+     */
+    public function stopAction()
+    {
+        if ($this->request->isPost()) {
+            $backend = new Backend();
+            $result = trim($backend->configdRun('reticulum stop.rnsd'));
+            return ['result' => $result];
+        }
+        return ['result' => 'error', 'message' => 'POST required'];
+    }
+
+    /**
+     * POST api/reticulum/service/restart
+     * Standard OPNsense service restart endpoint for updateServiceControlUI().
+     */
+    public function restartAction()
+    {
+        if ($this->request->isPost()) {
+            $backend = new Backend();
+            $result = trim($backend->configdRun('reticulum restart.rnsd'));
+            return ['result' => $result];
+        }
+        return ['result' => 'error', 'message' => 'POST required'];
+    }
+
+    // ==================== rnsd (custom endpoints) ====================
 
     /**
      * POST api/reticulum/service/rnsdStart
