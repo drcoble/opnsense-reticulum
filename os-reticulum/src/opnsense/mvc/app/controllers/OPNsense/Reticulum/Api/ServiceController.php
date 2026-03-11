@@ -50,10 +50,12 @@ class ServiceController extends ApiControllerBase
 
     /**
      * GET api/reticulum/service/rnsdStatus
+     * Uses pgrep -F (pidfile) because rnsd runs as a Python process and
+     * its ps name is the interpreter, not "rnsd".
      */
     public function rnsdStatusAction()
     {
-        exec('pgrep -x rnsd 2>/dev/null', $pids, $code);
+        exec('pgrep -F /var/run/rnsd.pid 2>/dev/null', $pids, $code);
         return ['status' => $code === 0 ? 'running' : 'stopped'];
     }
 
@@ -69,7 +71,7 @@ class ServiceController extends ApiControllerBase
             $backend = new Backend();
 
             // Check rnsd is running first
-            exec('pgrep -x rnsd 2>/dev/null', $pids, $code);
+            exec('pgrep -F /var/run/rnsd.pid 2>/dev/null', $pids, $code);
             if ($code !== 0) {
                 return [
                     'result' => 'error',
@@ -106,7 +108,7 @@ class ServiceController extends ApiControllerBase
             $backend = new Backend();
 
             // Check rnsd is running first
-            exec('pgrep -x rnsd 2>/dev/null', $pids, $code);
+            exec('pgrep -F /var/run/rnsd.pid 2>/dev/null', $pids, $code);
             if ($code !== 0) {
                 return [
                     'result' => 'error',
@@ -122,10 +124,12 @@ class ServiceController extends ApiControllerBase
 
     /**
      * GET api/reticulum/service/lxmdStatus
+     * Uses pgrep -F (pidfile) because lxmd runs as a Python process and
+     * its ps name is the interpreter, not "lxmd".
      */
     public function lxmdStatusAction()
     {
-        exec('pgrep -x lxmd 2>/dev/null', $pids, $code);
+        exec('pgrep -F /var/run/lxmd.pid 2>/dev/null', $pids, $code);
         return ['status' => $code === 0 ? 'running' : 'stopped'];
     }
 
