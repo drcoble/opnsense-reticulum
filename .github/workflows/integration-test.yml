@@ -214,6 +214,15 @@ jobs:
             ls -la /usr/local/opnsense/service/conf/actions.d/ 2>/dev/null | grep -i reticulum || echo 'no reticulum action file'
             cat /usr/local/opnsense/service/conf/actions.d/actions_reticulum.conf 2>/dev/null || echo 'action file not readable'
 
+            echo "=== Reticulum config file contents ==="
+            cat /usr/local/etc/reticulum/config 2>/dev/null || echo 'no config file'
+
+            echo "=== rc.conf.d/rnsd contents ==="
+            cat /etc/rc.conf.d/rnsd 2>/dev/null || echo 'no rc.conf.d/rnsd'
+
+            echo "=== rc.conf.d/lxmd contents ==="
+            cat /etc/rc.conf.d/lxmd 2>/dev/null || echo 'no rc.conf.d/lxmd'
+
             echo "=== configd status.rnsd via configctl ==="
             timeout 10 configctl reticulum status.rnsd 2>&1 || echo 'configctl call failed or timed out'
 
