@@ -182,7 +182,17 @@ jobs:
               /usr/local/etc/reticulum 2>/dev/null || true
 
             service configd restart
-            sleep 3
+            sleep 5
+            # Verify configd loaded the reticulum actions
+            for i in 1 2 3 4 5; do
+              if configctl reticulum info 2>&1 | grep -qv "not allowed"; then
+                echo "configd loaded reticulum actions (attempt \$i)"
+                break
+              fi
+              echo "Waiting for configd to load actions (attempt \$i)..."
+              service configd restart
+              sleep 5
+            done
             # Generate config files from OPNsense model defaults
             configctl template reload OPNsense/Reticulum
             # Create lxmf directories needed by templates
