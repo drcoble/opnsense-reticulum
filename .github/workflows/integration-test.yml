@@ -117,40 +117,40 @@ jobs:
             sleep 10
           done
 
-      - name: Resolve branch name
-        id: branch
-        run: |
-          BRANCH="${{ github.head_ref }}"
-          [ -z "$BRANCH" ] && BRANCH="${{ github.ref_name }}"
-          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "Deploying branch: $BRANCH"
-
       - name: Deploy plugin to OPNsense
         env:
           SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
-          BRANCH: ${{ steps.branch.outputs.name }}
-          REPO: ${{ github.repository }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/opnsense_key
           chmod 600 ~/.ssh/opnsense_key
 
           SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+          SCP="scp -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
 
-          $SSH root@"$OPNSENSE_HOST" sh << ENDSSH
+          # Clean and prepare target directories on VM
+          $SSH root@"$OPNSENSE_HOST" "rm -rf /tmp/ci-reticulum /tmp/ci-reticulum-vendored && mkdir -p /tmp/ci-reticulum"
+
+          # SCP plugin source and vendored submodules from runner checkout
+          $SCP -r os-reticulum root@"$OPNSENSE_HOST":/tmp/ci-reticulum/os-reticulum
+          $SCP -r reticulum_project root@"$OPNSENSE_HOST":/tmp/ci-reticulum-vendored
+
+          $SSH root@"$OPNSENSE_HOST" sh << 'ENDSSH'
             set -e
-            which git 2>/dev/null || pkg install -y git
-            rm -rf /tmp/ci-reticulum
-            git clone --recurse-submodules \
-              -b "$BRANCH" \
-              "https://github.com/$REPO.git" \
-              /tmp/ci-reticulum
+
             cd /tmp/ci-reticulum/os-reticulum
+
+            # Fetch OPNsense plugin Mk files — ../../Mk/ resolves to /tmp/Mk/
             mkdir -p /tmp/Mk
             for _mk in common.mk contrib.mk defaults.mk devel.mk git.mk lint.mk plugins.mk style.mk sweep.mk; do
-              fetch -qo /tmp/Mk/\${_mk} "https://raw.githubusercontent.com/opnsense/plugins/master/Mk/\${_mk}"
+              fetch -qo /tmp/Mk/${_mk} "https://raw.githubusercontent.com/opnsense/plugins/master/Mk/${_mk}"
             done
+
+            # Create stub Templates/version to suppress cosmetic cat error from plugins.mk
+            mkdir -p /tmp/ci-reticulum/Templates
+            echo "1.0" > /tmp/ci-reticulum/Templates/version
+
             make install
             chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/*.sh
             chmod +x /usr/local/etc/rc.d/rnsd /usr/local/etc/rc.d/lxmd 2>/dev/null || true
@@ -171,10 +171,10 @@ jobs:
               python3 -m venv --system-site-packages /usr/local/reticulum-venv
             fi
             # Install from pinned submodule source (no PyPI pull)
-            REPO_ROOT="/tmp/ci-reticulum"
-            /usr/local/reticulum-venv/bin/pip install --quiet "\${REPO_ROOT}/reticulum_project/rns-src"
-            /usr/local/reticulum-venv/bin/pip install --quiet "\${REPO_ROOT}/reticulum_project/lxmf-src"
-            echo "Reticulum installed OK (rnsd: \$(/usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo NOT FOUND))"
+            VENDOR_ROOT="/tmp/ci-reticulum-vendored"
+            /usr/local/reticulum-venv/bin/pip install --quiet "${VENDOR_ROOT}/rns-src"
+            /usr/local/reticulum-venv/bin/pip install --quiet "${VENDOR_ROOT}/lxmf-src"
+            echo "Reticulum installed OK (rnsd: $(/usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo NOT FOUND))"
 
             # Create required runtime directories
             mkdir -p /var/db/reticulum /var/log/reticulum /usr/local/etc/reticulum
@@ -186,10 +186,10 @@ jobs:
             # Verify configd loaded the reticulum actions
             for i in 1 2 3 4 5; do
               if configctl reticulum info 2>&1 | grep -qv "not allowed"; then
-                echo "configd loaded reticulum actions (attempt \$i)"
+                echo "configd loaded reticulum actions (attempt $i)"
                 break
               fi
-              echo "Waiting for configd to load actions (attempt \$i)..."
+              echo "Waiting for configd to load actions (attempt $i)..."
               service configd restart
               sleep 5
             done

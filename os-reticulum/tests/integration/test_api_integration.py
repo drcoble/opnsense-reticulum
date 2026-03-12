@@ -126,12 +126,16 @@ def _wait_for_status(session, endpoint, expected, timeout=30, interval=0.5):
 
 @pytest.fixture(scope="module")
 def test_interface_uuid(api):
-    """Create a CI test interface, yield its UUID, delete it on teardown."""
+    """Create a CI test interface, yield its UUID, delete it on teardown.
+
+    High port (54242) avoids conflicts with leftover interfaces from previous
+    runs that did not fully clean up.
+    """
     r = _post(api, "rnsd/addInterface", {
         "interface": {
             "name": "CI Test TCP",
             "type": "TCPServerInterface",
-            "listen_port": "4242",
+            "listen_port": "54242",
         }
     })
     uuid = r.json().get("uuid", "") if r.status_code == 200 else ""
@@ -198,11 +202,15 @@ class TestA302InterfaceCRUD:
         assert "CI Test TCP" in r.text
 
     def test_a302d_set_interface_updates_port(self, api, test_interface_uuid):
-        """A-302d: setInterface saves an updated listen_port."""
+        """A-302d: setInterface saves an updated listen_port.
+
+        Uses a high port (54244) to avoid collisions with leftover interfaces
+        from previous runs that did not fully clean up.
+        """
         if not test_interface_uuid:
             pytest.skip("No UUID — addInterface failed")
         r = _post(api, f"rnsd/setInterface/{test_interface_uuid}", {
-            "interface": {"listen_port": "5555"}
+            "interface": {"listen_port": "54244"}
         })
         assert r.status_code == 200
         data = r.json()
@@ -222,7 +230,7 @@ class TestA302InterfaceCRUD:
             "interface": {
                 "name": "CI Delete Test",
                 "type": "TCPServerInterface",
-                "listen_port": "4243",
+                "listen_port": "54243",
             }
         })
         uuid = r.json().get("uuid", "")
