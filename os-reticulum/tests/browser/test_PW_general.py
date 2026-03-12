@@ -51,7 +51,7 @@ def test_PW_NAV_001_navigate_to_general(authenticated_page, base_url):
 
 def test_PW_NAV_002_navigate_to_interfaces_link(authenticated_page, base_url):
     """Services > Reticulum > Interfaces menu link navigates correctly."""
-    gp = _general_page(authenticated_page, base_url)
+    _general_page(authenticated_page, base_url)
 
     # Click the Interfaces link in the sidebar menu
     menu_link = authenticated_page.locator(
@@ -190,7 +190,7 @@ def test_PW_GEN_020_enabled_checkbox_present(authenticated_page, base_url):
 
 def test_PW_GEN_021_help_icons_expand(authenticated_page, base_url):
     """Help toggle elements exist on the page."""
-    gp = _general_page(authenticated_page, base_url)
+    _general_page(authenticated_page, base_url)
 
     help_links = authenticated_page.locator(".showhelp")
     assert help_links.count() > 0, "No .showhelp elements found on the page"

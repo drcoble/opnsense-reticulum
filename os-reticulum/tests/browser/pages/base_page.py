@@ -4,7 +4,7 @@ Provides navigation helpers, alert locators, and spinner waits that
 every page inherits.
 """
 
-from playwright.sync_api import Page, Locator, expect
+from playwright.sync_api import Page, Locator
 
 
 class BasePage:

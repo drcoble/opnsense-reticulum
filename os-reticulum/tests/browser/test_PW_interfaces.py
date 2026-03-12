@@ -108,7 +108,7 @@ class TestToolbarAndGrid:
         page.toggle_enabled("PW-Seed-TCP")
 
     def test_PW_IFC_019_service_bar_present(self, authenticated_page, base_url):
-        page = _make_page(authenticated_page, base_url)
+        _make_page(authenticated_page, base_url)
         service_bar = authenticated_page.locator("#service_status_container")
         assert service_bar.count() > 0
 

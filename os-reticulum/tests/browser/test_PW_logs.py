@@ -52,9 +52,6 @@ def test_PW_LOG_003_tab_switch_triggers_fetch(authenticated_page, base_url):
     """Switching tabs causes the log output area to update."""
     lp = _logs_page(authenticated_page, base_url)
 
-    # Capture initial content (may be empty-service or actual lines)
-    initial_html = lp.log_output.inner_html()
-
     lp.click_lxmd_tab()
 
     # After switching, the output area should have been refreshed.  We cannot
@@ -126,8 +123,6 @@ def test_PW_LOG_013_severity_filter_filters_cached(
     lp.set_severity_filter("error")
     lp.page.wait_for_timeout(500)
 
-    filtered_count = lp.log_line_count()
-    # Filtered count should differ from initial (unless all lines match)
     # The key assertion: no new network fetch was triggered
     assert request_count["value"] == 0, (
         f"Expected client-side filter but {request_count['value']} API requests fired"
