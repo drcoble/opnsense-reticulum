@@ -290,14 +290,26 @@ else
     fail "A-309a" "auth reject" "expected 401/403, got HTTP $HTTP_CODE"
 fi
 
-# No credentials at all — also expect 401/403.
-HTTP_CODE=$(curl -ks -o /dev/null -w "%{http_code}" \
+# No credentials at all.
+# OPNsense behaviour: a no-credential request receives HTTP 200 with an HTML
+# login page, not a 401/403.  We accept 401/403 (traditional rejection) or
+# 200 only when the body does NOT contain "general" (i.e. it is the login page,
+# not real API data).  A 200 body that contains "general" is an auth bypass.
+HTTP_CODE=$(curl -ks -o /tmp/_a309b_body.txt -w "%{http_code}" \
     "${BASE}/api/reticulum/rnsd/get")
+BODY=$(cat /tmp/_a309b_body.txt)
 if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
     pass "A-309b" "GET rnsd/get with no credentials returns HTTP $HTTP_CODE"
+elif [ "$HTTP_CODE" = "200" ]; then
+    if echo "$BODY" | grep -q '"general"'; then
+        fail "A-309b" "auth reject (no creds)" "SECURITY: 200 returned real API data (auth bypass)"
+    else
+        pass "A-309b" "GET rnsd/get with no credentials returns login page (HTTP 200, no API data)"
+    fi
 else
-    fail "A-309b" "auth reject (no creds)" "expected 401/403, got HTTP $HTTP_CODE"
+    fail "A-309b" "auth reject (no creds)" "unexpected HTTP $HTTP_CODE"
 fi
+rm -f /tmp/_a309b_body.txt
 
 # A POST action with valid credentials but no CSRF token should be rejected.
 # OPNsense requires the X-CSRFToken header (or API key auth bypasses CSRF).
