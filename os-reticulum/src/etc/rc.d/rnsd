@@ -48,7 +48,7 @@ rnsd_start()
     # Use /bin/sh -c wrapper so shell handles log redirection inside the child,
     # then daemon(8) tracks the sh process PID in the pidfile.
     # -p (lowercase) writes the child PID; works on FreeBSD 12/13/14.
-    /usr/sbin/daemon -p "${pidfile}" -u "${rnsd_user}" \
+    /usr/sbin/daemon -f -p "${pidfile}" -u "${rnsd_user}" \
         /bin/sh -c "${command} ${command_args} >> ${rnsd_log} 2>&1"
     sleep 3
     if [ -f "${pidfile}" ] && kill -0 "$(cat ${pidfile})" 2>/dev/null; then

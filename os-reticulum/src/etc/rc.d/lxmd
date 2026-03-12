@@ -55,7 +55,7 @@ lxmd_prestart()
 lxmd_start()
 {
     echo "Starting ${name}."
-    /usr/sbin/daemon -p "${pidfile}" -u "${lxmd_user}" \
+    /usr/sbin/daemon -f -p "${pidfile}" -u "${lxmd_user}" \
         /bin/sh -c "${command} ${command_args} >> ${lxmd_log} 2>&1"
     sleep 3
     if [ -f "${pidfile}" ] && kill -0 "$(cat ${pidfile})" 2>/dev/null; then
