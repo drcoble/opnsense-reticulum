@@ -48,6 +48,29 @@ def api():
     return s
 
 
+@pytest.fixture(scope="module", autouse=False)
+def enable_services(api):
+    """Enable rnsd+lxmd in the model and regenerate rc.conf.d so service commands work.
+
+    The rc.d scripts default to rnsd_enable="NO" / lxmd_enable="NO";
+    reconfigure generates the "YES" values only when the model has
+    general.enabled=='1' and lxmf.enabled=='1'.  Without this fixture,
+    'service rnsd onestart' silently does nothing.
+    """
+    _post(api, "rnsd/set", {"general": {"enabled": "1"}})
+    _post(api, "lxmd/set", {"lxmf": {"enabled": "1"}})
+    _post(api, "service/reconfigure")
+    time.sleep(2)  # Allow configd to finish regenerating rc.conf.d files
+    yield
+    # Teardown: stop services and disable to leave a clean state
+    _post(api, "service/lxmdStop")
+    _post(api, "service/rnsdStop")
+    _wait_for_status(api, "service/rnsdStatus", "stopped")
+    _post(api, "rnsd/set", {"general": {"enabled": "0"}})
+    _post(api, "lxmd/set", {"lxmf": {"enabled": "0"}})
+    _post(api, "service/reconfigure")
+
+
 def _get(session, path):
     return session.get(f"{_BASE}/{path}", timeout=15)
 
@@ -276,6 +299,7 @@ class TestA304Validation:
 # ---------------------------------------------------------------------------
 
 @pytest.mark.timeout(45)
+@pytest.mark.usefixtures("enable_services")
 class TestA305ServiceLifecycle:
     """A-305: rnsd service start, stop, and restart via API."""
 
@@ -325,6 +349,7 @@ class TestA305ServiceLifecycle:
 # ---------------------------------------------------------------------------
 
 @pytest.mark.timeout(45)
+@pytest.mark.usefixtures("enable_services")
 class TestA306LxmdDependency:
     """A-306: lxmdStart must fail when rnsd is not running."""
 
@@ -443,6 +468,7 @@ class TestA309Auth:
 # ---------------------------------------------------------------------------
 
 @pytest.mark.timeout(45)
+@pytest.mark.usefixtures("enable_services")
 class TestA310StandardServiceEndpoints:
     """A-310: Standard OPNsense service endpoints (status/start/stop/restart).
 
@@ -695,6 +721,7 @@ class TestA311SecurityAndValidation:
 # ---------------------------------------------------------------------------
 
 @pytest.mark.timeout(60)
+@pytest.mark.usefixtures("enable_services")
 class TestA312LxmdLifecycle:
     """A-312: Full lxmd service lifecycle and extended dependency tests.
 
