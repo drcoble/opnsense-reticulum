@@ -57,10 +57,17 @@ def enable_services(api):
     general.enabled=='1' and lxmf.enabled=='1'.  Without this fixture,
     'service rnsd onestart' silently does nothing.
     """
-    _post(api, "rnsd/set", {"general": {"enabled": "1"}})
-    _post(api, "lxmd/set", {"lxmf": {"enabled": "1"}})
-    _post(api, "service/reconfigure")
-    time.sleep(2)  # Allow configd to finish regenerating rc.conf.d files
+    # Enable both services in the model
+    r = _post(api, "rnsd/set", {"general": {"enabled": "1"}})
+    assert r.status_code == 200, f"Failed to enable rnsd: {r.text[:200]}"
+    r = _post(api, "lxmd/set", {"lxmf": {"enabled": "1"}})
+    assert r.status_code == 200, f"Failed to enable lxmd: {r.text[:200]}"
+    # Reconfigure to regenerate rc.conf.d and config files
+    r = _post(api, "service/reconfigure")
+    assert r.status_code == 200, f"Reconfigure failed: {r.text[:200]}"
+    # configd runs reconfigure asynchronously (type:script);
+    # wait for it to finish generating config files
+    time.sleep(5)
     yield
     # Teardown: stop services and disable to leave a clean state
     _post(api, "service/lxmdStop")

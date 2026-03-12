@@ -183,6 +183,11 @@ jobs:
 
             service configd restart
             sleep 3
+            # Generate config files from OPNsense model defaults
+            configctl template reload OPNsense/Reticulum
+            # Create lxmf directories needed by templates
+            mkdir -p /usr/local/etc/lxmf /var/db/lxmf
+            chown -R reticulum:reticulum /usr/local/etc/lxmf /var/db/lxmf 2>/dev/null || true
             echo "Plugin installed successfully"
           ENDSSH
 
