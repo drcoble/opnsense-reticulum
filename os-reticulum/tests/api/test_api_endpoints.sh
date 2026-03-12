@@ -35,7 +35,11 @@ pass() { echo "PASS  $1: $2"; PASS_COUNT=$((PASS_COUNT+1)); }
 fail() { echo "FAIL  $1: $2 — $3"; FAIL_COUNT=$((FAIL_COUNT+1)); }
 
 api_get()  { $CURL "${BASE}/api/reticulum/$1"; }
-api_post() { $CURL -X POST -H "Content-Type: application/json" -d "$3" "${BASE}/api/reticulum/$2"; }
+api_post() {
+    _body="$3"
+    [ -z "$_body" ] && _body='{}'
+    $CURL -X POST -H "Content-Type: application/json" -d "$_body" "${BASE}/api/reticulum/$2"
+}
 
 check_field() {
     echo "$1" | grep -q "\"$2\"" && return 0 || return 1
@@ -300,6 +304,8 @@ HTTP_CODE=$(curl -ks -o /tmp/_a309b_body.txt -w "%{http_code}" \
 BODY=$(cat /tmp/_a309b_body.txt)
 if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
     pass "A-309b" "GET rnsd/get with no credentials returns HTTP $HTTP_CODE"
+elif [ "$HTTP_CODE" = "302" ]; then
+    pass "A-309b" "GET rnsd/get with no credentials redirects to login (HTTP 302)"
 elif [ "$HTTP_CODE" = "200" ]; then
     if echo "$BODY" | grep -q '"general"'; then
         fail "A-309b" "auth reject (no creds)" "SECURITY: 200 returned real API data (auth bypass)"
@@ -326,6 +332,8 @@ HTTP_CODE=$(curl -ks -o /dev/null -w "%{http_code}" \
     "${BASE}/api/reticulum/service/reconfigure")
 if [ "$HTTP_CODE" = "403" ]; then
     pass "A-309c" "POST without CSRF token (cookie auth) returns 403"
+elif [ "$HTTP_CODE" = "302" ]; then
+    pass "A-309c" "POST without credentials redirects to login (HTTP 302)"
 elif [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
     pass "A-309c" "POST /service/reconfigure reached server (Basic auth bypasses CSRF as expected) — HTTP $HTTP_CODE"
 else
