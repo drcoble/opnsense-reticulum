@@ -361,6 +361,50 @@ jobs:
           name: test-results-${{ github.run_number }}
           path: test-results.xml
 
+  browser-test:
+    name: OPNsense Browser Tests (Playwright)
+    needs: integration-test
+    runs-on: [self-hosted, opnsense-test]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Install browser test dependencies
+        run: |
+          python3 -m venv .venv-browser
+          .venv-browser/bin/pip install --upgrade pip
+          .venv-browser/bin/pip install -r os-reticulum/tests/requirements-browser.txt
+
+      - name: Install Chromium
+        run: .venv-browser/bin/playwright install chromium
+
+      - name: Run Playwright tests
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
+          OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
+          OPNSENSE_UI_USER: ${{ secrets.OPNSENSE_UI_USER }}
+          OPNSENSE_UI_PASS: ${{ secrets.OPNSENSE_UI_PASS }}
+        run: |
+          .venv-browser/bin/pytest os-reticulum/tests/browser/ \
+            -v --tb=short -m browser \
+            --screenshot=only-on-failure \
+            --output=test-results/ \
+            --junit-xml=browser-test-results.xml
+
+      - name: Upload Playwright artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-test-results-${{ github.run_number }}
+          path: |
+            browser-test-results.xml
+            test-results/
+
       - name: Shutdown OPNsense VM
         if: always()
         env:
