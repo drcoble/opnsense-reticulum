@@ -22,6 +22,14 @@ check_pkg() {
 }
 
 check_dep python3.11  "Install with: pkg install python311"
+# check_dep is defensive redundancy: PLUGIN_DEPENDS in the Makefile tells pkg
+# to install git before pkg-install runs under normal `pkg install` flow.
+# However, pkg-install can also be invoked directly (e.g. during development,
+# OPNsense plugin testing, or a manual `sh pkg-install`) without pkg resolving
+# dependencies first. check_dep catches that case and prints an actionable
+# error rather than a confusing "git: command not found" from inside
+# clone_at_tag().
+check_dep git "Install with: pkg install git"
 check_pkg py311-setuptools
 
 # --- Create service user if not exists ---
@@ -69,10 +77,78 @@ fi
 # Upgrade pip itself to avoid legacy resolver issues on FreeBSD
 "${VENV_PATH}/bin/pip" install --upgrade pip --quiet
 
-# Install rns and lxmf from PyPI
-echo "[reticulum] Installing rns and lxmf from PyPI..."
-if ! "${VENV_PATH}/bin/pip" install --upgrade rns lxmf; then
-    echo "[reticulum] ERROR: pip install of rns/lxmf failed." >&2
+VERSIONS_ENV="/usr/local/share/os-reticulum/versions.env"
+SRC_BASE="/usr/local/reticulum-src"
+
+# Read pinned tags from versions.env (installed alongside this script)
+if [ ! -f "${VERSIONS_ENV}" ]; then
+    echo "[reticulum] ERROR: ${VERSIONS_ENV} not found — package may be corrupt." >&2
+    exit 1
+fi
+# shellcheck source=/dev/null
+. "${VERSIONS_ENV}"
+
+if [ -z "${RNS_TAG}" ] || [ -z "${LXMF_TAG}" ]; then
+    echo "[reticulum] ERROR: RNS_TAG or LXMF_TAG not set in ${VERSIONS_ENV}." >&2
+    exit 1
+fi
+
+mkdir -p "${SRC_BASE}"
+
+clone_at_tag() {
+    _repo_url="$1"
+    _dest_dir="$2"
+    _tag="$3"
+    _name="$4"
+
+    if [ -d "${_dest_dir}/.git" ]; then
+        echo "[reticulum] Updating ${_name} source to ${_tag}..."
+        # Fetch only the specific tag needed. Using `fetch --tags` on a shallow
+        # clone is unreliable: tags not reachable from the shallow history are
+        # silently skipped, causing the subsequent checkout to fail.
+        # The refspec below fetches exactly one tag and keeps the clone shallow.
+        if ! git -C "${_dest_dir}" fetch --depth 1 origin \
+                "refs/tags/${_tag}:refs/tags/${_tag}" --quiet; then
+            echo "[reticulum] ERROR: git fetch failed for ${_name} at tag ${_tag}." >&2
+            exit 1
+        fi
+        git -C "${_dest_dir}" checkout "${_tag}" --quiet
+    else
+        echo "[reticulum] Cloning ${_name} at ${_tag}..."
+        rm -rf "${_dest_dir}"
+        git clone --depth 1 --branch "${_tag}" "${_repo_url}" "${_dest_dir}" --quiet
+        _git_exit=$?
+        if [ ${_git_exit} -eq 128 ]; then
+            echo "[reticulum] ERROR: Could not reach GitHub to clone ${_name}." \
+                 "This package requires internet access during initial installation." >&2
+            exit 1
+        elif [ ${_git_exit} -ne 0 ]; then
+            echo "[reticulum] ERROR: git clone failed for ${_name} at tag ${_tag}" \
+                 "(exit code ${_git_exit})." >&2
+            exit 1
+        fi
+    fi
+}
+
+clone_at_tag "https://github.com/markqvist/Reticulum.git" \
+    "${SRC_BASE}/reticulum" "${RNS_TAG}" "Reticulum (rns)"
+
+clone_at_tag "https://github.com/markqvist/LXMF.git" \
+    "${SRC_BASE}/lxmf" "${LXMF_TAG}" "LXMF (lxmd)"
+
+echo "[reticulum] Installing rns from source (${RNS_TAG})..."
+if ! "${VENV_PATH}/bin/pip" install --quiet "${SRC_BASE}/reticulum"; then
+    echo "[reticulum] ERROR: pip install failed for rns." >&2
+    echo "[reticulum] Removing cloned source to allow clean retry on next install." >&2
+    rm -rf "${SRC_BASE}/reticulum"
+    exit 1
+fi
+
+echo "[reticulum] Installing lxmf from source (${LXMF_TAG})..."
+if ! "${VENV_PATH}/bin/pip" install --quiet "${SRC_BASE}/lxmf"; then
+    echo "[reticulum] ERROR: pip install failed for lxmf." >&2
+    echo "[reticulum] Removing cloned source to allow clean retry on next install." >&2
+    rm -rf "${SRC_BASE}/lxmf"
     exit 1
 fi
 
@@ -81,10 +157,13 @@ fi
 
 # --- Record installed versions ---
 
-RNS_VER=$("${VENV_PATH}/bin/python3.11" -c \
-    "import importlib.metadata; print(importlib.metadata.version('rns'))" 2>/dev/null || echo "unknown")
-LXMF_VER=$("${VENV_PATH}/bin/python3.11" -c \
-    "import importlib.metadata; print(importlib.metadata.version('lxmf'))" 2>/dev/null || echo "unknown")
+# Record installed versions — use pinned tag from versions.env as the
+# authoritative version string. git describe is unreliable on shallow clones
+# and can produce extended formats like "0.8.9-3-gabcdef1" that look unexpected
+# in the dashboard widget and info.sh output. versions.env is already the
+# single source of truth; use it directly.
+RNS_VER="${RNS_TAG}"
+LXMF_VER="${LXMF_TAG}"
 
 printf "rns=%s\n"  "${RNS_VER}"  > "${SVC_HOME}/.pkg-versions"
 printf "lxmf=%s\n" "${LXMF_VER}" >> "${SVC_HOME}/.pkg-versions"

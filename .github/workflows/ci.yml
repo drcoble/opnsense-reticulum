@@ -55,12 +55,23 @@ jobs:
           find os-reticulum/src -name '*.xml' -print0 | xargs -0 -n1 xmllint --noout
           echo "All XML files passed validation."
 
+      - name: Check versions.env sync
+        run: |
+          if ! diff -q vendor/versions.env \
+              os-reticulum/src/usr/local/share/os-reticulum/versions.env > /dev/null 2>&1; then
+            echo "ERROR: versions.env files are out of sync." >&2
+            echo "Fix: cp vendor/versions.env os-reticulum/src/usr/local/share/os-reticulum/versions.env" >&2
+            exit 1
+          fi
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
     needs: static-analysis
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - uses: actions/setup-python@v5
         with:

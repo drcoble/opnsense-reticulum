@@ -29,3 +29,5 @@
 /usr/local/opnsense/service/templates/OPNsense/Reticulum/lxmf_ignored.j2
 /usr/local/opnsense/www/js/widgets/Reticulum.js
 /usr/local/opnsense/www/js/widgets/Metadata/Reticulum.xml
+/usr/local/share/os-reticulum/versions.env
+@dir /usr/local/share/os-reticulum

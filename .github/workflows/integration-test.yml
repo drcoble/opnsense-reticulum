@@ -160,7 +160,7 @@ jobs:
               pw user add -n reticulum -d /var/db/reticulum -s /usr/sbin/nologin \
                 -c "Reticulum transport daemon" -G dialer
 
-            # Install Reticulum Python environment if not already present
+            # Install Reticulum Python environment from pinned submodule source
             if [ ! -f /usr/local/reticulum-venv/bin/rnsd ]; then
               echo "Installing Reticulum Python environment..."
               # Install cryptography from FreeBSD pkg to avoid Rust/maturin build
@@ -169,14 +169,12 @@ jobs:
                 echo "WARNING: could not install system cryptography — pip may build from source"
               # Create venv inheriting system site-packages (avoids building cryptography)
               python3 -m venv --system-site-packages /usr/local/reticulum-venv
-              # Install rns/lxmf (uses system cryptography via --system-site-packages)
-              /usr/local/reticulum-venv/bin/pip install --quiet rns lxmf
-              # Force-reinstall only rns/lxmf without rebuilding deps (ensures entry points in venv/bin)
-              /usr/local/reticulum-venv/bin/pip install --quiet --force-reinstall --no-deps rns lxmf
-              echo "Reticulum installed OK (rnsd: \$(/usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo NOT FOUND))"
-            else
-              echo "Reticulum venv already present"
             fi
+            # Install from pinned submodule source (no PyPI pull)
+            REPO_ROOT="/tmp/ci-reticulum"
+            /usr/local/reticulum-venv/bin/pip install --quiet "\${REPO_ROOT}/vendor/rns-src"
+            /usr/local/reticulum-venv/bin/pip install --quiet "\${REPO_ROOT}/vendor/lxmf-src"
+            echo "Reticulum installed OK (rnsd: \$(/usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo NOT FOUND))"
 
             # Create required runtime directories
             mkdir -p /var/db/reticulum /var/log/reticulum /usr/local/etc/reticulum

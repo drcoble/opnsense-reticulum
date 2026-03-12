@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
       - name: Install PHP CLI
         run: sudo apt-get install -y -q php-cli
       - name: Check PHP syntax
@@ -26,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
       - name: Install xmllint
         run: sudo apt-get install -y -q libxml2-utils
       - name: Validate XML
@@ -42,6 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
       - uses: ludeeus/action-shellcheck@2.0.0
         with:
           scandir: "./os-reticulum/src"
@@ -52,6 +58,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
       - name: Check Python syntax
         run: |
           errors=0
