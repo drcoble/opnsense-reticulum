@@ -26,14 +26,14 @@ pulling whatever PyPI serves at run time.
 
 ```
 <repo root>/
-├── vendor/
+├── reticulum_project/
 │   ├── rns-src/          ← git submodule, pinned to RNS release tag
 │   └── lxmf-src/         ← git submodule, pinned to LXMF release tag
-├── vendor/versions.env   ← human-readable version record (auto-updated by pin script)
+├── reticulum_project/versions.env   ← human-readable version record (auto-updated by pin script)
 ├── os-reticulum/
 │   ├── pkg-install       ← installs from /usr/local/reticulum-src/ (cloned at pin tag)
 │   └── ...
-└── .gitmodules           ← updated paths: vendor/rns-src, vendor/lxmf-src
+└── .gitmodules           ← updated paths: reticulum_project/rns-src, reticulum_project/lxmf-src
 ```
 
 **Install-time flow (OPNsense target)**
@@ -53,9 +53,9 @@ pkg install os-reticulum
 
 ```
 git clone --recurse-submodules  (already done)
-  vendor/rns-src  and  vendor/lxmf-src  are populated at pinned commit
-  → pip install /path/to/vendor/rns-src
-  → pip install /path/to/vendor/lxmf-src
+  reticulum_project/rns-src  and  reticulum_project/lxmf-src  are populated at pinned commit
+  → pip install /path/to/reticulum_project/rns-src
+  → pip install /path/to/reticulum_project/lxmf-src
   (no PyPI network call needed)
 ```
 
@@ -84,16 +84,16 @@ git` resolves to 2.x before using this plugin.
 
 **File:** `.gitmodules`
 
-Replace the current invalid paths with the `vendor/` layout.
+Replace the current invalid paths with the `reticulum_project/` layout.
 
 ```ini
-[submodule "vendor/rns-src"]
-    path = vendor/rns-src
+[submodule "reticulum_project/rns-src"]
+    path = reticulum_project/rns-src
     url = https://github.com/markqvist/Reticulum.git
     branch = master
 
-[submodule "vendor/lxmf-src"]
-    path = vendor/lxmf-src
+[submodule "reticulum_project/lxmf-src"]
+    path = reticulum_project/lxmf-src
     url = https://github.com/markqvist/LXMF.git
     branch = master
 ```
@@ -133,29 +133,29 @@ fi
 # If net/ does not exist at all, no action needed.
 
 # Add the submodules at the correct paths
-git submodule add https://github.com/markqvist/Reticulum.git vendor/rns-src
-git submodule add https://github.com/markqvist/LXMF.git      vendor/lxmf-src
+git submodule add https://github.com/markqvist/Reticulum.git reticulum_project/rns-src
+git submodule add https://github.com/markqvist/LXMF.git      reticulum_project/lxmf-src
 
 # Pin to specific release tags
 # (Substitute the actual desired tags - check github.com/markqvist/Reticulum/releases)
 RNS_TAG="0.8.9"   # example — verify current stable release
 LXMF_TAG="0.6.2"  # example — verify current stable release
 
-git -C vendor/rns-src  fetch --tags
-git -C vendor/rns-src  checkout "$RNS_TAG"
+git -C reticulum_project/rns-src  fetch --tags
+git -C reticulum_project/rns-src  checkout "$RNS_TAG"
 
-git -C vendor/lxmf-src fetch --tags
-git -C vendor/lxmf-src checkout "$LXMF_TAG"
+git -C reticulum_project/lxmf-src fetch --tags
+git -C reticulum_project/lxmf-src checkout "$LXMF_TAG"
 
 # Stage the submodule pointers and write versions.env
-git add vendor/rns-src vendor/lxmf-src .gitmodules
+git add reticulum_project/rns-src reticulum_project/lxmf-src .gitmodules
 ```
 
 ---
 
-### Step 3 — Add `vendor/versions.env`
+### Step 3 — Add `reticulum_project/versions.env`
 
-**File:** `vendor/versions.env` (new file, committed to repo)
+**File:** `reticulum_project/versions.env` (new file, committed to repo)
 
 ```sh
 # Pinned upstream dependency versions.
@@ -321,9 +321,9 @@ line immediately after the file entry.
 os-reticulum/src/usr/local/share/os-reticulum/versions.env
 ```
 
-This file **must be a regular file copy** of `vendor/versions.env`. Do not use
+This file **must be a regular file copy** of `reticulum_project/versions.env`. Do not use
 a symlink. `make install` / `plugins.mk` deploys the contents of
-`os-reticulum/src/` to the OPNsense target; `vendor/` is not deployed. A symlink
+`os-reticulum/src/` to the OPNsense target; `reticulum_project/` is not deployed. A symlink
 pointing outside `os-reticulum/src/` would arrive on the target as a dangling
 symlink and `pkg-install` would immediately fail when sourcing `versions.env`.
 
@@ -331,7 +331,7 @@ Keep the two files in sync by always copying in the same commit that advances
 the submodule pointer:
 
 ```sh
-cp vendor/versions.env os-reticulum/src/usr/local/share/os-reticulum/versions.env
+cp reticulum_project/versions.env os-reticulum/src/usr/local/share/os-reticulum/versions.env
 ```
 
 Two files, one commit — reviewers see both change together.
@@ -370,13 +370,13 @@ Replace with an install from the submodule source that was already cloned into
 ```sh
 # Install from pinned submodule source (no PyPI pull)
 REPO_ROOT="/tmp/ci-reticulum"
-/usr/local/reticulum-venv/bin/pip install --quiet "${REPO_ROOT}/vendor/rns-src"
-/usr/local/reticulum-venv/bin/pip install --quiet "${REPO_ROOT}/vendor/lxmf-src"
+/usr/local/reticulum-venv/bin/pip install --quiet "${REPO_ROOT}/reticulum_project/rns-src"
+/usr/local/reticulum-venv/bin/pip install --quiet "${REPO_ROOT}/reticulum_project/lxmf-src"
 echo "Reticulum installed OK (rnsd: \$(/usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo NOT FOUND))"
 ```
 
 The `git clone --recurse-submodules` call three lines earlier in the same block
-already populates `vendor/rns-src` and `vendor/lxmf-src` at the pinned commit.
+already populates `reticulum_project/rns-src` and `reticulum_project/lxmf-src` at the pinned commit.
 No additional changes needed to the checkout step.
 
 ---
@@ -415,7 +415,7 @@ One job (`pytest`). Add `submodules: false`. Mirrors `ci.yml` unit-tests.
 **8d — `release.yml`:**
 
 Add `submodules: false` alongside existing `fetch-depth: 0`. The `tar` command
-archives only `os-reticulum/`, so `vendor/rns-src` and `vendor/lxmf-src` are
+archives only `os-reticulum/`, so `reticulum_project/rns-src` and `reticulum_project/lxmf-src` are
 structurally excluded regardless. `versions.env` travels inside
 `os-reticulum/src/`; submodule source is cloned at install time on the target.
 
@@ -432,10 +432,10 @@ copies diverge:
 ```yaml
 - name: Check versions.env sync
   run: |
-    if ! diff -q vendor/versions.env \
+    if ! diff -q reticulum_project/versions.env \
         os-reticulum/src/usr/local/share/os-reticulum/versions.env > /dev/null 2>&1; then
       echo "ERROR: versions.env files are out of sync." >&2
-      echo "Fix: cp vendor/versions.env os-reticulum/src/usr/local/share/os-reticulum/versions.env" >&2
+      echo "Fix: cp reticulum_project/versions.env os-reticulum/src/usr/local/share/os-reticulum/versions.env" >&2
       exit 1
     fi
 ```
@@ -469,10 +469,10 @@ cloned source directories.  No modification needed.
 
 | File | Change |
 |---|---|
-| `.gitmodules` | Fix paths: `net/reticulum/...` → `vendor/rns-src`, `vendor/lxmf-src` |
-| `vendor/rns-src/` | New submodule (markqvist/Reticulum, pinned to RNS release tag) |
-| `vendor/lxmf-src/` | New submodule (markqvist/LXMF, pinned to LXMF release tag) |
-| `vendor/versions.env` | New file — machine-readable `RNS_TAG` / `LXMF_TAG` |
+| `.gitmodules` | Fix paths: `net/reticulum/...` → `reticulum_project/rns-src`, `reticulum_project/lxmf-src` |
+| `reticulum_project/rns-src/` | New submodule (markqvist/Reticulum, pinned to RNS release tag) |
+| `reticulum_project/lxmf-src/` | New submodule (markqvist/LXMF, pinned to LXMF release tag) |
+| `reticulum_project/versions.env` | New file — machine-readable `RNS_TAG` / `LXMF_TAG` |
 | `os-reticulum/src/usr/local/share/os-reticulum/versions.env` | New deployed copy of versions.env |
 | `os-reticulum/pkg-install` | Replace PyPI install with tag-pinned git clone + pip install from source |
 | `os-reticulum/pkg-plist` | Add `/usr/local/share/os-reticulum/versions.env` |
@@ -492,15 +492,15 @@ When a new upstream release is available:
 
 ```sh
 # 1. Advance the submodule pointer
-git -C vendor/rns-src  fetch --tags
-git -C vendor/rns-src  checkout 0.9.0   # new tag
+git -C reticulum_project/rns-src  fetch --tags
+git -C reticulum_project/rns-src  checkout 0.9.0   # new tag
 
 # 2. Update versions.env (both copies)
-sed -i '' 's/RNS_TAG=.*/RNS_TAG="0.9.0"/' vendor/versions.env
-cp vendor/versions.env os-reticulum/src/usr/local/share/os-reticulum/versions.env
+sed -i '' 's/RNS_TAG=.*/RNS_TAG="0.9.0"/' reticulum_project/versions.env
+cp reticulum_project/versions.env os-reticulum/src/usr/local/share/os-reticulum/versions.env
 
 # 3. Commit everything together
-git add vendor/rns-src vendor/versions.env \
+git add reticulum_project/rns-src reticulum_project/versions.env \
     os-reticulum/src/usr/local/share/os-reticulum/versions.env
 git commit -m "chore: bump RNS to 0.9.0"
 ```
@@ -539,14 +539,14 @@ install from source overwrites the previously PyPI-installed packages. The old
 
 | Decision | Rationale |
 |---|---|
-| Submodules at `vendor/`, not inside `os-reticulum/` | Keeps plugin source (`os-reticulum/src/`) clean; `vendor/` is a standard location for third-party source |
+| Submodules at `reticulum_project/`, not inside `os-reticulum/` | Keeps plugin source (`os-reticulum/src/`) clean; `reticulum_project/` is a standard location for third-party source |
 | `versions.env` as a separate file, not inlined into `pkg-install` | Allows the deployed file to be inspected on the target (`cat /usr/local/share/os-reticulum/versions.env`) without reading shell scripts; easy to diff in PRs |
 | Clone at `pkg-install` time (not bundle in package) | Avoids committing large upstream source trees or binary wheels; OPNsense systems have internet access at install time; `--depth 1` keeps clone fast |
 | `--depth 1 --branch $TAG` clone | Fetches only the tag commit, not full history — minimizes network and disk use on OPNsense target |
 | Shallow clone preserved on reinstall (`--depth 1` fetch) | OPNsense targets are embedded systems; full upstream history has no operational value. Fetching only the required tag refspec keeps cost identical to a fresh install |
 | Record versions from `versions.env` tags, not `git describe` | `--depth 1 --branch $TAG` clones always have a clean tag at HEAD, but relying on `git describe` is fragile if clone logic changes. `versions.env` is already the authoritative version record; use it directly |
 | `check_dep git` kept alongside `PLUGIN_DEPENDS` | Defensive: `PLUGIN_DEPENDS` only applies when pkg resolves dependencies. Direct `sh pkg-install` invocation bypasses pkg and would produce a cryptic error inside `clone_at_tag()` |
-| `versions.env` must be a regular file copy, never a symlink | A symlink into `vendor/` would dangle on the deployed target where `vendor/` doesn't exist |
+| `versions.env` must be a regular file copy, never a symlink | A symlink into `reticulum_project/` would dangle on the deployed target where `reticulum_project/` doesn't exist |
 | No change to `pkg-deinstall` | Existing `rm -rf /usr/local/reticulum-src` already covers the new clone paths |
 
 ---
@@ -554,16 +554,16 @@ install from source overwrites the previously PyPI-installed packages. The old
 ## Implementation Checklist
 
 - [ ] Remove stale `.gitmodules` paths (`net/reticulum/...`) — use safe conditional removal for `net/`
-- [ ] `git submodule add` for `vendor/rns-src` and `vendor/lxmf-src`
+- [ ] `git submodule add` for `reticulum_project/rns-src` and `reticulum_project/lxmf-src`
 - [ ] Identify and verify current stable release tags for RNS and LXMF
 - [ ] Checkout pinned tags in both submodules
-- [ ] Create `vendor/versions.env` with `RNS_TAG` and `LXMF_TAG` (no `.gitattributes` needed)
+- [ ] Create `reticulum_project/versions.env` with `RNS_TAG` and `LXMF_TAG` (no `.gitattributes` needed)
 - [ ] Create `os-reticulum/src/usr/local/share/os-reticulum/` directory
 - [ ] Add `versions.env` deployed copy to source tree (regular file, not symlink)
 - [ ] Update `pkg-install`: add `git` dep check, replace PyPI block, update version recording
 - [ ] Update `pkg-plist`: add `versions.env` file entry and `@dir /usr/local/share/os-reticulum` entry
 - [ ] Update `Makefile`: add `git` to `PLUGIN_DEPENDS`
-- [ ] Update `integration-test.yml`: install from `vendor/rns-src` and `vendor/lxmf-src`
+- [ ] Update `integration-test.yml`: install from `reticulum_project/rns-src` and `reticulum_project/lxmf-src`
 - [ ] Update `ci.yml`: explicit `submodules: false` on unit-tests job; add versions.env sync check
 - [ ] Update `lint.yml`: add `submodules: false` to all four job checkouts
 - [ ] Update `test-unit.yml`: add `submodules: false` to pytest job checkout

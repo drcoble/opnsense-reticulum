@@ -40,7 +40,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum start.rnsd'));
+            $result = trim($backend->configdRun('reticulum start rnsd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -54,7 +54,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum stop.rnsd'));
+            $result = trim($backend->configdRun('reticulum stop rnsd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -68,7 +68,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum restart.rnsd'));
+            $result = trim($backend->configdRun('reticulum restart rnsd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -83,7 +83,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum start.rnsd'));
+            $result = trim($backend->configdRun('reticulum start rnsd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -96,7 +96,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum stop.rnsd'));
+            $result = trim($backend->configdRun('reticulum stop rnsd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -109,7 +109,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum restart.rnsd'));
+            $result = trim($backend->configdRun('reticulum restart rnsd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -157,7 +157,7 @@ class ServiceController extends ApiControllerBase
                 ];
             }
 
-            $result = trim($backend->configdRun('reticulum start.lxmd'));
+            $result = trim($backend->configdRun('reticulum start lxmd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -170,7 +170,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum stop.lxmd'));
+            $result = trim($backend->configdRun('reticulum stop lxmd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -195,7 +195,7 @@ class ServiceController extends ApiControllerBase
                 ];
             }
 
-            $result = trim($backend->configdRun('reticulum restart.lxmd'));
+            $result = trim($backend->configdRun('reticulum restart lxmd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -318,7 +318,7 @@ class ServiceController extends ApiControllerBase
         $lines = $this->request->get('lines', 'int', 200);
         $lines = min(max($lines, 10), 500);
         $backend = new Backend();
-        $result = trim($backend->configdRun('reticulum logs.rnsd', [$lines]));
+        $result = trim($backend->configdRun('reticulum logs rnsd', [$lines]));
         return ['logs' => explode("\n", $result)];
     }
 
@@ -331,7 +331,7 @@ class ServiceController extends ApiControllerBase
         $lines = $this->request->get('lines', 'int', 200);
         $lines = min(max($lines, 10), 500);
         $backend = new Backend();
-        $result = trim($backend->configdRun('reticulum logs.lxmd', [$lines]));
+        $result = trim($backend->configdRun('reticulum logs lxmd', [$lines]));
         return ['logs' => explode("\n", $result)];
     }
 }

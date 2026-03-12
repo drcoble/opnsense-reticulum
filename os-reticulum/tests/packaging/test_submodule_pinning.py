@@ -12,8 +12,8 @@ correctly from any working directory (CI, local, worktree).
 
 Test IDs:
   P-801  versions.env format — file exists, is shell-sourceable, has non-empty tags
-  P-802  versions.env sync — vendor/ and src/ copies are byte-identical
-  P-803  .gitmodules paths — vendor/rns-src and vendor/lxmf-src; no stale net/ paths
+  P-802  versions.env sync — reticulum_project/ and src/ copies are byte-identical
+  P-803  .gitmodules paths — reticulum_project/rns-src and reticulum_project/lxmf-src; no stale net/ paths
   P-804  pkg-install git dep check — check_dep git present
   P-805  pkg-install source install — no PyPI pull of rns/lxmf; uses clone_at_tag
   P-806  pkg-plist includes versions.env — file entry and @dir entry present
@@ -40,7 +40,7 @@ REPO_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..", )
 )
 
-VENDOR_VERSIONS_ENV = os.path.join(REPO_ROOT, "vendor", "versions.env")
+VENDOR_VERSIONS_ENV = os.path.join(REPO_ROOT, "reticulum_project", "versions.env")
 SRC_VERSIONS_ENV = os.path.join(
     REPO_ROOT,
     "os-reticulum", "src", "usr", "local", "share", "os-reticulum", "versions.env"
@@ -113,7 +113,7 @@ class TestP801VersionsEnvFormat:
 
     def test_vendor_versions_env_exists(self):
         assert os.path.isfile(VENDOR_VERSIONS_ENV), (
-            f"vendor/versions.env not found at {VENDOR_VERSIONS_ENV}. "
+            f"reticulum_project/versions.env not found at {VENDOR_VERSIONS_ENV}. "
             "Create it as part of Phase 8 Step 3."
         )
 
@@ -129,7 +129,7 @@ class TestP801VersionsEnvFormat:
         try:
             _parse_versions_env(content)
         except ValueError as exc:
-            pytest.fail(f"vendor/versions.env is not valid shell key=value format: {exc}")
+            pytest.fail(f"reticulum_project/versions.env is not valid shell key=value format: {exc}")
 
     def test_src_versions_env_is_parseable(self):
         content = _read(SRC_VERSIONS_ENV)
@@ -144,28 +144,28 @@ class TestP801VersionsEnvFormat:
         content = _read(VENDOR_VERSIONS_ENV)
         parsed = _parse_versions_env(content)
         assert "RNS_TAG" in parsed, (
-            "vendor/versions.env must define RNS_TAG"
+            "reticulum_project/versions.env must define RNS_TAG"
         )
 
     def test_vendor_versions_env_rns_tag_is_non_empty(self):
         content = _read(VENDOR_VERSIONS_ENV)
         parsed = _parse_versions_env(content)
         assert parsed.get("RNS_TAG", ""), (
-            "vendor/versions.env: RNS_TAG must not be empty"
+            "reticulum_project/versions.env: RNS_TAG must not be empty"
         )
 
     def test_vendor_versions_env_has_lxmf_tag(self):
         content = _read(VENDOR_VERSIONS_ENV)
         parsed = _parse_versions_env(content)
         assert "LXMF_TAG" in parsed, (
-            "vendor/versions.env must define LXMF_TAG"
+            "reticulum_project/versions.env must define LXMF_TAG"
         )
 
     def test_vendor_versions_env_lxmf_tag_is_non_empty(self):
         content = _read(VENDOR_VERSIONS_ENV)
         parsed = _parse_versions_env(content)
         assert parsed.get("LXMF_TAG", ""), (
-            "vendor/versions.env: LXMF_TAG must not be empty"
+            "reticulum_project/versions.env: LXMF_TAG must not be empty"
         )
 
     def test_vendor_versions_env_rns_tag_looks_like_semver(self):
@@ -187,12 +187,12 @@ class TestP801VersionsEnvFormat:
 
     def test_vendor_versions_env_is_not_a_symlink(self):
         """
-        The spec requires a regular file, not a symlink. A symlink to vendor/
-        would dangle on the deployed OPNsense target where vendor/ does not exist.
+        The spec requires a regular file, not a symlink. A symlink to reticulum_project/
+        would dangle on the deployed OPNsense target where reticulum_project/ does not exist.
         """
         assert not os.path.islink(SRC_VERSIONS_ENV), (
             f"{SRC_VERSIONS_ENV} must be a regular file copy, not a symlink. "
-            "A symlink into vendor/ would dangle on the deployed target."
+            "A symlink into reticulum_project/ would dangle on the deployed target."
         )
 
     def test_versions_env_contains_only_known_keys(self):
@@ -205,7 +205,7 @@ class TestP801VersionsEnvFormat:
         known_keys = {"RNS_TAG", "LXMF_TAG"}
         extra_keys = set(parsed.keys()) - known_keys
         assert not extra_keys, (
-            f"vendor/versions.env has unexpected keys: {extra_keys}. "
+            f"reticulum_project/versions.env has unexpected keys: {extra_keys}. "
             f"Expected only: {known_keys}"
         )
 
@@ -216,7 +216,7 @@ class TestP801VersionsEnvFormat:
 
 class TestP802VersionsEnvSync:
     """
-    P-802: vendor/versions.env and the deployed src/ copy must be byte-identical.
+    P-802: reticulum_project/versions.env and the deployed src/ copy must be byte-identical.
 
     The spec mandates these two files are updated in the same commit every
     time the submodule pointer is advanced. CI enforces this with a diff check
@@ -227,10 +227,10 @@ class TestP802VersionsEnvSync:
         vendor_content = _read(VENDOR_VERSIONS_ENV)
         src_content = _read(SRC_VERSIONS_ENV)
         assert vendor_content == src_content, (
-            "vendor/versions.env and "
+            "reticulum_project/versions.env and "
             "os-reticulum/src/usr/local/share/os-reticulum/versions.env "
             "are out of sync.\n"
-            "Fix: cp vendor/versions.env "
+            "Fix: cp reticulum_project/versions.env "
             "os-reticulum/src/usr/local/share/os-reticulum/versions.env"
         )
 
@@ -258,8 +258,8 @@ class TestP802VersionsEnvSync:
 
 class TestP803GitmodulesPaths:
     """
-    P-803: .gitmodules must declare submodules at vendor/rns-src and
-    vendor/lxmf-src. The stale net/reticulum/src/lib/ paths must not appear.
+    P-803: .gitmodules must declare submodules at reticulum_project/rns-src and
+    reticulum_project/lxmf-src. The stale net/reticulum/src/lib/ paths must not appear.
     """
 
     def test_gitmodules_exists(self):
@@ -269,15 +269,15 @@ class TestP803GitmodulesPaths:
 
     def test_gitmodules_declares_vendor_rns_src(self):
         content = _read(GITMODULES)
-        assert "vendor/rns-src" in content, (
-            ".gitmodules must declare a submodule with path vendor/rns-src. "
+        assert "reticulum_project/rns-src" in content, (
+            ".gitmodules must declare a submodule with path reticulum_project/rns-src. "
             "Update from net/reticulum/src/lib/rns-src (Phase 8 Step 1)."
         )
 
     def test_gitmodules_declares_vendor_lxmf_src(self):
         content = _read(GITMODULES)
-        assert "vendor/lxmf-src" in content, (
-            ".gitmodules must declare a submodule with path vendor/lxmf-src. "
+        assert "reticulum_project/lxmf-src" in content, (
+            ".gitmodules must declare a submodule with path reticulum_project/lxmf-src. "
             "Update from net/reticulum/src/lib/lxmf-src (Phase 8 Step 1)."
         )
 
@@ -285,30 +285,30 @@ class TestP803GitmodulesPaths:
         content = _read(GITMODULES)
         assert "net/reticulum/src/lib/rns-src" not in content, (
             ".gitmodules still contains the stale path "
-            "net/reticulum/src/lib/rns-src. Replace with vendor/rns-src."
+            "net/reticulum/src/lib/rns-src. Replace with reticulum_project/rns-src."
         )
 
     def test_gitmodules_does_not_contain_stale_net_lxmf_path(self):
         content = _read(GITMODULES)
         assert "net/reticulum/src/lib/lxmf-src" not in content, (
             ".gitmodules still contains the stale path "
-            "net/reticulum/src/lib/lxmf-src. Replace with vendor/lxmf-src."
+            "net/reticulum/src/lib/lxmf-src. Replace with reticulum_project/lxmf-src."
         )
 
     def test_gitmodules_rns_url_points_to_reticulum(self):
         """The rns-src submodule must point at markqvist/Reticulum."""
         content = _read(GITMODULES)
-        # Extract the url line for the vendor/rns-src block.
-        # The block is: [submodule "vendor/rns-src"] ... url = ...
+        # Extract the url line for the reticulum_project/rns-src block.
+        # The block is: [submodule "reticulum_project/rns-src"] ... url = ...
         rns_block = re.search(
-            r'\[submodule "vendor/rns-src"\].*?(?=\[submodule|\Z)',
+            r'\[submodule "reticulum_project/rns-src"\].*?(?=\[submodule|\Z)',
             content,
             re.DOTALL,
         )
-        assert rns_block, "No [submodule \"vendor/rns-src\"] block found in .gitmodules"
+        assert rns_block, "No [submodule \"reticulum_project/rns-src\"] block found in .gitmodules"
         block_text = rns_block.group(0)
         assert "markqvist/Reticulum" in block_text, (
-            "vendor/rns-src submodule URL must point to markqvist/Reticulum. "
+            "reticulum_project/rns-src submodule URL must point to markqvist/Reticulum. "
             f"Got block:\n{block_text}"
         )
 
@@ -316,14 +316,14 @@ class TestP803GitmodulesPaths:
         """The lxmf-src submodule must point at markqvist/LXMF."""
         content = _read(GITMODULES)
         lxmf_block = re.search(
-            r'\[submodule "vendor/lxmf-src"\].*?(?=\[submodule|\Z)',
+            r'\[submodule "reticulum_project/lxmf-src"\].*?(?=\[submodule|\Z)',
             content,
             re.DOTALL,
         )
-        assert lxmf_block, "No [submodule \"vendor/lxmf-src\"] block found in .gitmodules"
+        assert lxmf_block, "No [submodule \"reticulum_project/lxmf-src\"] block found in .gitmodules"
         block_text = lxmf_block.group(0)
         assert "markqvist/LXMF" in block_text, (
-            "vendor/lxmf-src submodule URL must point to markqvist/LXMF. "
+            "reticulum_project/lxmf-src submodule URL must point to markqvist/LXMF. "
             f"Got block:\n{block_text}"
         )
 
@@ -735,7 +735,7 @@ class TestP808WorkflowSubmoduleSettings:
         content = _read(WF_RELEASE)
         assert "submodules: false" in content, (
             "release.yml checkout must have 'submodules: false' (Phase 8 Step 8d). "
-            "The release archive includes only os-reticulum/; vendor/ is excluded "
+            "The release archive includes only os-reticulum/; reticulum_project/ is excluded "
             "structurally. Submodule clones waste time on release runners."
         )
 
@@ -766,13 +766,13 @@ class TestP808WorkflowSubmoduleSettings:
     def test_integration_test_yml_has_submodules_recursive(self):
         """
         integration-test.yml needs the submodules populated so the deploy step
-        can pip install from vendor/rns-src and vendor/lxmf-src. It must use
+        can pip install from reticulum_project/rns-src and reticulum_project/lxmf-src. It must use
         submodules: recursive (already set — guard against removal).
         """
         content = _read(WF_INTEGRATION)
         assert "submodules: recursive" in content, (
             "integration-test.yml checkout must keep 'submodules: recursive'. "
-            "The deploy step installs from vendor/rns-src and vendor/lxmf-src. "
+            "The deploy step installs from reticulum_project/rns-src and reticulum_project/lxmf-src. "
             "Do not change this to 'false'."
         )
 
@@ -785,7 +785,7 @@ class TestP808WorkflowSubmoduleSettings:
         # submodules: false must not appear anywhere in this file
         assert "submodules: false" not in content, (
             "integration-test.yml must not have 'submodules: false'. "
-            "It requires 'submodules: recursive' for the vendor/ source install."
+            "It requires 'submodules: recursive' for the reticulum_project/ source install."
         )
 
 
@@ -798,7 +798,7 @@ class TestP809CiVersionsEnvSyncCheck:
     P-809: The ci.yml static-analysis job must include a step that diffs the
     two versions.env copies and fails CI if they diverge. This catches the
     common mistake of advancing the submodule pointer without copying the
-    updated vendor/versions.env to the src/ location.
+    updated reticulum_project/versions.env to the src/ location.
     """
 
     def test_ci_yml_has_versions_env_sync_step(self):
@@ -820,15 +820,15 @@ class TestP809CiVersionsEnvSyncCheck:
         """
         content = _read(WF_CI)
         assert re.search(r"\bdiff\b.*versions\.env|versions\.env.*\bdiff\b", content, re.DOTALL), (
-            "ci.yml must use 'diff' to compare vendor/versions.env with "
+            "ci.yml must use 'diff' to compare reticulum_project/versions.env with "
             "os-reticulum/src/usr/local/share/os-reticulum/versions.env. "
             "A print/cat step is not sufficient (Phase 8 Step 8g)."
         )
 
     def test_ci_yml_sync_step_references_vendor_path(self):
         content = _read(WF_CI)
-        assert "vendor/versions.env" in content, (
-            "ci.yml sync check must reference vendor/versions.env explicitly "
+        assert "reticulum_project/versions.env" in content, (
+            "ci.yml sync check must reference reticulum_project/versions.env explicitly "
             "(Phase 8 Step 8g)."
         )
 

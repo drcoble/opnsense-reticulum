@@ -57,10 +57,10 @@ jobs:
 
       - name: Check versions.env sync
         run: |
-          if ! diff -q vendor/versions.env \
+          if ! diff -q reticulum_project/versions.env \
               os-reticulum/src/usr/local/share/os-reticulum/versions.env > /dev/null 2>&1; then
             echo "ERROR: versions.env files are out of sync." >&2
-            echo "Fix: cp vendor/versions.env os-reticulum/src/usr/local/share/os-reticulum/versions.env" >&2
+            echo "Fix: cp reticulum_project/versions.env os-reticulum/src/usr/local/share/os-reticulum/versions.env" >&2
             exit 1
           fi
 

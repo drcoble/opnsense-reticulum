@@ -1,9 +1,9 @@
-[submodule "vendor/rns-src"]
-	path = vendor/rns-src
+[submodule "reticulum_project/rns-src"]
+	path = reticulum_project/rns-src
 	url = https://github.com/markqvist/Reticulum.git
 	branch = master
 
-[submodule "vendor/lxmf-src"]
-	path = vendor/lxmf-src
+[submodule "reticulum_project/lxmf-src"]
+	path = reticulum_project/lxmf-src
 	url = https://github.com/markqvist/LXMF.git
 	branch = master

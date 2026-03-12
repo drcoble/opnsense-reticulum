@@ -172,8 +172,8 @@ jobs:
             fi
             # Install from pinned submodule source (no PyPI pull)
             REPO_ROOT="/tmp/ci-reticulum"
-            /usr/local/reticulum-venv/bin/pip install --quiet "\${REPO_ROOT}/vendor/rns-src"
-            /usr/local/reticulum-venv/bin/pip install --quiet "\${REPO_ROOT}/vendor/lxmf-src"
+            /usr/local/reticulum-venv/bin/pip install --quiet "\${REPO_ROOT}/reticulum_project/rns-src"
+            /usr/local/reticulum-venv/bin/pip install --quiet "\${REPO_ROOT}/reticulum_project/lxmf-src"
             echo "Reticulum installed OK (rnsd: \$(/usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo NOT FOUND))"
 
             # Create required runtime directories
