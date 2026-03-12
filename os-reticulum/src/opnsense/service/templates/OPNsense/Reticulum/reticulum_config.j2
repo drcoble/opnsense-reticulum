@@ -32,7 +32,7 @@
 
 {% if OPNsense.Reticulum.interfaces is defined and OPNsense.Reticulum.interfaces.interface is defined %}
 {% for iface in OPNsense.Reticulum.interfaces.interface %}
-{% if iface.enabled|default('1') == '1' %}
+{% if iface.enabled|default('1') == '1' and iface.name|default('') != '' and iface.type|default('') != '' %}
 
 [[{{ iface.name|replace('\n', '')|replace('\r', '')|replace('[', '')|replace(']', '') }}]]
   type = {{ iface.type }}
