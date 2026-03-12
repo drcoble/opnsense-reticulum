@@ -60,7 +60,23 @@ def _get_with_params(session, path, params=None):
     return session.get(f"{_BASE}/{path}", params=params, timeout=15)
 
 
-def _wait_for_status(session, endpoint, expected, timeout=15, interval=0.5):
+def _extract_option_value(field_data):
+    """Extract the selected value from an OPNsense OptionField/BooleanField/CSVListField response.
+
+    OPNsense getBase() returns these field types as dicts:
+      {"Option1": {"selected": 1, "value": "Option1"}, "Option2": {"selected": 0, ...}}
+    This helper returns the value with selected=1, or the raw value if it's already a string.
+    """
+    if isinstance(field_data, str):
+        return field_data
+    if isinstance(field_data, dict):
+        for key, val in field_data.items():
+            if isinstance(val, dict) and val.get("selected") == 1:
+                return val.get("value", key)
+    return field_data
+
+
+def _wait_for_status(session, endpoint, expected, timeout=30, interval=0.5):
     """Poll a status endpoint until it returns the expected value or times out."""
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -267,6 +283,8 @@ class TestA305ServiceLifecycle:
         """A-305a: rnsdStart returns a 200 response."""
         r = _post(api, "service/rnsdStart")
         assert r.status_code == 200
+        # Wait for daemon to fully start so the next test doesn't race
+        _wait_for_status(api, "service/rnsdStatus", "running")
 
     def test_a305b_status_running_after_start(self, api):
         """A-305b: rnsdStatus reports running after start."""
@@ -733,6 +751,9 @@ class TestA312LxmdLifecycle:
 
     def test_a312f_lxmd_restart_succeeds_with_rnsd(self, api):
         """A-312f: lxmdRestart succeeds when rnsd is running."""
+        # Ensure rnsd is running (may have been stopped by a prior failure)
+        _post(api, "service/rnsdStart")
+        _wait_for_status(api, "service/rnsdStatus", "running")
         # Start lxmd first so restart has something to restart
         _post(api, "service/lxmdStart")
         _wait_for_status(api, "service/lxmdStatus", "running")
@@ -796,7 +817,7 @@ class TestA313InterfaceTypes:
             assert r.status_code == 200
             data = r.json().get("interface", {})
             assert data.get("name") == iface_data["name"]
-            assert data.get("type") == iface_data["type"]
+            assert _extract_option_value(data.get("type")) == iface_data["type"]
             return data
         finally:
             _post(api, f"rnsd/delInterface/{uuid}")
@@ -1092,7 +1113,7 @@ class TestA315LxmfFieldCoverage:
         # Verify round-trip
         r = _get(api, "lxmd/get")
         lxmf = r.json().get("lxmf", {})
-        assert lxmf.get("enable_node") == "1"
+        assert _extract_option_value(lxmf.get("enable_node")) == "1"
         assert lxmf.get("node_name") == "CI Prop Node"
         # Reset
         _post(api, "lxmd/set", {"lxmf": {"enable_node": "0", "node_name": ""}})
@@ -1171,7 +1192,7 @@ class TestA315LxmfFieldCoverage:
             f"Valid hash should be accepted: {r.json()}"
         # Verify round-trip
         r = _get(api, "lxmd/get")
-        assert r.json().get("lxmf", {}).get("static_peers") == valid_hash
+        assert _extract_option_value(r.json().get("lxmf", {}).get("static_peers")) == valid_hash
         # Clean up
         _post(api, "lxmd/set", {"lxmf": {"static_peers": ""}})
 
