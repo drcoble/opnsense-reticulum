@@ -5,6 +5,9 @@ on:
     branches: [testing, main, development]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   integration-test:
     name: OPNsense Integration Test
@@ -380,7 +383,7 @@ jobs:
           .venv-browser/bin/pip install -r os-reticulum/tests/requirements-browser.txt
 
       - name: Install Chromium
-        run: .venv-browser/bin/playwright install chromium
+        run: .venv-browser/bin/playwright install --with-deps chromium
 
       - name: Run Playwright tests
         env:

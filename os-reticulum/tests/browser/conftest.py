@@ -18,6 +18,9 @@ import os
 import time
 
 import pytest
+
+pytest.importorskip("playwright", reason="playwright not installed — skipping browser tests")
+
 import requests
 import urllib3
 
