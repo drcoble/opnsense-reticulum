@@ -51,7 +51,7 @@ def test_PW_LXM_001_rnsd_status_badge_present(
 
 def test_PW_LXM_002_link_to_general_page(authenticated_page, base_url):
     """A link with href /ui/reticulum/general exists on the page."""
-    lp = _lxmf_page(authenticated_page, base_url)
+    _lxmf_page(authenticated_page, base_url)
 
     link = authenticated_page.locator('a[href="/ui/reticulum/general"]')
     expect(link).to_be_attached()

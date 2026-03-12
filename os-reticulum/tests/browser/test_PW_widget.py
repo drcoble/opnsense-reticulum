@@ -220,7 +220,7 @@ def test_PW_WDG_031_medium_width_no_traffic_col(
     checks visibility, but may not trigger the widget's onWidgetResize if
     the grid layout does not shrink the widget container.
     """
-    dp = _dashboard_page(authenticated_page, base_url)
+    _dashboard_page(authenticated_page, base_url)
 
     # Attempt to trigger a narrow viewport
     authenticated_page.set_viewport_size({"width": 350, "height": 800})
