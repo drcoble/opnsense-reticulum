@@ -59,10 +59,9 @@ class TestToolbarAndGrid:
         """The type column shows a formatted display name, not the raw value."""
         page = _make_page(authenticated_page, base_url)
         row = page.get_row_by_name("PW-Seed-TCP")
-        type_cell = row.locator('.tabulator-cell[tabulator-field="type"]')
-        cell_text = type_cell.inner_text()
-        # The formatted display name for TCPServerInterface contains "TCP Server"
-        assert "TCP Server" in cell_text or "TCPServer" in cell_text
+        # DIAGNOSTIC: dump full row HTML to discover Tabulator command button markup
+        row_html = row.first.evaluate("el => el.innerHTML")
+        pytest.fail(f"DIAG ROW HTML:\n{row_html}")
 
     def test_PW_IFC_012_enabled_toggle_in_grid(self, authenticated_page, base_url,
                                                 seed_one_interface):
@@ -147,11 +146,10 @@ class TestModalLifecycle:
                                              seed_one_interface):
         """Edit modal opens with data from the existing seed interface."""
         page = _make_page(authenticated_page, base_url)
-        # DIAGNOSTIC: dump Tabulator row HTML to discover command button selectors
-        row = page.get_row_by_name("PW-Seed-TCP")
-        assert row.count() > 0, "Seed row not found in grid"
-        row_html = row.first.evaluate("el => el.innerHTML")
-        pytest.fail(f"DIAG ROW HTML:\n{row_html}")
+        page.click_edit("PW-Seed-TCP")
+        assert page.modal_visible()
+        # Verify the name field is pre-populated
+        assert page.interface_name.input_value() == "PW-Seed-TCP"
 
     def test_PW_IFC_022_modal_close_button(self, authenticated_page, base_url):
         page = _make_page(authenticated_page, base_url)
