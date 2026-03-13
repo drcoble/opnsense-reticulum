@@ -21,7 +21,9 @@ class LxmfPage(BasePage):
     def navigate(self) -> None:
         """Open the LXMF page and wait for the tab strip."""
         self.goto(self.PATH)
-        self.page.wait_for_selector("#maintabs")
+        self.page.wait_for_selector(
+            "#maintabs", state="visible", timeout=self.PAGE_READY_TIMEOUT
+        )
 
     # -- Tab helpers ---------------------------------------------------------
 

@@ -21,7 +21,9 @@ class LogsPage(BasePage):
     def navigate(self) -> None:
         """Open the logs page and wait for the tab strip."""
         self.goto(self.PATH)
-        self.page.wait_for_selector("#log-tabs")
+        self.page.wait_for_selector(
+            "#log-tabs", state="visible", timeout=self.PAGE_READY_TIMEOUT
+        )
 
     # -- Tab locators --------------------------------------------------------
 

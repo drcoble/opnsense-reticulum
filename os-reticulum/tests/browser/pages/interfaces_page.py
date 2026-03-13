@@ -21,7 +21,9 @@ class InterfacesPage(BasePage):
     def navigate(self) -> None:
         """Open the interfaces page and wait for the grid to render."""
         self.goto(self.PATH)
-        self.page.wait_for_selector("#grid-interfaces")
+        self.page.wait_for_selector(
+            "#grid-interfaces", state="visible", timeout=self.PAGE_READY_TIMEOUT
+        )
 
     # -- Grid locators -------------------------------------------------------
 

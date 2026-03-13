@@ -6,11 +6,18 @@ every page inherits.
 
 from playwright.sync_api import Page, Locator
 
+# Timeout for the initial page-load element wait (e.g. #maintabs after
+# navigating).  This is deliberately longer than ELEMENT_TIMEOUT because
+# OPNsense's JS framework may need time to initialise after all
+# sub-resources finish loading.
+_PAGE_READY_TIMEOUT = 30_000  # ms
+
 
 class BasePage:
     """Common page interactions for the OPNsense Reticulum plugin."""
 
     SPINNER_TIMEOUT = 15_000  # ms
+    PAGE_READY_TIMEOUT = _PAGE_READY_TIMEOUT
 
     def __init__(self, page: Page, base_url: str) -> None:
         self.page = page
@@ -21,14 +28,17 @@ class BasePage:
     def goto(self, path: str) -> None:
         """Navigate to *path* (appended to base_url) and wait for load.
 
-        Uses ``domcontentloaded`` instead of ``networkidle`` because
-        OPNsense pages may have periodic AJAX/long-poll requests that
-        prevent ``networkidle`` from resolving.
+        Uses ``load`` (not ``domcontentloaded`` or ``networkidle``)
+        because OPNsense renders page chrome first, then initialises
+        content via jQuery ``$(document).ready()`` callbacks that depend
+        on JS/CSS sub-resources being fully loaded.  ``networkidle`` is
+        avoided because periodic AJAX/long-poll requests prevent it from
+        resolving.
 
         Raises AssertionError if the browser lands on the login page
         (indicates an expired or invalid session).
         """
-        self.page.goto(self.base_url + path, wait_until="domcontentloaded")
+        self.page.goto(self.base_url + path, wait_until="load")
         # Detect session expiry — OPNsense returns HTTP 200 with the login
         # form when the session cookie is missing or expired.
         if self.page.locator('input[name="usernamefld"]').count() > 0:

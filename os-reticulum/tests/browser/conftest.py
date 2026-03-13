@@ -177,9 +177,9 @@ def login_once(base_url, browser):
     context = browser.new_context(ignore_https_errors=True)
     page = context.new_page()
 
-    # Navigate to login page — use domcontentloaded instead of networkidle
-    # because OPNsense pages can have long-polling that blocks networkidle.
-    page.goto(base_url, wait_until="domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
+    # Navigate to login page — use load instead of networkidle because
+    # OPNsense pages can have long-polling that blocks networkidle.
+    page.goto(base_url, wait_until="load", timeout=PAGE_LOAD_TIMEOUT)
 
     # Wait for the login form to be ready before interacting
     page.wait_for_selector(
@@ -233,9 +233,7 @@ def authenticated_context(login_once, browser, base_url):
 
     # Smoke-check: load any page and confirm we're authenticated
     probe = context.new_page()
-    probe.goto(base_url, wait_until="domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
-    # Give the page a moment to settle (redirects, JS)
-    probe.wait_for_load_state("load", timeout=PAGE_LOAD_TIMEOUT)
+    probe.goto(base_url, wait_until="load", timeout=PAGE_LOAD_TIMEOUT)
     is_login_page = probe.locator('input[name="usernamefld"]').count() > 0
     probe.close()
 
