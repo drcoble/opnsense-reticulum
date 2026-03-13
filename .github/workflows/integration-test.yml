@@ -239,7 +239,7 @@ jobs:
 
       - name: Verify Volt templates on VM
         env:
-          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
         run: |
           mkdir -p ~/.ssh
