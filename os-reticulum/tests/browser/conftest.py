@@ -361,6 +361,12 @@ def save_and_restore_general(opnsense_api_client):
 
     Scope: function — ensures tests that modify general/rnsd settings do
     not leak state into subsequent tests.
+
+    The GET response from getNodes() returns rich metadata for OptionField
+    and BooleanField types (e.g. ``{"enabled": {"1": {"value": "Yes",
+    "selected": 1}, ...}}``).  We must flatten these to scalar values
+    before POSTing back, because setNodes()/setValue() expects strings,
+    not arrays.
     """
     resp = opnsense_api_client.get_general()
     assert resp.ok, f"Failed to snapshot general settings: {resp.status_code}"
@@ -368,4 +374,18 @@ def save_and_restore_general(opnsense_api_client):
 
     yield original
 
-    opnsense_api_client.set_general(original)
+    # Flatten option metadata arrays to selected scalar values before restore.
+    flat = {}
+    for key, value in original.get("general", {}).items():
+        if isinstance(value, dict):
+            # Option/Boolean metadata: find the entry with selected == 1
+            selected = None
+            for opt_key, opt_meta in value.items():
+                if isinstance(opt_meta, dict) and opt_meta.get("selected"):
+                    selected = str(opt_key)
+                    break
+            if selected is not None:
+                flat[key] = selected
+        else:
+            flat[key] = value
+    opnsense_api_client.set_general({"general": flat})

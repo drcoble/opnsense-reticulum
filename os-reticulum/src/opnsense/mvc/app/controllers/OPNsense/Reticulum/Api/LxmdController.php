@@ -11,6 +11,36 @@ class LxmdController extends ApiMutableModelControllerBase
     protected static $internalModelClass = 'OPNsense\Reticulum\Reticulum';
 
     /**
+     * Flatten getNodes()-style option metadata to scalar values.
+     *
+     * @see RnsdController::flattenOptionValues() for detailed documentation.
+     *
+     * @param array $data POST data, possibly containing option metadata arrays
+     * @return array flattened data with only scalar string values
+     */
+    private function flattenOptionValues(array $data): array
+    {
+        $result = [];
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $selected = null;
+                foreach ($value as $optKey => $optMeta) {
+                    if (is_array($optMeta) && !empty($optMeta['selected'])) {
+                        $selected = (string)$optKey;
+                        break;
+                    }
+                }
+                if ($selected !== null) {
+                    $result[$key] = $selected;
+                }
+            } else {
+                $result[$key] = $value;
+            }
+        }
+        return $result;
+    }
+
+    /**
      * GET api/reticulum/lxmd/get
      * Returns the lxmf settings node.
      *
@@ -38,7 +68,8 @@ class LxmdController extends ApiMutableModelControllerBase
         $result = ['result' => 'failed'];
         if ($this->request->isPost()) {
             $mdl = $this->getModel();
-            $mdl->lxmf->setNodes($this->request->getPost('lxmf') ?? []);
+            $postData = $this->request->getPost('lxmf') ?? [];
+            $mdl->lxmf->setNodes($this->flattenOptionValues($postData));
             $msgs = $mdl->performValidation();
             foreach ($msgs as $msg) {
                 if (!isset($result['validations'])) {

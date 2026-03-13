@@ -11,6 +11,46 @@ class RnsdController extends ApiMutableModelControllerBase
     protected static $internalModelClass = 'OPNsense\Reticulum\Reticulum';
 
     /**
+     * Flatten getNodes()-style option metadata to scalar values.
+     *
+     * getNodes() returns rich metadata for OptionField and BooleanField
+     * types, e.g. {"enabled": {"1": {"value": "Yes", "selected": 1}, ...}}.
+     * If a client GETs this data and POSTs it back without unwrapping,
+     * setNodes()/setValue() receives arrays where it expects scalar strings.
+     *
+     * This method walks the POST data and converts any array values back to
+     * the selected key string. Normal scalar values pass through unchanged.
+     *
+     * @param array $data POST data, possibly containing option metadata arrays
+     * @return array flattened data with only scalar string values
+     */
+    private function flattenOptionValues(array $data): array
+    {
+        $result = [];
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                // Option/Boolean metadata: {"1": {"value": "Yes", "selected": 1}, ...}
+                // Find the entry with "selected" == 1 and use its key.
+                $selected = null;
+                foreach ($value as $optKey => $optMeta) {
+                    if (is_array($optMeta) && !empty($optMeta['selected'])) {
+                        $selected = (string)$optKey;
+                        break;
+                    }
+                }
+                // If we found a selected option, use it; otherwise skip the
+                // field entirely (don't send an array to setValue).
+                if ($selected !== null) {
+                    $result[$key] = $selected;
+                }
+            } else {
+                $result[$key] = $value;
+            }
+        }
+        return $result;
+    }
+
+    /**
      * GET api/reticulum/rnsd/get
      * Returns the general settings node.
      *
@@ -38,7 +78,8 @@ class RnsdController extends ApiMutableModelControllerBase
         $result = ['result' => 'failed'];
         if ($this->request->isPost()) {
             $mdl = $this->getModel();
-            $mdl->general->setNodes($this->request->getPost('general') ?? []);
+            $postData = $this->request->getPost('general') ?? [];
+            $mdl->general->setNodes($this->flattenOptionValues($postData));
             $msgs = $mdl->performValidation();
             foreach ($msgs as $msg) {
                 if (!isset($result['validations'])) {
