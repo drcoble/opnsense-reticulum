@@ -423,6 +423,42 @@ jobs:
       - name: Install Chromium
         run: .venv-browser/bin/playwright install chromium
 
+      - name: Diagnose Volt template rendering
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
+          OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/opnsense_key
+          chmod 600 ~/.ssh/opnsense_key
+          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+
+          echo "=== Volt template files on VM ==="
+          $SSH root@"$OPNSENSE_HOST" "ls -la /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/"
+
+          echo "=== First 5 lines of general.volt ==="
+          $SSH root@"$OPNSENSE_HOST" "head -5 /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/general.volt"
+
+          echo "=== Volt compiled cache ==="
+          $SSH root@"$OPNSENSE_HOST" "find /tmp /usr/local/opnsense/mvc/app/cache /var/lib/php/cache -name '*Reticulum*' -o -name '*reticulum*' 2>/dev/null || echo 'no cache files found'"
+
+          echo "=== IndexController.php ==="
+          $SSH root@"$OPNSENSE_HOST" "cat /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php"
+
+          echo "=== PHP syntax check on IndexController ==="
+          $SSH root@"$OPNSENSE_HOST" "php -l /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php 2>&1"
+
+          echo "=== Try curl UI page (check for error) ==="
+          curl -sk --max-time 10 -b <(curl -sk --max-time 10 -c - "https://${OPNSENSE_HOST}/" -d "usernamefld=${OPNSENSE_UI_USER:-root}&passwordfld=${OPNSENSE_UI_PASS:-opnsense}&login=1" 2>/dev/null) "https://${OPNSENSE_HOST}/ui/reticulum/general" 2>/dev/null | grep -oE '(<title>[^<]+|maintabs|Page not found|class="content"|page-content-main)' || echo 'curl failed or no matches'
+
+          echo "=== PHP error log (last 20 lines) ==="
+          $SSH root@"$OPNSENSE_HOST" "tail -20 /var/log/lighttpd/error.log 2>/dev/null; tail -20 /tmp/php_errors.log 2>/dev/null; tail -20 /var/log/php-fpm.log 2>/dev/null" || echo 'no PHP error log found'
+
+          echo "=== lighttpd error log (last 10) ==="
+          $SSH root@"$OPNSENSE_HOST" "tail -10 /var/log/lighttpd/error.log 2>/dev/null" || echo 'no lighttpd error log'
+
       - name: Run Playwright tests
         env:
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
