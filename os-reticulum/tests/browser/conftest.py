@@ -56,11 +56,22 @@ class OPNsenseApiClient:
     # -- Interfaces --
 
     def add_interface(self, data: dict) -> requests.Response:
-        """POST a new interface record."""
-        return self.session.post(
+        """POST a new interface record.
+
+        Also tracks the returned UUID in ``_pw_created_uuids`` so that
+        ``clean_interfaces`` can delete by the correct (UUID4) format.
+        """
+        resp = self.session.post(
             f"{self.base_url}/api/reticulum/rnsd/addInterface",
             json={"interface": data},
         )
+        if resp.ok:
+            uuid = resp.json().get("uuid", "")
+            if uuid:
+                if not hasattr(self, '_pw_created_uuids'):
+                    self._pw_created_uuids = []
+                self._pw_created_uuids.append(uuid)
+        return resp
 
     def delete_interface(self, uuid: str) -> requests.Response:
         """DELETE an interface record by UUID.
@@ -355,28 +366,19 @@ def clean_interfaces(opnsense_api_client):
     endpoint may return paginated results (missing some rows per call).
     """
     yield
-    resp = opnsense_api_client.list_interfaces()
-    if not resp.ok:
-        return
-    body = resp.json()
-    rows = body.get("rows", [])
-    # Debug: print first row's full structure to see UUID field name
-    if rows:
-        print(f"[DIAG clean] First row keys: {list(rows[0].keys())}")
-        print(f"[DIAG clean] First row sample: {rows[0]}")
-    pw_rows = [r for r in rows if r.get("name", "").startswith("PW-")]
-    for row in pw_rows:
-        uuid = row.get("uuid", row.get("id", ""))
-        # Try delete with search UUID
-        del_resp = opnsense_api_client.delete_interface(uuid)
-        print(f"[DIAG clean] del {row['name']} search_uuid={uuid}: "
-              f"status={del_resp.status_code} body={del_resp.text[:200]}")
-        if '"not found"' in del_resp.text:
-            # Try getting the full interface record which may have a different UUID
-            get_resp = opnsense_api_client.session.get(
-                f"{opnsense_api_client.base_url}/api/reticulum/rnsd/getInterface/{uuid}"
-            )
-            print(f"[DIAG clean] getInterface/{uuid}: status={get_resp.status_code} body={get_resp.text[:300]}")
+    # searchInterfaces returns internal XML-tag UUIDs (uniqid format) which
+    # differ from the model's uuid attribute (UUID4 format).  Only the UUID4
+    # format works with delBase/getBase.  We must search by name, then fetch
+    # each interface to get its actual UUID for deletion.
+    #
+    # Workaround: use searchInterfaces to find names, then iterate with
+    # getInterface using the uniqid UUID — if that fails, we need another
+    # approach.  Since getInterface also doesn't work with uniqid UUIDs,
+    # we store created UUIDs at creation time (via _pw_created_uuids).
+    for uuid in list(getattr(opnsense_api_client, '_pw_created_uuids', [])):
+        opnsense_api_client.delete_interface(uuid)
+    if hasattr(opnsense_api_client, '_pw_created_uuids'):
+        opnsense_api_client._pw_created_uuids.clear()
 
 
 @pytest.fixture(scope="function")
@@ -388,13 +390,18 @@ def seed_one_interface(opnsense_api_client):
     from ``fixtures/interfaces_seed.json`` when needed.  Does NOT delete
     on teardown so the interface remains available for other tests in the
     same session.
+
+    Note: ``searchInterfaces`` returns uniqid-format UUIDs that differ
+    from the UUID4 format returned by ``addInterface``.  Only the UUID4
+    format works with ``delInterface``/``getInterface``.  We check
+    existence via searchInterfaces but always create fresh if not found.
     """
     # Check if it already exists (may have survived from a previous test)
     resp = opnsense_api_client.list_interfaces()
     if resp.ok:
         for row in resp.json().get("rows", []):
             if row.get("name") == "PW-Seed-TCP":
-                yield row["uuid"]
+                yield  # Interface exists, no need to create
                 return
 
     # Create from seed fixture
@@ -403,13 +410,12 @@ def seed_one_interface(opnsense_api_client):
         data = json.load(f)
 
     resp = opnsense_api_client.add_interface(data)
-    print(f"[DIAG seed] addInterface response: status={resp.status_code} body={resp.text[:500]}")
     assert resp.ok, f"Failed to seed interface: {resp.status_code} {resp.text}"
     body = resp.json()
     uuid = body.get("uuid", "")
     assert uuid, f"No UUID returned from addInterface: {body}"
 
-    yield uuid
+    yield
 
 
 @pytest.fixture(scope="function")

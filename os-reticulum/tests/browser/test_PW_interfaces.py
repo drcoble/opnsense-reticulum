@@ -75,18 +75,13 @@ class TestToolbarAndGrid:
     def test_PW_IFC_016_empty_state(self, authenticated_page, base_url,
                                      api_client, clean_interfaces):
         """With no interfaces, the grid shows an empty message or zero rows."""
-        # Delete all PW- interfaces that may exist from other tests.
-        # Loop because searchInterfaces may return paginated results.
-        for _ in range(5):
-            resp = api_client.list_interfaces()
-            if not resp.ok:
-                break
-            pw_rows = [r for r in resp.json().get("rows", [])
-                       if r.get("name", "").startswith("PW-")]
-            if not pw_rows:
-                break
-            for row in pw_rows:
-                api_client.delete_interface(row["uuid"])
+        # Delete all tracked PW- interfaces using their UUID4 (addInterface)
+        # format.  The searchInterfaces UUID (uniqid) format doesn't work
+        # with delBase/getBase.
+        for uuid in list(getattr(api_client, '_pw_created_uuids', [])):
+            api_client.delete_interface(uuid)
+        if hasattr(api_client, '_pw_created_uuids'):
+            api_client._pw_created_uuids.clear()
 
         page = _make_page(authenticated_page, base_url)
         row_count = page.grid_row_count()
