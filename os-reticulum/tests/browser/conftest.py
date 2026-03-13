@@ -235,12 +235,30 @@ def authenticated_context(login_once, browser, base_url):
     probe = context.new_page()
     probe.goto(base_url, wait_until="load", timeout=PAGE_LOAD_TIMEOUT)
     is_login_page = probe.locator('input[name="usernamefld"]').count() > 0
-    probe.close()
-
     assert not is_login_page, (
         "Stored auth_state.json did not produce a valid session — "
         "the probe page landed on the login form."
     )
+
+    # Verify Reticulum plugin pages are reachable — OPNsense returns HTTP 200
+    # with "page not found" when MVC routes are not registered (e.g. lighttpd
+    # was not restarted after plugin install via SCP).
+    reticulum_url = f"{base_url}/ui/reticulum/general"
+    probe.goto(reticulum_url, wait_until="load", timeout=PAGE_LOAD_TIMEOUT)
+    body_text = probe.locator("body").inner_text(timeout=5000)
+    if "page not found" in body_text.lower():
+        # Capture full page content for CI diagnostics before failing
+        full_html = probe.content()
+        probe.close()
+        raise AssertionError(
+            f"Reticulum plugin pages are not reachable — "
+            f"navigating to {reticulum_url} returned 'page not found'. "
+            f"This usually means lighttpd was not restarted after plugin "
+            f"deployment.  Run 'service lighttpd restart' on the OPNsense VM.\n"
+            f"Page body excerpt: {body_text[:500]}\n"
+            f"Full HTML (first 2000 chars): {full_html[:2000]}"
+        )
+    probe.close()
 
     yield context
     context.close()

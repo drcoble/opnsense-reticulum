@@ -46,6 +46,17 @@ class BasePage:
                 f"Session expired — landed on login page when navigating to {path}. "
                 "The authenticated_context storage state may be stale."
             )
+        # Detect OPNsense "page not found" — the MVC router returns HTTP 200
+        # with a page containing "page not found" when the controller is not
+        # registered (e.g. lighttpd was not restarted after plugin install).
+        body_text = self.page.locator("body").inner_text(timeout=5000)
+        if "page not found" in body_text.lower():
+            raise AssertionError(
+                f"OPNsense returned 'page not found' for {path}. "
+                "The plugin's MVC routes may not be registered — "
+                "check that lighttpd was restarted after plugin deployment. "
+                f"Page body excerpt: {body_text[:500]}"
+            )
 
     # -- Alerts --------------------------------------------------------------
 
