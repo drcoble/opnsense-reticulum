@@ -24,15 +24,6 @@ class InterfacesPage(BasePage):
         self.page.wait_for_selector(
             "#grid-interfaces", state="visible", timeout=self.PAGE_READY_TIMEOUT
         )
-        # Wait for bootgrid JS to initialise — it adds a footer element
-        # once initialisation completes (even on an empty data set).
-        self.page.wait_for_selector(
-            "#grid-interfaces .bootgrid-footer, #grid-interfaces tbody",
-            state="attached",
-            timeout=self.PAGE_READY_TIMEOUT,
-        )
-        # Small extra wait for AJAX data fetch to complete
-        self.page.wait_for_timeout(1000)
 
     # -- Grid locators -------------------------------------------------------
 
