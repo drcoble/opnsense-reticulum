@@ -359,11 +359,29 @@ jobs:
             echo "=== Volt templates deployed ==="
             ls -la /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/ 2>/dev/null || echo 'no Reticulum views directory'
 
-            echo "=== Volt template cache (Reticulum) ==="
-            ls -la /var/lib/php/cache/*Reticulum* 2>/dev/null || echo 'no cached Reticulum templates'
+            echo "=== Volt template cache (all locations) ==="
+            ls -la /var/lib/php/cache/*Reticulum* 2>/dev/null || echo 'no cached in /var/lib/php/cache'
+            ls -la /usr/local/opnsense/mvc/app/cache/*Reticulum* 2>/dev/null || echo 'no cached in mvc/app/cache'
+            find /tmp -maxdepth 1 -name '*Reticulum*' -o -name '*reticulum*' 2>/dev/null | head -10 || echo 'none in /tmp'
+
+            echo "=== First 3 lines of each Volt template ==="
+            for f in /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/*.volt; do
+              echo "--- $f ---"
+              head -3 "$f"
+            done
 
             echo "=== Check for problematic extends directive ==="
             grep -l 'extends.*layouts' /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/*.volt 2>/dev/null && echo 'WARNING: Volt templates contain extends directive — this conflicts with setTemplateBefore' || echo 'OK: no extends directive found'
+
+            echo "=== PHP syntax: IndexController ==="
+            php -l /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php 2>&1
+
+            echo "=== Curl UI page from localhost (check for rendering) ==="
+            timeout 10 curl -sk https://127.0.0.1/ui/reticulum/general 2>/dev/null | grep -oE '(id="maintabs"|Page not found|<title>[^<]+)' || echo 'no maintabs or title match'
+
+            echo "=== PHP error log ==="
+            tail -30 /var/log/lighttpd/error.log 2>/dev/null || echo 'no lighttpd error log'
+            tail -10 /tmp/php_errors.log 2>/dev/null || echo 'no /tmp/php_errors.log'
 
             echo "=== PHP syntax: Model ==="
             php -l /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/Reticulum.php 2>&1
@@ -424,40 +442,28 @@ jobs:
         run: .venv-browser/bin/playwright install chromium
 
       - name: Diagnose Volt template rendering
+        continue-on-error: true
         env:
-          SSH_KEY: ${{ secrets.SSH_KEY }}
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
           OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
           OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
         run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/opnsense_key
-          chmod 600 ~/.ssh/opnsense_key
-          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+          echo "=== curl API endpoint (should work since integration tests passed) ==="
+          curl -sk --max-time 10 -u "${OPNSENSE_API_KEY}:${OPNSENSE_API_SECRET}" \
+            "https://${OPNSENSE_HOST}/api/reticulum/rnsd/get" 2>/dev/null | head -c 200
+          echo ""
 
-          echo "=== Volt template files on VM ==="
-          $SSH root@"$OPNSENSE_HOST" "ls -la /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/"
+          echo "=== curl UI page as API user (unauthenticated for UI — shows layout) ==="
+          curl -sk --max-time 10 "https://${OPNSENSE_HOST}/ui/reticulum/general" 2>/dev/null | \
+            grep -oE '(<title>[^<]+|id="maintabs"|Page not found|page-content-main|class="__content)' || echo 'no matches'
 
-          echo "=== First 5 lines of general.volt ==="
-          $SSH root@"$OPNSENSE_HOST" "head -5 /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/general.volt"
+          echo "=== curl UI page — full content area ==="
+          curl -sk --max-time 10 "https://${OPNSENSE_HOST}/ui/reticulum/general" 2>/dev/null | \
+            sed -n '/<section class="page-content-main/,/<\/section>/p' | head -50 || echo 'no content section found'
 
-          echo "=== Volt compiled cache ==="
-          $SSH root@"$OPNSENSE_HOST" "find /tmp /usr/local/opnsense/mvc/app/cache /var/lib/php/cache -name '*Reticulum*' -o -name '*reticulum*' 2>/dev/null || echo 'no cache files found'"
-
-          echo "=== IndexController.php ==="
-          $SSH root@"$OPNSENSE_HOST" "cat /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php"
-
-          echo "=== PHP syntax check on IndexController ==="
-          $SSH root@"$OPNSENSE_HOST" "php -l /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php 2>&1"
-
-          echo "=== Try curl UI page (check for error) ==="
-          curl -sk --max-time 10 -b <(curl -sk --max-time 10 -c - "https://${OPNSENSE_HOST}/" -d "usernamefld=${OPNSENSE_UI_USER:-root}&passwordfld=${OPNSENSE_UI_PASS:-opnsense}&login=1" 2>/dev/null) "https://${OPNSENSE_HOST}/ui/reticulum/general" 2>/dev/null | grep -oE '(<title>[^<]+|maintabs|Page not found|class="content"|page-content-main)' || echo 'curl failed or no matches'
-
-          echo "=== PHP error log (last 20 lines) ==="
-          $SSH root@"$OPNSENSE_HOST" "tail -20 /var/log/lighttpd/error.log 2>/dev/null; tail -20 /tmp/php_errors.log 2>/dev/null; tail -20 /var/log/php-fpm.log 2>/dev/null" || echo 'no PHP error log found'
-
-          echo "=== lighttpd error log (last 10) ==="
-          $SSH root@"$OPNSENSE_HOST" "tail -10 /var/log/lighttpd/error.log 2>/dev/null" || echo 'no lighttpd error log'
+          echo "=== curl UI page — check for PHP errors in HTML ==="
+          curl -sk --max-time 10 "https://${OPNSENSE_HOST}/ui/reticulum/general" 2>/dev/null | \
+            grep -iE '(fatal|error|warning|notice|exception|undefined|syntax)' | head -10 || echo 'no PHP errors in HTML'
 
       - name: Run Playwright tests
         env:
