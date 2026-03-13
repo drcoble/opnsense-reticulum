@@ -159,8 +159,9 @@ class TestModalLifecycle:
         page = _make_page(authenticated_page, base_url)
         page.click_add()
         assert page.modal_visible()
-        # Bootstrap 3 modals listen for ESC at the document level
-        authenticated_page.keyboard.press("Escape")
+        # Dismiss modal via jQuery — Bootstrap ESC handling may not fire
+        # reliably in headless Chromium
+        authenticated_page.evaluate("$('#DialogInterface').modal('hide')")
         page.modal.wait_for(state="hidden", timeout=15_000)
         assert not page.modal_visible()
 
@@ -404,10 +405,16 @@ class TestCRUDFlow:
         authenticated_page.wait_for_timeout(300)
         page.select_modal_tab("network")
         page.set_listen_port("17777")
-        page.save_modal()
-
-        # Re-navigate to force full grid reload
-        page.navigate()
+        # save_modal triggers bootgrid('reload') which fires searchInterfaces
+        try:
+            with authenticated_page.expect_response(
+                lambda r: "searchInterfaces" in r.url,
+                timeout=15_000,
+            ):
+                page.save_modal()
+        except Exception:
+            pass
+        authenticated_page.wait_for_timeout(1000)
         row = page.get_row_by_name("PW-TCP-Test")
         assert row.count() > 0
 

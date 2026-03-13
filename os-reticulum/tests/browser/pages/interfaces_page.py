@@ -19,20 +19,25 @@ class InterfacesPage(BasePage):
     # -- Navigation ----------------------------------------------------------
 
     def navigate(self) -> None:
-        """Open the interfaces page and wait for the grid to be ready."""
-        self.goto(self.PATH)
-        self.page.wait_for_selector(
-            "#grid-interfaces", state="visible", timeout=self.PAGE_READY_TIMEOUT
-        )
-        # Wait for Tabulator's searchInterfaces AJAX call to complete
+        """Open the interfaces page and wait for the grid to be ready.
+
+        Uses ``expect_response`` as a context manager to start listening
+        for the ``searchInterfaces`` AJAX call BEFORE triggering the
+        navigation, so the response is never missed.
+        """
         try:
-            self.page.wait_for_response(
+            with self.page.expect_response(
                 lambda r: "searchInterfaces" in r.url,
-                timeout=15_000,
-            )
+                timeout=30_000,
+            ):
+                self.goto(self.PATH)
+                self.page.wait_for_selector(
+                    "#grid-interfaces", state="visible",
+                    timeout=self.PAGE_READY_TIMEOUT,
+                )
         except Exception:
-            pass  # Search may have completed before we started waiting
-        # Small extra wait for Tabulator to render the response
+            pass  # Fallback if searchInterfaces never fires (e.g. empty grid)
+        # Extra wait for Tabulator to render the response data
         self.page.wait_for_timeout(500)
 
     # -- Grid locators -------------------------------------------------------
@@ -95,17 +100,27 @@ class InterfacesPage(BasePage):
         UIBootgrid/Tabulator handles fetching data and populating the form.
         We wait for the modal to be fully visible and for the form
         to populate (shown.bs.modal fires updateTypeVisibility).
+
+        Uses JS click to reliably trigger jQuery delegated handlers on
+        dynamically-rendered Tabulator cells.
         """
         row = self.get_row_by_name(name)
-        row.locator("button.command-edit, .command-edit").first.click()
+        btn = row.locator("button.command-edit, .command-edit").first
+        btn.wait_for(state="visible", timeout=10_000)
+        btn.evaluate("el => el.click()")
         self.page.locator("#DialogInterface").wait_for(state="visible")
         # Wait for AJAX form population and shown.bs.modal handlers
         self.page.wait_for_timeout(1000)
 
     def click_delete(self, name: str) -> None:
-        """Click the delete button on the row matching *name*."""
+        """Click the delete button on the row matching *name*.
+
+        Uses JS click to reliably trigger jQuery delegated handlers.
+        """
         row = self.get_row_by_name(name)
-        row.locator("button.command-delete, .command-delete").first.click()
+        btn = row.locator("button.command-delete, .command-delete").first
+        btn.wait_for(state="visible", timeout=10_000)
+        btn.evaluate("el => el.click()")
 
     def confirm_delete(self) -> None:
         """Click confirm in the custom delete confirmation dialog."""
@@ -136,8 +151,9 @@ class InterfacesPage(BasePage):
         variants used in some OPNsense versions.
         """
         row = self.get_row_by_name(name)
-        toggle = row.locator(".command-toggle")
-        toggle.first.click()
+        toggle = row.locator(".command-toggle").first
+        toggle.wait_for(state="visible", timeout=10_000)
+        toggle.evaluate("el => el.click()")
         self.page.wait_for_timeout(1000)
 
     # -- Modal locators ------------------------------------------------------
