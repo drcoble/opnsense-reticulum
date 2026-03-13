@@ -349,7 +349,7 @@ def clean_interfaces(opnsense_api_client):
     endpoint may return paginated results (missing some rows per call).
     """
     yield
-    for _ in range(5):  # Safety limit to avoid infinite loop
+    for attempt in range(5):  # Safety limit to avoid infinite loop
         resp = opnsense_api_client.list_interfaces()
         if not resp.ok:
             return
@@ -359,7 +359,9 @@ def clean_interfaces(opnsense_api_client):
         if not pw_rows:
             return
         for row in pw_rows:
-            opnsense_api_client.delete_interface(row["uuid"])
+            del_resp = opnsense_api_client.delete_interface(row["uuid"])
+            print(f"[DIAG clean] attempt={attempt} del {row['name']} uuid={row['uuid']}: "
+                  f"status={del_resp.status_code} body={del_resp.text[:200]}")
 
 
 @pytest.fixture(scope="function")
