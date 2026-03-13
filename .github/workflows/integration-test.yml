@@ -394,6 +394,7 @@ jobs:
           OPNSENSE_UI_PASS: ${{ secrets.OPNSENSE_UI_PASS }}
         run: |
           .venv-browser/bin/pytest os-reticulum/tests/browser/ \
+            --confcutdir=os-reticulum/tests/browser \
             -v --tb=short -m browser \
             --screenshot=only-on-failure \
             --output=test-results/ \
