@@ -118,9 +118,25 @@ class TestToolbarAndGrid:
         assert footer.count() > 0, "No pagination or footer controls found"
 
     def test_PW_IFC_018_inline_toggle_fires_api(self, authenticated_page, base_url,
-                                                  seed_one_interface):
+                                                  seed_one_interface, api_client):
         """Toggling the enabled switch on the seed interface fires an API call."""
+        # Verify seed exists via API before navigating
+        resp = api_client.list_interfaces()
+        api_rows = resp.json().get("rows", []) if resp.ok else []
+        api_names = [r.get("name") for r in api_rows]
+        print(f"[DIAG IFC_018] API rows before navigate: {api_names}")
+        assert "PW-Seed-TCP" in api_names, f"Seed not in API: {api_names}"
+
         page = _make_page(authenticated_page, base_url)
+        # Dump what the grid rendered
+        grid_data = authenticated_page.evaluate("""() => {
+            const rows = document.querySelectorAll('.tabulator-row');
+            return Array.from(rows).map(r => {
+                const cells = r.querySelectorAll('.tabulator-cell');
+                return Array.from(cells).map(c => c.getAttribute('tabulator-field') + '=' + c.innerText).join(', ');
+            });
+        }""")
+        print(f"[DIAG IFC_018] Grid rendered rows: {grid_data}")
         page.toggle_enabled("PW-Seed-TCP")
         # Toggle again to restore original state
         page.toggle_enabled("PW-Seed-TCP")

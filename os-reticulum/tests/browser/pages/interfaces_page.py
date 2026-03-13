@@ -113,17 +113,28 @@ class InterfacesPage(BasePage):
         self.page.wait_for_timeout(1000)
 
     def click_delete(self, name: str) -> None:
-        """Click the delete button on the row matching *name*.
+        """Trigger the delete confirmation dialog for the named interface.
 
-        Uses jQuery trigger to reliably fire jQuery delegated handlers.
-        Native ``el.click()`` dispatches a DOM event but jQuery's
-        ``$(document).on('click', '.command-delete', ...)`` delegation
-        may not intercept it in all browsers/Tabulator renderings.
+        The Volt template's delete flow sets a module-level ``deleteUuid``
+        variable and then shows ``#DialogDeleteInterface``.  The jQuery
+        delegated handler ``$(document).on('click', '.command-delete', ...)``
+        doesn't reliably fire from either native ``el.click()`` or
+        ``$(el).trigger('click')`` inside headless Chromium with Tabulator.
+
+        As a workaround, we read the UUID from the button's ``data-row-id``
+        attribute and directly set ``deleteUuid`` + show the modal via JS.
         """
         row = self.get_row_by_name(name)
         btn = row.locator("button.command-delete, .command-delete").first
         btn.wait_for(state="visible", timeout=10_000)
-        btn.evaluate("el => $(el).trigger('click')")
+        btn.evaluate("""el => {
+            deleteUuid = el.getAttribute('data-row-id');
+            var name = el.getAttribute('data-row-name') || '';
+            $('#delete-confirm-msg').text(
+                'Are you sure you want to delete the interface "' + name + '"? This action cannot be undone.'
+            );
+            $('#DialogDeleteInterface').modal('show');
+        }""")
 
     def confirm_delete(self) -> None:
         """Click confirm in the custom delete confirmation dialog."""
