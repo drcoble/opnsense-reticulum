@@ -208,21 +208,24 @@ jobs:
             # pages return "page not found" because the web server process
             # still has the old route table cached from before plugin install.
             echo "Restarting lighttpd to register new MVC routes..."
-            # onerestart can fail when the PID file is stale (stop finds
-            # nothing, then start fails because the port is still bound).
-            # Use stop-or-kill then onestart for reliability.
-            service lighttpd onestop 2>/dev/null || pkill lighttpd 2>/dev/null || true
-            sleep 2
-            service lighttpd onestart
-            sleep 3
-            # Verify lighttpd came back up
-            for i in 1 2 3; do
+            # Use OPNsense's native web GUI restart script — it properly
+            # handles lighttpd lifecycle including PID files, port binding,
+            # and PHP process recycling.  Falls back to a SIGHUP reload
+            # if the restart script is unavailable.
+            if [ -x /usr/local/etc/rc.restart_webgui ]; then
+              /usr/local/etc/rc.restart_webgui
+            else
+              pkill -HUP lighttpd 2>/dev/null || true
+            fi
+            sleep 5
+            # Verify lighttpd is listening
+            for i in 1 2 3 4 5; do
               if sockstat -4 -l -p 443 | grep -q lighttpd; then
-                echo "lighttpd restarted and listening on 443 (attempt $i)"
+                echo "lighttpd listening on 443 (attempt $i)"
                 break
               fi
-              echo "Waiting for lighttpd to come back up (attempt $i)..."
-              sleep 2
+              echo "Waiting for lighttpd (attempt $i)..."
+              sleep 3
             done
             # Create lxmf directories needed by templates
             mkdir -p /usr/local/etc/lxmf /var/db/lxmf
