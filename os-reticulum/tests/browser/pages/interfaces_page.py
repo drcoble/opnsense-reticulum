@@ -97,8 +97,6 @@ class InterfacesPage(BasePage):
         to populate (shown.bs.modal fires updateTypeVisibility).
         """
         row = self.get_row_by_name(name)
-        # Dump row HTML for debugging command button selectors
-        print(f"[DIAG] row HTML: {row.evaluate('el => el.innerHTML')}")
         row.locator("button.command-edit, .command-edit").first.click()
         self.page.locator("#DialogInterface").wait_for(state="visible")
         # Wait for AJAX form population and shown.bs.modal handlers
@@ -138,11 +136,7 @@ class InterfacesPage(BasePage):
         variants used in some OPNsense versions.
         """
         row = self.get_row_by_name(name)
-        toggle = row.locator(
-            ".command-toggle, .fa-play, .fa-ban, "
-            "input[type='checkbox'], "
-            '.tabulator-cell[tabulator-field="enabled"]'
-        )
+        toggle = row.locator(".command-toggle")
         toggle.first.click()
         self.page.wait_for_timeout(1000)
 

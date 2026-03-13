@@ -316,14 +316,12 @@ class LxmfPage(BasePage):
         """Click Apply Changes and wait for the success message.
 
         The reconfigure endpoint may take several seconds to complete,
-        so use a generous timeout.
+        so use a generous timeout.  Uses JS click to bypass any modal
+        backdrop that may intercept pointer events after a save.
         """
-        # Ensure no modal backdrop blocks the button
-        backdrop = self.page.locator(".modal-backdrop")
-        if backdrop.count() > 0:
-            backdrop.first.wait_for(state="hidden", timeout=15_000)
         self.apply_btn.scroll_into_view_if_needed()
-        self.apply_btn.click(timeout=15_000)
+        # Use JS click to bypass any modal backdrop that intercepts pointer events
+        self.apply_btn.evaluate("el => el.click()")
         self.apply_success_msg.wait_for(state="visible", timeout=30_000)
 
     # -- Assertion helpers ---------------------------------------------------

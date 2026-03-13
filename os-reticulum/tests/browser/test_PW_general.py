@@ -95,12 +95,14 @@ def test_PW_GEN_001_runtime_info_loads(
     gp.expect_version_loaded()
     # Identity and uptime may take longer — rnsd needs time to initialise
     # its identity after starting, and the page polls every 10s.
+    # Identity generation on a cold-start VM can take >60s (rnsd must
+    # generate its identity key on first boot after snapshot restore).
     gp.page.wait_for_function(
         """() => {
             const el = document.querySelector('#rnsd-identity');
             return el && el.textContent.trim() !== 'loading...';
         }""",
-        timeout=60_000,
+        timeout=120_000,
     )
     info = gp.get_runtime_info()
     assert info["version"] != "loading...", "Version still shows placeholder"

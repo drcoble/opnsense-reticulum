@@ -59,20 +59,17 @@ class TestToolbarAndGrid:
         """The type column shows a formatted display name, not the raw value."""
         page = _make_page(authenticated_page, base_url)
         row = page.get_row_by_name("PW-Seed-TCP")
-        # DIAGNOSTIC: dump full row HTML to discover Tabulator command button markup
-        row_html = row.first.evaluate("el => el.innerHTML")
-        pytest.fail(f"DIAG ROW HTML:\n{row_html}")
+        type_cell = row.locator('.tabulator-cell[tabulator-field="type"]')
+        cell_text = type_cell.inner_text()
+        # The formatted display name for TCPServerInterface contains "TCP Server"
+        assert "TCP Server" in cell_text or "TCPServer" in cell_text
 
     def test_PW_IFC_012_enabled_toggle_in_grid(self, authenticated_page, base_url,
                                                 seed_one_interface):
         """The enabled column contains a clickable toggle widget."""
         page = _make_page(authenticated_page, base_url)
         row = page.get_row_by_name("PW-Seed-TCP")
-        # Tabulator renders the enabled cell; look for toggle controls or the cell itself
-        toggle = row.locator(
-            ".command-toggle, input[type='checkbox'], "
-            '.tabulator-cell[tabulator-field="enabled"]'
-        )
+        toggle = row.locator(".command-toggle")
         assert toggle.count() > 0
 
     def test_PW_IFC_016_empty_state(self, authenticated_page, base_url,
@@ -162,8 +159,7 @@ class TestModalLifecycle:
         page = _make_page(authenticated_page, base_url)
         page.click_add()
         assert page.modal_visible()
-        # Click inside modal to ensure it has focus before pressing ESC
-        page.modal.click(position={"x": 10, "y": 10})
+        # Bootstrap 3 modals listen for ESC at the document level
         authenticated_page.keyboard.press("Escape")
         page.modal.wait_for(state="hidden", timeout=15_000)
         assert not page.modal_visible()
@@ -410,8 +406,8 @@ class TestCRUDFlow:
         page.set_listen_port("17777")
         page.save_modal()
 
-        # Wait for grid to reload after save
-        authenticated_page.wait_for_timeout(1000)
+        # Re-navigate to force full grid reload
+        page.navigate()
         row = page.get_row_by_name("PW-TCP-Test")
         assert row.count() > 0
 

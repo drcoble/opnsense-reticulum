@@ -356,14 +356,25 @@ def clean_interfaces(opnsense_api_client):
             opnsense_api_client.delete_interface(row["uuid"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def seed_one_interface(opnsense_api_client):
-    """Create a single TCP server interface for tests that need existing data.
+    """Ensure a PW-Seed-TCP interface exists; create if missing.
 
-    Scope: session — creates the interface once from
-    ``fixtures/interfaces_seed.json``, yields its UUID, and deletes it
-    after the entire session completes.
+    Scope: function — checks whether PW-Seed-TCP already exists (it may
+    have been deleted by a previous test like IFC_016) and recreates it
+    from ``fixtures/interfaces_seed.json`` when needed.  Does NOT delete
+    on teardown so the interface remains available for other tests in the
+    same session.
     """
+    # Check if it already exists (may have survived from a previous test)
+    resp = opnsense_api_client.list_interfaces()
+    if resp.ok:
+        for row in resp.json().get("rows", []):
+            if row.get("name") == "PW-Seed-TCP":
+                yield row["uuid"]
+                return
+
+    # Create from seed fixture
     seed_path = FIXTURES_DIR / "interfaces_seed.json"
     with open(seed_path) as f:
         data = json.load(f)
@@ -375,8 +386,6 @@ def seed_one_interface(opnsense_api_client):
     assert uuid, f"No UUID returned from addInterface: {body}"
 
     yield uuid
-
-    opnsense_api_client.delete_interface(uuid)
 
 
 @pytest.fixture(scope="function")
