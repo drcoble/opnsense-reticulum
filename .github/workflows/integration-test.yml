@@ -511,7 +511,7 @@ jobs:
         run: |
           .venv-browser/bin/pytest os-reticulum/tests/browser/ \
             --confcutdir=os-reticulum/tests/browser \
-            -v --tb=short -m browser \
+            -v -s --tb=short -m browser \
             --screenshot=only-on-failure \
             --output=test-results/ \
             --junit-xml=browser-test-results.xml
