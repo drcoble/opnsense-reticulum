@@ -93,13 +93,14 @@ def test_PW_GEN_001_runtime_info_loads(
     gp = _general_page(authenticated_page, base_url)
 
     gp.expect_version_loaded()
-    # Identity and uptime may take longer — wait for identity to update
+    # Identity and uptime may take longer — rnsd needs time to initialise
+    # its identity after starting, and the page polls every 10s.
     gp.page.wait_for_function(
         """() => {
             const el = document.querySelector('#rnsd-identity');
             return el && el.textContent.trim() !== 'loading...';
         }""",
-        timeout=30_000,
+        timeout=60_000,
     )
     info = gp.get_runtime_info()
     assert info["version"] != "loading...", "Version still shows placeholder"

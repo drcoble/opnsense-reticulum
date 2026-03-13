@@ -20,40 +20,20 @@ class InterfacesPage(BasePage):
 
     def navigate(self) -> None:
         """Open the interfaces page and wait for the grid to be ready."""
-        # Capture console errors and network failures for diagnostics
-        console_errors = []
-        self.page.on("console", lambda msg: console_errors.append(
-            f"[{msg.type}] {msg.text}") if msg.type == "error" else None)
-
         self.goto(self.PATH)
         self.page.wait_for_selector(
             "#grid-interfaces", state="visible", timeout=self.PAGE_READY_TIMEOUT
         )
-
-        # Wait for bootgrid's searchInterfaces AJAX call to complete
-        search_response = None
+        # Wait for Tabulator's searchInterfaces AJAX call to complete
         try:
-            search_response = self.page.wait_for_response(
+            self.page.wait_for_response(
                 lambda r: "searchInterfaces" in r.url,
                 timeout=15_000,
             )
         except Exception:
             pass  # Search may have completed before we started waiting
-
-        # Small extra wait for bootgrid to render the response
+        # Small extra wait for Tabulator to render the response
         self.page.wait_for_timeout(500)
-
-        # Log diagnostics if grid appears broken
-        if search_response:
-            status = search_response.status
-            if status != 200:
-                print(f"[DIAG] searchInterfaces returned HTTP {status}")
-                try:
-                    print(f"[DIAG] response body: {search_response.text()[:500]}")
-                except Exception:
-                    pass
-        elif console_errors:
-            print(f"[DIAG] Console errors: {console_errors[:5]}")
 
     # -- Grid locators -------------------------------------------------------
 
@@ -76,22 +56,22 @@ class InterfacesPage(BasePage):
     # -- Grid methods --------------------------------------------------------
 
     def grid_row_count(self) -> int:
-        """Return the number of data rows in the bootgrid table body.
+        """Return the number of data rows in the Tabulator grid.
 
-        Excludes the special "no results" row that bootgrid renders when
-        the data set is empty, and the loading row.
+        Counts ``.tabulator-row`` elements inside the table holder,
+        which represent actual data rows (excludes header and footer).
         """
-        return self.grid.locator(
-            "tbody tr:not(.no-results):not(.loading)"
-        ).count()
+        return self.grid.locator(".tabulator-row").count()
 
     def get_row_by_name(self, name: str) -> Locator:
-        """Return the table row whose name column matches *name*.
+        """Return the Tabulator row whose name cell matches *name*.
 
         Waits briefly for the grid to contain data after a reload/navigation.
         """
-        row = self.grid.locator(f"tbody tr:has(td:text-is('{name}'))")
-        # Give bootgrid time to populate after AJAX reload
+        row = self.grid.locator(
+            f'.tabulator-row:has(.tabulator-cell[tabulator-field="name"]:text-is("{name}"))'
+        )
+        # Give Tabulator time to populate after AJAX reload
         try:
             row.first.wait_for(state="attached", timeout=5_000)
         except Exception:
@@ -112,12 +92,12 @@ class InterfacesPage(BasePage):
     def click_edit(self, name: str) -> None:
         """Click the edit button on the row matching *name*.
 
-        UIBootgrid handles fetching data and populating the form.
+        UIBootgrid/Tabulator handles fetching data and populating the form.
         We wait for the modal to be fully visible and for the form
         to populate (shown.bs.modal fires updateTypeVisibility).
         """
         row = self.get_row_by_name(name)
-        row.locator("button.command-edit").click()
+        row.locator("button.command-edit, .command-edit").first.click()
         self.page.locator("#DialogInterface").wait_for(state="visible")
         # Wait for AJAX form population and shown.bs.modal handlers
         self.page.wait_for_timeout(1000)
@@ -125,7 +105,7 @@ class InterfacesPage(BasePage):
     def click_delete(self, name: str) -> None:
         """Click the delete button on the row matching *name*."""
         row = self.get_row_by_name(name)
-        row.locator("a.command-delete, button.command-delete").click()
+        row.locator("button.command-delete, .command-delete").first.click()
 
     def confirm_delete(self) -> None:
         """Click confirm in the custom delete confirmation dialog."""
@@ -149,12 +129,18 @@ class InterfacesPage(BasePage):
     def toggle_enabled(self, name: str) -> None:
         """Click the inline enabled toggle for the named interface.
 
-        UIBootgrid's ``rowtoggle`` formatter renders a ``<span>`` with
-        class ``fa-play`` (enabled) or ``fa-ban`` (disabled) inside a
-        ``command-toggle`` wrapper.
+        In Tabulator, UIBootgrid's ``rowtoggle`` formatter renders a
+        clickable element (typically a ``<span>`` or ``<button>``) with
+        class ``command-toggle`` and/or Font Awesome icons ``fa-play``
+        (enabled) or ``fa-ban`` (disabled).  Also handles checkbox
+        variants used in some OPNsense versions.
         """
         row = self.get_row_by_name(name)
-        toggle = row.locator(".command-toggle, .fa-play, .fa-ban, input[type='checkbox']")
+        toggle = row.locator(
+            ".command-toggle, .fa-play, .fa-ban, "
+            "input[type='checkbox'], "
+            '.tabulator-cell[tabulator-field="enabled"]'
+        )
         toggle.first.click()
         self.page.wait_for_timeout(1000)
 

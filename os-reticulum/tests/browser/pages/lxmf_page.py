@@ -307,6 +307,10 @@ class LxmfPage(BasePage):
         self.save_btn.scroll_into_view_if_needed()
         self.save_btn.click(timeout=15_000)
         self.wait_for_spinner_gone()
+        # Wait for any OPNsense wait dialog / modal backdrop to clear
+        backdrop = self.page.locator(".modal-backdrop")
+        if backdrop.count() > 0:
+            backdrop.first.wait_for(state="hidden", timeout=15_000)
 
     def apply_changes(self) -> None:
         """Click Apply Changes and wait for the success message.
@@ -314,6 +318,10 @@ class LxmfPage(BasePage):
         The reconfigure endpoint may take several seconds to complete,
         so use a generous timeout.
         """
+        # Ensure no modal backdrop blocks the button
+        backdrop = self.page.locator(".modal-backdrop")
+        if backdrop.count() > 0:
+            backdrop.first.wait_for(state="hidden", timeout=15_000)
         self.apply_btn.scroll_into_view_if_needed()
         self.apply_btn.click(timeout=15_000)
         self.apply_success_msg.wait_for(state="visible", timeout=30_000)

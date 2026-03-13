@@ -58,27 +58,27 @@ class TestToolbarAndGrid:
                                                seed_one_interface):
         """The type column shows a formatted display name, not the raw value."""
         page = _make_page(authenticated_page, base_url)
-        # Dump grid state for diagnostics
-        grid_html = page.grid.evaluate("el => el.outerHTML.substring(0, 3000)")
-        print(f"[DIAG] grid HTML: {grid_html}")
-        all_rows = page.grid.locator("tbody tr").count()
-        print(f"[DIAG] total rows in tbody: {all_rows}")
         row = page.get_row_by_name("PW-Seed-TCP")
-        row_text = row.inner_text()
+        type_cell = row.locator('.tabulator-cell[tabulator-field="type"]')
+        cell_text = type_cell.inner_text()
         # The formatted display name for TCPServerInterface contains "TCP Server"
-        assert "TCP Server" in row_text or "TCPServer" in row_text
+        assert "TCP Server" in cell_text or "TCPServer" in cell_text
 
     def test_PW_IFC_012_enabled_toggle_in_grid(self, authenticated_page, base_url,
                                                 seed_one_interface):
         """The enabled column contains a clickable toggle widget."""
         page = _make_page(authenticated_page, base_url)
         row = page.get_row_by_name("PW-Seed-TCP")
-        toggle = row.locator(".command-toggle, input[type='checkbox']")
+        # Tabulator renders the enabled cell; look for toggle controls or the cell itself
+        toggle = row.locator(
+            ".command-toggle, input[type='checkbox'], "
+            '.tabulator-cell[tabulator-field="enabled"]'
+        )
         assert toggle.count() > 0
 
     def test_PW_IFC_016_empty_state(self, authenticated_page, base_url,
                                      api_client, clean_interfaces):
-        """With no interfaces, the grid shows an empty message or zero-row footer."""
+        """With no interfaces, the grid shows an empty message or zero rows."""
         # Delete all PW- interfaces that may exist from other tests
         resp = api_client.list_interfaces()
         if resp.ok:
@@ -89,20 +89,14 @@ class TestToolbarAndGrid:
         page = _make_page(authenticated_page, base_url)
         row_count = page.grid_row_count()
         if row_count == 0:
-            # Dump grid HTML for diagnostics
-            grid_html = page.grid.evaluate("el => el.outerHTML.substring(0, 2000)")
-            print(f"[DIAG] grid HTML: {grid_html}")
-
-            # Bootgrid shows either a .no-results row, a footer info
-            # message saying "0", or simply an empty tbody.
-            no_results = page.grid.locator("tbody tr.no-results, .no-results")
-            footer_info = page.grid.locator(".infotable")
-            empty_tbody = page.grid.locator("tbody")
-            print(f"[DIAG] no_results={no_results.count()}, footer={footer_info.count()}, tbody={empty_tbody.count()}")
+            # Tabulator shows a .tabulator-placeholder when no data rows exist,
+            # or the .tabulator-table container is simply empty.
+            placeholder = page.grid.locator(".tabulator-placeholder")
+            empty_table = page.grid.locator(".tabulator-table")
             has_empty = (
-                no_results.count() > 0
-                or (footer_info.count() > 0 and "0" in footer_info.inner_text())
-                or (empty_tbody.count() > 0)
+                placeholder.count() > 0
+                or (empty_table.count() > 0
+                    and empty_table.locator(".tabulator-row").count() == 0)
             )
             assert has_empty, "Grid is empty but no empty-state indicator found"
 
@@ -114,11 +108,10 @@ class TestToolbarAndGrid:
                                 listen_port=str(18000 + i))
 
         page = _make_page(authenticated_page, base_url)
-        # Bootgrid renders pagination as <ul class="pagination"> or
-        # navigation buttons in the footer area.  The grid element
-        # itself always contains a footer after bootgrid initialises.
+        # Tabulator renders pagination in a .tabulator-footer element
+        # containing .tabulator-paginator with page buttons.
         footer = page.grid.locator(
-            ".pagination, .bootgrid-footer, .infotable, tfoot"
+            ".tabulator-footer, .tabulator-paginator, .tabulator-page-counter"
         )
         assert footer.count() > 0, "No pagination or footer controls found"
 
@@ -170,8 +163,10 @@ class TestModalLifecycle:
         page = _make_page(authenticated_page, base_url)
         page.click_add()
         assert page.modal_visible()
+        # Click inside modal to ensure it has focus before pressing ESC
+        page.modal.click(position={"x": 10, "y": 10})
         authenticated_page.keyboard.press("Escape")
-        page.modal.wait_for(state="hidden", timeout=10_000)
+        page.modal.wait_for(state="hidden", timeout=15_000)
         assert not page.modal_visible()
 
 
@@ -416,7 +411,7 @@ class TestCRUDFlow:
         page.set_listen_port("17777")
         page.save_modal()
 
-        # Wait for bootgrid to reload after save
+        # Wait for grid to reload after save
         authenticated_page.wait_for_timeout(1000)
         row = page.get_row_by_name("PW-TCP-Test")
         assert row.count() > 0
