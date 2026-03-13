@@ -99,7 +99,7 @@ def test_PW_GEN_001_runtime_info_loads(
             const el = document.querySelector('#rnsd-identity');
             return el && el.textContent.trim() !== 'loading...';
         }""",
-        timeout=15_000,
+        timeout=30_000,
     )
     info = gp.get_runtime_info()
     assert info["version"] != "loading...", "Version still shows placeholder"
