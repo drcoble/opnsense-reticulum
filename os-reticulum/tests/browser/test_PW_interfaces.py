@@ -99,7 +99,7 @@ class TestToolbarAndGrid:
             _create_pw_interface(api_client, f"PW-Page-{i:02d}",
                                 listen_port=str(18000 + i))
 
-        page = _make_page(authenticated_page, base_url)
+        _make_page(authenticated_page, base_url)
         # Bootgrid renders pagination as <ul class="pagination"> or
         # navigation buttons in the footer area.
         authenticated_page.wait_for_timeout(1000)
