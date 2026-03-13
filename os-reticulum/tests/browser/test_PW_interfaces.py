@@ -75,12 +75,18 @@ class TestToolbarAndGrid:
     def test_PW_IFC_016_empty_state(self, authenticated_page, base_url,
                                      api_client, clean_interfaces):
         """With no interfaces, the grid shows an empty message or zero rows."""
-        # Delete all PW- interfaces that may exist from other tests
-        resp = api_client.list_interfaces()
-        if resp.ok:
-            for row in resp.json().get("rows", []):
-                if row.get("name", "").startswith("PW-"):
-                    api_client.delete_interface(row["uuid"])
+        # Delete all PW- interfaces that may exist from other tests.
+        # Loop because searchInterfaces may return paginated results.
+        for _ in range(5):
+            resp = api_client.list_interfaces()
+            if not resp.ok:
+                break
+            pw_rows = [r for r in resp.json().get("rows", [])
+                       if r.get("name", "").startswith("PW-")]
+            if not pw_rows:
+                break
+            for row in pw_rows:
+                api_client.delete_interface(row["uuid"])
 
         page = _make_page(authenticated_page, base_url)
         row_count = page.grid_row_count()
@@ -115,16 +121,6 @@ class TestToolbarAndGrid:
                                                   seed_one_interface):
         """Toggling the enabled switch on the seed interface fires an API call."""
         page = _make_page(authenticated_page, base_url)
-        # Diagnostic: dump grid rows to understand what Tabulator rendered
-        rows_html = authenticated_page.evaluate(
-            "() => Array.from(document.querySelectorAll('.tabulator-row')).map(r => r.innerText).join('\\n---\\n')"
-        )
-        print(f"[DIAG IFC_018] Grid rows text:\\n{rows_html}")
-        row = page.get_row_by_name("PW-Seed-TCP")
-        print(f"[DIAG IFC_018] Row count for PW-Seed-TCP: {row.count()}")
-        if row.count() > 0:
-            row_html = row.first.evaluate("el => el.outerHTML")
-            print(f"[DIAG IFC_018] Row HTML: {row_html[:2000]}")
         page.toggle_enabled("PW-Seed-TCP")
         # Toggle again to restore original state
         page.toggle_enabled("PW-Seed-TCP")
@@ -424,19 +420,9 @@ class TestCRUDFlow:
                 page.save_modal()
         except Exception:
             pass
-        authenticated_page.wait_for_timeout(2000)
-        # Diagnostic: dump grid content after save
-        rows_text = authenticated_page.evaluate(
-            "() => Array.from(document.querySelectorAll('.tabulator-row')).map(r => r.innerText).join('\\n---\\n')"
-        )
-        print(f"[DIAG IFC_add] Grid rows after save:\\n{rows_text}")
-        # Also check bootgrid rows
-        bg_rows = authenticated_page.evaluate(
-            "() => Array.from(document.querySelectorAll('#grid-interfaces tbody tr')).map(r => r.innerText).join('\\n---\\n')"
-        )
-        print(f"[DIAG IFC_add] Bootgrid tbody rows after save:\\n{bg_rows}")
+        authenticated_page.wait_for_timeout(1000)
         row = page.get_row_by_name("PW-TCP-Test")
-        assert row.count() > 0, f"PW-TCP-Test not found. Tabulator rows: {rows_text[:500]}, Bootgrid rows: {bg_rows[:500]}"
+        assert row.count() > 0
 
     def test_PW_IFC_edit_existing_interface(self, authenticated_page, base_url,
                                              seed_one_interface):
@@ -478,17 +464,7 @@ class TestDelete:
         row = page.get_row_by_name("PW-Del-Target")
         assert row.count() > 0
 
-        # Diagnostic: dump the delete button HTML
-        del_btn = row.locator("button.command-delete, .command-delete").first
-        btn_html = del_btn.evaluate("el => el.outerHTML")
-        print(f"[DIAG IFC_140] Delete button HTML: {btn_html}")
         page.click_delete("PW-Del-Target")
-        # Diagnostic: check if the dialog appeared
-        dialog_vis = authenticated_page.evaluate(
-            "() => { const d = document.querySelector('#DialogDeleteInterface'); "
-            "return d ? { display: d.style.display, classes: d.className, visible: d.offsetParent !== null } : 'not found'; }"
-        )
-        print(f"[DIAG IFC_140] Dialog state after click_delete: {dialog_vis}")
         page.confirm_delete()
 
         # Wait for grid refresh

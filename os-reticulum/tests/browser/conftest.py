@@ -343,16 +343,21 @@ def clean_interfaces(opnsense_api_client):
 
     Scope: function — yields control to the test, then deletes matching
     interfaces on teardown so tests leave no residual state.
+
+    Loops until no PW- interfaces remain, because the searchInterfaces
+    endpoint may return paginated results (missing some rows per call).
     """
     yield
-    resp = opnsense_api_client.list_interfaces()
-    if not resp.ok:
-        return
-    body = resp.json()
-    rows = body.get("rows", [])
-    for row in rows:
-        name = row.get("name", "")
-        if name.startswith("PW-"):
+    for _ in range(5):  # Safety limit to avoid infinite loop
+        resp = opnsense_api_client.list_interfaces()
+        if not resp.ok:
+            return
+        body = resp.json()
+        rows = body.get("rows", [])
+        pw_rows = [r for r in rows if r.get("name", "").startswith("PW-")]
+        if not pw_rows:
+            return
+        for row in pw_rows:
             opnsense_api_client.delete_interface(row["uuid"])
 
 

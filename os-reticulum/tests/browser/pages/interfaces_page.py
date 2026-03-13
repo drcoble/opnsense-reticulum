@@ -107,7 +107,7 @@ class InterfacesPage(BasePage):
         row = self.get_row_by_name(name)
         btn = row.locator("button.command-edit, .command-edit").first
         btn.wait_for(state="visible", timeout=10_000)
-        btn.evaluate("el => el.click()")
+        btn.evaluate("el => $(el).trigger('click')")
         self.page.locator("#DialogInterface").wait_for(state="visible")
         # Wait for AJAX form population and shown.bs.modal handlers
         self.page.wait_for_timeout(1000)
@@ -115,12 +115,15 @@ class InterfacesPage(BasePage):
     def click_delete(self, name: str) -> None:
         """Click the delete button on the row matching *name*.
 
-        Uses JS click to reliably trigger jQuery delegated handlers.
+        Uses jQuery trigger to reliably fire jQuery delegated handlers.
+        Native ``el.click()`` dispatches a DOM event but jQuery's
+        ``$(document).on('click', '.command-delete', ...)`` delegation
+        may not intercept it in all browsers/Tabulator renderings.
         """
         row = self.get_row_by_name(name)
         btn = row.locator("button.command-delete, .command-delete").first
         btn.wait_for(state="visible", timeout=10_000)
-        btn.evaluate("el => el.click()")
+        btn.evaluate("el => $(el).trigger('click')")
 
     def confirm_delete(self) -> None:
         """Click confirm in the custom delete confirmation dialog."""
@@ -153,7 +156,7 @@ class InterfacesPage(BasePage):
         row = self.get_row_by_name(name)
         toggle = row.locator(".command-toggle").first
         toggle.wait_for(state="visible", timeout=10_000)
-        toggle.evaluate("el => el.click()")
+        toggle.evaluate("el => $(el).trigger('click')")
         self.page.wait_for_timeout(1000)
 
     # -- Modal locators ------------------------------------------------------
