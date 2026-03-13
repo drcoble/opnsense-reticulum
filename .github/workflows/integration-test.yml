@@ -158,6 +158,7 @@ jobs:
             # Clear compiled Volt template cache so Phalcon recompiles from
             # the freshly-installed .volt files instead of serving stale PHP.
             rm -f /var/lib/php/cache/*Reticulum*.php 2>/dev/null || true
+            rm -f /usr/local/opnsense/mvc/app/cache/*Reticulum* 2>/dev/null || true
             chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/*.sh
             chmod +x /usr/local/etc/rc.d/rnsd /usr/local/etc/rc.d/lxmd 2>/dev/null || true
 
@@ -207,7 +208,7 @@ jobs:
             # pages return "page not found" because the web server process
             # still has the old route table cached from before plugin install.
             echo "Restarting lighttpd to register new MVC routes..."
-            service lighttpd restart
+            service lighttpd onerestart
             sleep 3
             # Verify lighttpd came back up
             for i in 1 2 3; do
