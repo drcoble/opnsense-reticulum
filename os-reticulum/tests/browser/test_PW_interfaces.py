@@ -147,10 +147,11 @@ class TestModalLifecycle:
                                              seed_one_interface):
         """Edit modal opens with data from the existing seed interface."""
         page = _make_page(authenticated_page, base_url)
-        page.click_edit("PW-Seed-TCP")
-        assert page.modal_visible()
-        # Verify the name field is pre-populated
-        assert page.interface_name.input_value() == "PW-Seed-TCP"
+        # DIAGNOSTIC: dump Tabulator row HTML to discover command button selectors
+        row = page.get_row_by_name("PW-Seed-TCP")
+        assert row.count() > 0, "Seed row not found in grid"
+        row_html = row.first.evaluate("el => el.innerHTML")
+        pytest.fail(f"DIAG ROW HTML:\n{row_html}")
 
     def test_PW_IFC_022_modal_close_button(self, authenticated_page, base_url):
         page = _make_page(authenticated_page, base_url)
