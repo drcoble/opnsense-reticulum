@@ -97,6 +97,8 @@ class InterfacesPage(BasePage):
         to populate (shown.bs.modal fires updateTypeVisibility).
         """
         row = self.get_row_by_name(name)
+        # Dump row HTML for debugging command button selectors
+        print(f"[DIAG] row HTML: {row.evaluate('el => el.innerHTML')}")
         row.locator("button.command-edit, .command-edit").first.click()
         self.page.locator("#DialogInterface").wait_for(state="visible")
         # Wait for AJAX form population and shown.bs.modal handlers
