@@ -258,9 +258,11 @@ def authenticated_context(login_once, browser, base_url):
             f"Reticulum plugin page did not render — "
             f"navigating to {reticulum_url} did not produce #maintabs. "
             f"This usually means lighttpd was not restarted after plugin "
-            f"deployment, or the Volt template has a PHP error.\n"
-            f"Page body excerpt: {body_text[:500]}\n"
-            f"Full HTML (first 2000 chars): {full_html[:2000]}"
+            f"deployment, the Volt template has a compilation error, or "
+            f"the template uses {{% extends %}} (which conflicts with "
+            f"Phalcon's setTemplateBefore layout wrapping).\n"
+            f"Page body excerpt: {body_text[:1000]}\n"
+            f"Full live DOM (first 5000 chars): {full_html[:5000]}"
         )
     probe.close()
 

@@ -4,10 +4,6 @@
     SPDX-License-Identifier: BSD-2-Clause
 #}
 
-{% extends 'layouts/default.volt' %}
-
-{% block content %}
-
 <p class="text-muted">
     {{ lang._('LXMF (Lightweight Extensible Message Format) is the messaging layer that runs over Reticulum. The Reticulum service (rnsd) must be running before LXMF can start.') }}
 </p>
@@ -843,4 +839,3 @@ $(document).ready(function() {
 });
 </script>
 
-{% endblock %}

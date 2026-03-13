@@ -4,10 +4,6 @@
     SPDX-License-Identifier: BSD-2-Clause
 #}
 
-{% extends 'layouts/default.volt' %}
-
-{% block content %}
-
 <div id="service_status_container"></div>
 
 {# ======================== Toolbar ======================== #}
@@ -1517,4 +1513,3 @@ $(document).ready(function() {
 });
 </script>
 
-{% endblock %}

@@ -155,6 +155,9 @@ jobs:
             echo "1.0" > /tmp/ci-reticulum/Templates/version
 
             make install
+            # Clear compiled Volt template cache so Phalcon recompiles from
+            # the freshly-installed .volt files instead of serving stale PHP.
+            rm -f /var/lib/php/cache/*Reticulum*.php 2>/dev/null || true
             chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/*.sh
             chmod +x /usr/local/etc/rc.d/rnsd /usr/local/etc/rc.d/lxmd 2>/dev/null || true
 
@@ -343,6 +346,15 @@ jobs:
 
             echo "=== Test status script directly ==="
             timeout 10 /usr/local/opnsense/scripts/OPNsense/Reticulum/rnsd_status.sh 2>&1 || echo 'status script failed or timed out'
+
+            echo "=== Volt templates deployed ==="
+            ls -la /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/ 2>/dev/null || echo 'no Reticulum views directory'
+
+            echo "=== Volt template cache (Reticulum) ==="
+            ls -la /var/lib/php/cache/*Reticulum* 2>/dev/null || echo 'no cached Reticulum templates'
+
+            echo "=== Check for problematic extends directive ==="
+            grep -l 'extends.*layouts' /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/*.volt 2>/dev/null && echo 'WARNING: Volt templates contain extends directive — this conflicts with setTemplateBefore' || echo 'OK: no extends directive found'
 
             echo "=== PHP syntax: Model ==="
             php -l /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/Reticulum.php 2>&1

@@ -4,10 +4,6 @@
     SPDX-License-Identifier: BSD-2-Clause
 #}
 
-{% extends 'layouts/default.volt' %}
-
-{% block content %}
-
 <style>
     /*
      * Terminal-style output area for log display. Scoped to this template
@@ -286,4 +282,3 @@ $(document).ready(function() {
 });
 </script>
 
-{% endblock %}

@@ -4,10 +4,6 @@
     SPDX-License-Identifier: BSD-2-Clause
 #}
 
-{% extends 'layouts/default.volt' %}
-
-{% block content %}
-
 <div id="service_status_container"></div>
 
 <div id="rnsd-runtime-info" class="row">
@@ -371,4 +367,3 @@ $(document).ready(function() {
 });
 </script>
 
-{% endblock %}
