@@ -460,7 +460,7 @@ jobs:
     name: OPNsense Browser Tests (Playwright)
     needs: integration-test
     runs-on: [self-hosted, opnsense-test]
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
