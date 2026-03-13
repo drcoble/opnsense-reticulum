@@ -24,6 +24,8 @@ class InterfacesPage(BasePage):
         self.page.wait_for_selector(
             "#grid-interfaces", state="visible", timeout=self.PAGE_READY_TIMEOUT
         )
+        # Allow bootgrid JS to initialise and AJAX data fetch to complete
+        self.page.wait_for_load_state("networkidle", timeout=self.PAGE_READY_TIMEOUT)
 
     # -- Grid locators -------------------------------------------------------
 

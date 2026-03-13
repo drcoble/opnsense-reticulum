@@ -304,7 +304,8 @@ class LxmfPage(BasePage):
 
     def save(self) -> None:
         """Click Save and wait for the AJAX response to complete."""
-        self.save_btn.click()
+        self.save_btn.scroll_into_view_if_needed()
+        self.save_btn.click(timeout=15_000)
         self.wait_for_spinner_gone()
 
     def apply_changes(self) -> None:
@@ -313,7 +314,8 @@ class LxmfPage(BasePage):
         The reconfigure endpoint may take several seconds to complete,
         so use a generous timeout.
         """
-        self.apply_btn.click()
+        self.apply_btn.scroll_into_view_if_needed()
+        self.apply_btn.click(timeout=15_000)
         self.apply_success_msg.wait_for(state="visible", timeout=30_000)
 
     # -- Assertion helpers ---------------------------------------------------
