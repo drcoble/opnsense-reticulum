@@ -367,9 +367,16 @@ def clean_interfaces(opnsense_api_client):
     pw_rows = [r for r in rows if r.get("name", "").startswith("PW-")]
     for row in pw_rows:
         uuid = row.get("uuid", row.get("id", ""))
+        # Try delete with search UUID
         del_resp = opnsense_api_client.delete_interface(uuid)
-        print(f"[DIAG clean] del {row['name']} uuid={uuid}: "
+        print(f"[DIAG clean] del {row['name']} search_uuid={uuid}: "
               f"status={del_resp.status_code} body={del_resp.text[:200]}")
+        if '"not found"' in del_resp.text:
+            # Try getting the full interface record which may have a different UUID
+            get_resp = opnsense_api_client.session.get(
+                f"{opnsense_api_client.base_url}/api/reticulum/rnsd/getInterface/{uuid}"
+            )
+            print(f"[DIAG clean] getInterface/{uuid}: status={get_resp.status_code} body={get_resp.text[:300]}")
 
 
 @pytest.fixture(scope="function")
@@ -396,6 +403,7 @@ def seed_one_interface(opnsense_api_client):
         data = json.load(f)
 
     resp = opnsense_api_client.add_interface(data)
+    print(f"[DIAG seed] addInterface response: status={resp.status_code} body={resp.text[:500]}")
     assert resp.ok, f"Failed to seed interface: {resp.status_code} {resp.text}"
     body = resp.json()
     uuid = body.get("uuid", "")
