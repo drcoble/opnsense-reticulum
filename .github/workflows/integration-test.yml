@@ -208,7 +208,12 @@ jobs:
             # pages return "page not found" because the web server process
             # still has the old route table cached from before plugin install.
             echo "Restarting lighttpd to register new MVC routes..."
-            service lighttpd onerestart
+            # onerestart can fail when the PID file is stale (stop finds
+            # nothing, then start fails because the port is still bound).
+            # Use stop-or-kill then onestart for reliability.
+            service lighttpd onestop 2>/dev/null || pkill lighttpd 2>/dev/null || true
+            sleep 2
+            service lighttpd onestart
             sleep 3
             # Verify lighttpd came back up
             for i in 1 2 3; do
