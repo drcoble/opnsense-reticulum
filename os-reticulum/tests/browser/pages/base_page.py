@@ -19,8 +19,23 @@ class BasePage:
     # -- Navigation ----------------------------------------------------------
 
     def goto(self, path: str) -> None:
-        """Navigate to *path* (appended to base_url) and wait for idle."""
-        self.page.goto(self.base_url + path, wait_until="networkidle")
+        """Navigate to *path* (appended to base_url) and wait for load.
+
+        Uses ``domcontentloaded`` instead of ``networkidle`` because
+        OPNsense pages may have periodic AJAX/long-poll requests that
+        prevent ``networkidle`` from resolving.
+
+        Raises AssertionError if the browser lands on the login page
+        (indicates an expired or invalid session).
+        """
+        self.page.goto(self.base_url + path, wait_until="domcontentloaded")
+        # Detect session expiry — OPNsense returns HTTP 200 with the login
+        # form when the session cookie is missing or expired.
+        if self.page.locator('input[name="usernamefld"]').count() > 0:
+            raise AssertionError(
+                f"Session expired — landed on login page when navigating to {path}. "
+                "The authenticated_context storage state may be stale."
+            )
 
     # -- Alerts --------------------------------------------------------------
 

@@ -177,16 +177,37 @@ def login_once(base_url, browser):
     context = browser.new_context(ignore_https_errors=True)
     page = context.new_page()
 
-    page.goto(base_url, wait_until="networkidle", timeout=PAGE_LOAD_TIMEOUT)
+    # Navigate to login page — use domcontentloaded instead of networkidle
+    # because OPNsense pages can have long-polling that blocks networkidle.
+    page.goto(base_url, wait_until="domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
+
+    # Wait for the login form to be ready before interacting
+    page.wait_for_selector(
+        'input[name="usernamefld"]', state="visible", timeout=PAGE_LOAD_TIMEOUT
+    )
+
     page.fill('input[name="usernamefld"]', ui_user)
     page.fill('input[name="passwordfld"]', ui_pass)
-    page.click('button[type="submit"], input[type="submit"]')
+
+    # OPNsense uses <input type="submit"> — click it and wait for navigation
+    page.locator('input[type="submit"], button[type="submit"]').first.click()
+
+    # Wait for a post-login element — the main menu proves we're logged in
     page.wait_for_selector(
-        "#mainmenu, div.page-content-head",
+        "#mainmenu",
+        state="visible",
         timeout=PAGE_LOAD_TIMEOUT,
     )
 
+    # Verify we are NOT still on the login page (OPNsense returns 200 even
+    # for the login page, so HTTP status alone is not a reliable check).
+    assert page.locator('input[name="usernamefld"]').count() == 0, (
+        "Login failed — still on the login page after submit.  "
+        "Check OPNSENSE_UI_USER / OPNSENSE_UI_PASS values."
+    )
+
     auth_state_path = FIXTURES_DIR / "auth_state.json"
+    FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
     context.storage_state(path=str(auth_state_path))
 
     page.close()
@@ -196,16 +217,33 @@ def login_once(base_url, browser):
 
 
 @pytest.fixture(scope="session")
-def authenticated_context(login_once, browser):
+def authenticated_context(login_once, browser, base_url):
     """Session-scoped BrowserContext pre-loaded with auth cookies.
 
     Depends on ``login_once`` to ensure storage state exists, then creates
     a new context that skips the login form on every navigation.
+
+    After creating the context, verifies the session is actually valid by
+    loading a page and checking we don't land on the login form.
     """
     context = browser.new_context(
         storage_state=str(login_once),
         ignore_https_errors=True,
     )
+
+    # Smoke-check: load any page and confirm we're authenticated
+    probe = context.new_page()
+    probe.goto(base_url, wait_until="domcontentloaded", timeout=PAGE_LOAD_TIMEOUT)
+    # Give the page a moment to settle (redirects, JS)
+    probe.wait_for_load_state("load", timeout=PAGE_LOAD_TIMEOUT)
+    is_login_page = probe.locator('input[name="usernamefld"]').count() > 0
+    probe.close()
+
+    assert not is_login_page, (
+        "Stored auth_state.json did not produce a valid session — "
+        "the probe page landed on the login form."
+    )
+
     yield context
     context.close()
 

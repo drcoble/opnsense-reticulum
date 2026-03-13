@@ -21,7 +21,7 @@ class DashboardPage(BasePage):
     def navigate(self) -> None:
         """Open the OPNsense dashboard and wait for it to load."""
         self.goto(self.PATH)
-        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_load_state("load")
 
     # -- Widget container ----------------------------------------------------
 
