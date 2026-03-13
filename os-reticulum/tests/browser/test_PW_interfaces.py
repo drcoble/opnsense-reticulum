@@ -58,6 +58,11 @@ class TestToolbarAndGrid:
                                                seed_one_interface):
         """The type column shows a formatted display name, not the raw value."""
         page = _make_page(authenticated_page, base_url)
+        # Dump grid state for diagnostics
+        grid_html = page.grid.evaluate("el => el.outerHTML.substring(0, 3000)")
+        print(f"[DIAG] grid HTML: {grid_html}")
+        all_rows = page.grid.locator("tbody tr").count()
+        print(f"[DIAG] total rows in tbody: {all_rows}")
         row = page.get_row_by_name("PW-Seed-TCP")
         row_text = row.inner_text()
         # The formatted display name for TCPServerInterface contains "TCP Server"
@@ -84,11 +89,16 @@ class TestToolbarAndGrid:
         page = _make_page(authenticated_page, base_url)
         row_count = page.grid_row_count()
         if row_count == 0:
+            # Dump grid HTML for diagnostics
+            grid_html = page.grid.evaluate("el => el.outerHTML.substring(0, 2000)")
+            print(f"[DIAG] grid HTML: {grid_html}")
+
             # Bootgrid shows either a .no-results row, a footer info
             # message saying "0", or simply an empty tbody.
             no_results = page.grid.locator("tbody tr.no-results, .no-results")
             footer_info = page.grid.locator(".infotable")
             empty_tbody = page.grid.locator("tbody")
+            print(f"[DIAG] no_results={no_results.count()}, footer={footer_info.count()}, tbody={empty_tbody.count()}")
             has_empty = (
                 no_results.count() > 0
                 or (footer_info.count() > 0 and "0" in footer_info.inner_text())
