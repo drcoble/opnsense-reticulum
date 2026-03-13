@@ -7,6 +7,8 @@ and download (PW-LOG-040–042).
 Requires a live OPNsense VM — see conftest.py for env var requirements.
 """
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 
@@ -35,9 +37,9 @@ def test_PW_LOG_001_rnsd_tab_active_by_default(authenticated_page, base_url):
     """The rnsd tab is selected/active when the page first loads."""
     lp = _logs_page(authenticated_page, base_url)
 
-    # Bootstrap marks the active tab with .active on the parent <li> or the
-    # <a> element itself — check that the rnsd tab carries the active class.
-    expect(lp.rnsd_tab).to_have_class(r".*active.*")
+    # Bootstrap 3 sets .active on the parent <li>, not the <a> element.
+    rnsd_li = lp.rnsd_tab.locator("..")
+    expect(rnsd_li).to_have_class(re.compile(r".*active.*"))
 
 
 def test_PW_LOG_002_lxmd_tab_clickable(authenticated_page, base_url):
@@ -45,7 +47,8 @@ def test_PW_LOG_002_lxmd_tab_clickable(authenticated_page, base_url):
     lp = _logs_page(authenticated_page, base_url)
 
     lp.click_lxmd_tab()
-    expect(lp.lxmd_tab).to_have_class(r".*active.*")
+    lxmd_li = lp.lxmd_tab.locator("..")
+    expect(lxmd_li).to_have_class(re.compile(r".*active.*"))
 
 
 def test_PW_LOG_003_tab_switch_triggers_fetch(authenticated_page, base_url):
@@ -59,7 +62,8 @@ def test_PW_LOG_003_tab_switch_triggers_fetch(authenticated_page, base_url):
     # indicator should have appeared or the output should be present.
     lp.page.wait_for_timeout(1000)
     # Verify we are on lxmd tab now and the page did not error out
-    expect(lp.lxmd_tab).to_have_class(r".*active.*")
+    lxmd_li = lp.lxmd_tab.locator("..")
+    expect(lxmd_li).to_have_class(re.compile(r".*active.*"))
     # The output area should still be in the DOM
     expect(lp.log_output).to_be_attached()
 
@@ -120,7 +124,8 @@ def test_PW_LOG_013_severity_filter_filters_cached(
     lp.page.on("request", on_request)
 
     # Change severity to a specific level — should filter client-side
-    lp.set_severity_filter("error")
+    # Severity options use numeric values: 0=Critical, 1=Error, etc.
+    lp.set_severity_filter("1")
     lp.page.wait_for_timeout(500)
 
     # The key assertion: no new network fetch was triggered

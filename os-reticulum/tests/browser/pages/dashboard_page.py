@@ -19,9 +19,16 @@ class DashboardPage(BasePage):
     # -- Navigation ----------------------------------------------------------
 
     def navigate(self) -> None:
-        """Open the OPNsense dashboard and wait for it to load."""
+        """Open the OPNsense dashboard and wait for it to load.
+
+        Waits for the dashboard framework to initialize.  The Reticulum
+        widget will only appear if it has been added to the dashboard
+        layout by the user (or CI setup).
+        """
         self.goto(self.PATH)
         self.page.wait_for_load_state("load")
+        # Give the dashboard JS time to render widgets
+        self.page.wait_for_timeout(3000)
 
     # -- Widget container ----------------------------------------------------
 

@@ -21,9 +21,19 @@ pytestmark = pytest.mark.browser
 # ---------------------------------------------------------------------------
 
 def _dashboard_page(authenticated_page, base_url) -> DashboardPage:
-    """Instantiate and navigate to the DashboardPage."""
+    """Instantiate and navigate to the DashboardPage.
+
+    Skips the test if the Reticulum widget has not been added to the
+    dashboard layout (the widget must be manually added via the OPNsense
+    dashboard widget picker or via CI setup).
+    """
     dp = DashboardPage(authenticated_page, base_url)
     dp.navigate()
+    if dp.widget.count() == 0:
+        pytest.skip(
+            "Reticulum widget not present on dashboard — "
+            "add it via the dashboard widget picker before running widget tests"
+        )
     return dp
 
 

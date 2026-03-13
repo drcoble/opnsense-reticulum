@@ -4,8 +4,6 @@
     SPDX-License-Identifier: BSD-2-Clause
 #}
 
-<div id="service_status_container"></div>
-
 <div id="rnsd-runtime-info" class="row">
     <div class="col-sm-12">
         <small>

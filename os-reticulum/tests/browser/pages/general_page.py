@@ -3,6 +3,8 @@
 URL: /ui/reticulum/general
 """
 
+import re
+
 from playwright.sync_api import Page, Locator, expect
 
 from .base_page import BasePage
@@ -164,9 +166,29 @@ class GeneralPage(BasePage):
                 self.remote_mgmt_dep_fields.wait_for(state="hidden")
 
     def add_remote_admin(self, hex_hash: str) -> None:
-        """Type a hex identity hash into the tokenizer and press Enter."""
-        self.remote_management_allowed.fill(hex_hash)
-        self.remote_management_allowed.press("Enter")
+        """Type a hex identity hash into the tokenizer and press Enter.
+
+        OPNsense's formatTokenizersUI() transforms the original <input>
+        into a select2 widget.  The visible search input is inside the
+        select2 container adjacent to the original (now hidden) element.
+        """
+        # The select2 container is a sibling of the original input.
+        # Click the container to open and focus the search input.
+        container = self.remote_management_allowed.locator(
+            "xpath=following-sibling::*[contains(@class,'select2-container')]"
+        )
+        # If select2 is present, interact with its search input
+        if container.count() > 0:
+            container.click()
+            search_input = self.page.locator(
+                ".select2-input:visible, .select2-search__field:visible"
+            ).first
+            search_input.fill(hex_hash)
+            search_input.press("Enter")
+        else:
+            # Fallback: no select2 transformation, use the raw input
+            self.remote_management_allowed.fill(hex_hash)
+            self.remote_management_allowed.press("Enter")
 
     # -- Logging tab ---------------------------------------------------------
 
@@ -213,19 +235,40 @@ class GeneralPage(BasePage):
         return self.page.locator("#service_status_container")
 
     def get_service_status(self) -> str:
-        """Return the text content of the service status container."""
+        """Return the service state based on indicator icons.
+
+        OPNsense's updateServiceControlUI() uses ``span.text-success``
+        for running and ``span.text-danger`` for stopped.  Falls back
+        to inner text if neither icon class is found.
+        """
+        if self.service_status_container.locator("span.text-success").count() > 0:
+            return "running"
+        if self.service_status_container.locator("span.text-danger").count() > 0:
+            return "stopped"
         return self.service_status_container.inner_text()
 
     def click_start(self) -> None:
-        self.service_status_container.locator("button.service_start, .srv_status_act_start").click()
+        self.service_status_container.locator(
+            "button.srv_status_act2:has(span.fa-play), "
+            "button.service_start, "
+            ".srv_status_act_start"
+        ).first.click()
         self.wait_for_spinner_gone()
 
     def click_stop(self) -> None:
-        self.service_status_container.locator("button.service_stop, .srv_status_act_stop").click()
+        self.service_status_container.locator(
+            "button.srv_status_act2:has(span.fa-stop), "
+            "button.service_stop, "
+            ".srv_status_act_stop"
+        ).first.click()
         self.wait_for_spinner_gone()
 
     def click_restart(self) -> None:
-        self.service_status_container.locator("button.service_restart, .srv_status_act_restart").click()
+        self.service_status_container.locator(
+            "button.srv_status_act2:has(span.fa-repeat), "
+            "button.service_restart, "
+            ".srv_status_act_restart"
+        ).first.click()
         self.wait_for_spinner_gone()
 
     # -- Assertion helpers ---------------------------------------------------
@@ -233,7 +276,7 @@ class GeneralPage(BasePage):
     def expect_tab_active(self, tab_name: str) -> None:
         href = self._TAB_MAP[tab_name]
         expect(self.page.locator(f"{href}")).to_have_class(
-            expected=r".*active.*"
+            expected=re.compile(r".*active.*")
         )
 
     def expect_share_dep_visible(self) -> None:
@@ -258,11 +301,32 @@ class GeneralPage(BasePage):
         expect(self.apply_success_msg).to_be_visible()
 
     def expect_version_loaded(self) -> None:
-        """Assert that the runtime version field no longer says 'loading...'."""
-        expect(self.rnsd_version).not_to_have_text("loading...")
+        """Assert that the runtime version field no longer says 'loading...'.
+
+        The AJAX call to rnsdInfo may take a few seconds to return after
+        page load, so allow a generous timeout.
+        """
+        expect(self.rnsd_version).not_to_have_text("loading...", timeout=15_000)
 
     def expect_service_running(self) -> None:
-        expect(self.service_status_container).to_contain_text("running", ignore_case=True)
+        """Assert the service bar indicates a running state.
+
+        OPNsense's updateServiceControlUI() renders a green play icon
+        (``span.text-success``) when running.  We check for that class
+        as primary signal and fall back to text content.
+        """
+        running_indicator = self.service_status_container.locator(
+            "span.text-success, .fa-play.text-success"
+        )
+        expect(running_indicator.first).to_be_visible(timeout=15_000)
 
     def expect_service_stopped(self) -> None:
-        expect(self.service_status_container).to_contain_text("stopped", ignore_case=True)
+        """Assert the service bar indicates a stopped state.
+
+        OPNsense renders a red stop icon (``span.text-danger``) when
+        the service is stopped.
+        """
+        stopped_indicator = self.service_status_container.locator(
+            "span.text-danger, .fa-stop.text-danger"
+        )
+        expect(stopped_indicator.first).to_be_visible(timeout=15_000)

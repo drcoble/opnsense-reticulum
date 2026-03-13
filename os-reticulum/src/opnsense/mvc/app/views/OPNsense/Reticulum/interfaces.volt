@@ -4,8 +4,6 @@
     SPDX-License-Identifier: BSD-2-Clause
 #}
 
-<div id="service_status_container"></div>
-
 {# ======================== Toolbar ======================== #}
 <div class="row" style="margin-bottom:8px; margin-top:8px;">
     <div class="col-sm-12">
@@ -784,7 +782,7 @@
         <input type="text" class="form-control" id="interface.command"
                placeholder="/usr/bin/nc 10.0.0.1 4242" />
         <div class="hidden" data-for="help_for_interface.command">
-            <small>{{ lang._('The shell command to execute for this pipe interface. rnsd will communicate with the command\'s stdin/stdout as a Reticulum data channel. Example: /usr/bin/nc 10.0.0.1 4242. The command must be a full absolute path.') }}</small>
+            <small>{{ lang._("The shell command to execute for this pipe interface. rnsd will communicate with the command's stdin/stdout as a Reticulum data channel. Example: /usr/bin/nc 10.0.0.1 4242. The command must be a full absolute path.") }}</small>
         </div>
     </div>
 </div>
@@ -882,7 +880,7 @@
     <div class="col-sm-8">
         <input type="checkbox" id="interface.discoverable" />
         <div class="hidden" data-for="help_for_interface.discoverable">
-            <small>{{ lang._('Broadcast this node\'s connection information (address, port) so other Reticulum nodes can automatically discover and connect to it. Applies to: TCP Server, TCP Backbone.') }}</small>
+            <small>{{ lang._("Broadcast this node's connection information (address, port) so other Reticulum nodes can automatically discover and connect to it. Applies to: TCP Server, TCP Backbone.") }}</small>
         </div>
     </div>
 </div>

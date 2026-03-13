@@ -109,7 +109,10 @@ class TestToolbarAndGrid:
 
     def test_PW_IFC_019_service_bar_present(self, authenticated_page, base_url):
         _make_page(authenticated_page, base_url)
+        # updateServiceControlUI injects #service_status_container via AJAX
+        # after page load — wait for it to appear.
         service_bar = authenticated_page.locator("#service_status_container")
+        service_bar.wait_for(state="attached", timeout=15_000)
         assert service_bar.count() > 0
 
 

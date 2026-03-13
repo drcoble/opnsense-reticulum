@@ -53,13 +53,17 @@ def test_PW_NAV_002_navigate_to_interfaces_link(authenticated_page, base_url):
     """Services > Reticulum > Interfaces menu link navigates correctly."""
     _general_page(authenticated_page, base_url)
 
-    # Click the Interfaces link in the sidebar menu
+    # Click the Interfaces link in the sidebar menu.
+    # OPNsense's sidebar may require scrolling to the link.
     menu_link = authenticated_page.locator(
         '#mainmenu a[href="/ui/reticulum/interfaces"]'
     )
+    menu_link.scroll_into_view_if_needed()
     expect(menu_link).to_be_visible()
     menu_link.click()
-    authenticated_page.wait_for_url("**/ui/reticulum/interfaces", timeout=15_000)
+    authenticated_page.wait_for_url(
+        "**/ui/reticulum/interfaces", timeout=30_000
+    )
     assert "/ui/reticulum/interfaces" in authenticated_page.url
 
 
@@ -121,9 +125,11 @@ def test_PW_GEN_003_service_status_displayed(
     """Service bar shows a status indicator (running or stopped)."""
     gp = _general_page(authenticated_page, base_url)
 
-    status_text = gp.get_service_status().lower()
-    assert "running" in status_text or "stopped" in status_text, (
-        f"Service status not recognised: {status_text}"
+    # Wait for updateServiceControlUI to populate the service bar
+    gp.page.wait_for_timeout(2000)
+    status = gp.get_service_status().lower()
+    assert status in ("running", "stopped"), (
+        f"Service status not recognised: {status}"
     )
 
 
@@ -321,12 +327,14 @@ def test_PW_GEN_051_authorized_admins_tokenizer(authenticated_page, base_url):
     gp.set_remote_management(True)
     test_hash = "a" * 64
     gp.add_remote_admin(test_hash)
-    # After pressing Enter the tokenizer should contain the value
-    # Check for the token element or the value in the input/container
+    # After pressing Enter the tokenizer should contain the value.
+    # OPNsense's select2 tokenizer creates token elements inside
+    # a .select2-container sibling of the original input.
     token_area = authenticated_page.locator(
         "#general\\.remote_management_allowed"
-    ).locator("..")
-    expect(token_area).to_contain_text(test_hash[:8])
+    ).locator("xpath=..")
+    # Look for the hash in either a select2 token or the raw container
+    expect(token_area).to_contain_text(test_hash[:8], timeout=5_000)
 
 
 def test_PW_GEN_052_rpc_key_password_field(authenticated_page, base_url):

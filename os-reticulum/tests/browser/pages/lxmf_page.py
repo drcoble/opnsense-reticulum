@@ -232,9 +232,25 @@ class LxmfPage(BasePage):
             self.from_static_only.click()
 
     def add_static_peer(self, hex_hash: str) -> None:
-        """Type a hex identity hash into the tokenizer and press Enter."""
-        self.static_peers.fill(hex_hash)
-        self.static_peers.press("Enter")
+        """Type a hex identity hash into the tokenizer and press Enter.
+
+        OPNsense's formatTokenizersUI() transforms the original <input>
+        into a select2 widget.  We must interact with the select2 search
+        input rather than the hidden original element.
+        """
+        container = self.static_peers.locator(
+            "xpath=following-sibling::*[contains(@class,'select2-container')]"
+        )
+        if container.count() > 0:
+            container.click()
+            search_input = self.page.locator(
+                ".select2-input:visible, .select2-search__field:visible"
+            ).first
+            search_input.fill(hex_hash)
+            search_input.press("Enter")
+        else:
+            self.static_peers.fill(hex_hash)
+            self.static_peers.press("Enter")
 
     # -- Access Control tab --------------------------------------------------
 

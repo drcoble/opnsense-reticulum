@@ -122,7 +122,7 @@
                 <div class="col-sm-10">
                     <input type="checkbox" id="lxmf.lxmf_announce_at_start" />
                     <div class="hidden" data-for="help_for_lxmf.lxmf_announce_at_start">
-                        <small>{{ lang._('Broadcast this node\'s LXMF identity to the network immediately when the LXMF service starts. Useful for quickly making this node visible to peers after a restart. If disabled, the node waits until the next scheduled announce interval.') }}</small>
+                        <small>{{ lang._("Broadcast this node's LXMF identity to the network immediately when the LXMF service starts. Useful for quickly making this node visible to peers after a restart. If disabled, the node waits until the next scheduled announce interval.") }}</small>
                     </div>
                 </div>
             </div>
@@ -211,7 +211,7 @@
                 <div class="col-sm-10">
                     <input type="checkbox" id="lxmf.announce_at_start" />
                     <div class="hidden" data-for="help_for_lxmf.announce_at_start">
-                        <small>{{ lang._('Broadcast this propagation node\'s identity immediately when the LXMF service starts. Recommended — ensures the node is quickly visible to peers after restarts. Note: this is distinct from \'Announce LXMF Identity at Startup\' on the General tab.') }}</small>
+                        <small>{{ lang._("Broadcast this propagation node's identity immediately when the LXMF service starts. Recommended — ensures the node is quickly visible to peers after restarts. Note: this is distinct from 'Announce LXMF Identity at Startup' on the General tab.") }}</small>
                     </div>
                 </div>
             </div>
