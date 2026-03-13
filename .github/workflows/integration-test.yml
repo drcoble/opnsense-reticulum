@@ -383,7 +383,7 @@ jobs:
           .venv-browser/bin/pip install -r os-reticulum/tests/requirements-browser.txt
 
       - name: Install Chromium
-        run: .venv-browser/bin/playwright install --with-deps chromium
+        run: .venv-browser/bin/playwright install chromium
 
       - name: Run Playwright tests
         env:
