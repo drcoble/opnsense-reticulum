@@ -19,29 +19,20 @@ class InterfacesPage(BasePage):
     # -- Navigation ----------------------------------------------------------
 
     def navigate(self) -> None:
-        """Open the interfaces page and wait for the grid to finish loading data."""
+        """Open the interfaces page and wait for the grid to be ready."""
         self.goto(self.PATH)
         self.page.wait_for_selector(
             "#grid-interfaces", state="visible", timeout=self.PAGE_READY_TIMEOUT
         )
-        # Wait for bootgrid to finish its initial AJAX data fetch.
-        # The grid shows a loading indicator while fetching; wait for at
-        # least one data row or the "No results" footer text to appear.
-        self.page.wait_for_function(
-            """() => {
-                const grid = document.querySelector('#grid-interfaces');
-                if (!grid) return false;
-                // bootgrid adds rows to tbody after data loads
-                const rows = grid.querySelectorAll('tbody tr');
-                // Either data rows exist or the infotable footer shows "0"
-                if (rows.length > 0) return true;
-                // Also check if the bootgrid footer says "0 of 0"
-                const info = grid.querySelector('.infotable .infos');
-                if (info && info.textContent.includes('0')) return true;
-                return false;
-            }""",
+        # Wait for bootgrid JS to initialise — it adds a footer element
+        # once initialisation completes (even on an empty data set).
+        self.page.wait_for_selector(
+            "#grid-interfaces .bootgrid-footer, #grid-interfaces tbody",
+            state="attached",
             timeout=self.PAGE_READY_TIMEOUT,
         )
+        # Small extra wait for AJAX data fetch to complete
+        self.page.wait_for_timeout(1000)
 
     # -- Grid locators -------------------------------------------------------
 
