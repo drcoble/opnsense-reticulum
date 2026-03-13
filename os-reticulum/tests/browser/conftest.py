@@ -66,6 +66,7 @@ class OPNsenseApiClient:
         """DELETE an interface record by UUID."""
         return self.session.post(
             f"{self.base_url}/api/reticulum/rnsd/delInterface/{uuid}",
+            json={},
         )
 
     def list_interfaces(self) -> requests.Response:
