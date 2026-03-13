@@ -20,12 +20,40 @@ class InterfacesPage(BasePage):
 
     def navigate(self) -> None:
         """Open the interfaces page and wait for the grid to be ready."""
+        # Capture console errors and network failures for diagnostics
+        console_errors = []
+        self.page.on("console", lambda msg: console_errors.append(
+            f"[{msg.type}] {msg.text}") if msg.type == "error" else None)
+
         self.goto(self.PATH)
         self.page.wait_for_selector(
             "#grid-interfaces", state="visible", timeout=self.PAGE_READY_TIMEOUT
         )
-        # Allow bootgrid JS to initialise and AJAX data fetch to complete
-        self.page.wait_for_load_state("networkidle", timeout=self.PAGE_READY_TIMEOUT)
+
+        # Wait for bootgrid's searchInterfaces AJAX call to complete
+        search_response = None
+        try:
+            search_response = self.page.wait_for_response(
+                lambda r: "searchInterfaces" in r.url,
+                timeout=15_000,
+            )
+        except Exception:
+            pass  # Search may have completed before we started waiting
+
+        # Small extra wait for bootgrid to render the response
+        self.page.wait_for_timeout(500)
+
+        # Log diagnostics if grid appears broken
+        if search_response:
+            status = search_response.status
+            if status != 200:
+                print(f"[DIAG] searchInterfaces returned HTTP {status}")
+                try:
+                    print(f"[DIAG] response body: {search_response.text()[:500]}")
+                except Exception:
+                    pass
+        elif console_errors:
+            print(f"[DIAG] Console errors: {console_errors[:5]}")
 
     # -- Grid locators -------------------------------------------------------
 
