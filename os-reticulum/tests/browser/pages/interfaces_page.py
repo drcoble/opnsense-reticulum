@@ -19,10 +19,28 @@ class InterfacesPage(BasePage):
     # -- Navigation ----------------------------------------------------------
 
     def navigate(self) -> None:
-        """Open the interfaces page and wait for the grid to render."""
+        """Open the interfaces page and wait for the grid to finish loading data."""
         self.goto(self.PATH)
         self.page.wait_for_selector(
             "#grid-interfaces", state="visible", timeout=self.PAGE_READY_TIMEOUT
+        )
+        # Wait for bootgrid to finish its initial AJAX data fetch.
+        # The grid shows a loading indicator while fetching; wait for at
+        # least one data row or the "No results" footer text to appear.
+        self.page.wait_for_function(
+            """() => {
+                const grid = document.querySelector('#grid-interfaces');
+                if (!grid) return false;
+                // bootgrid adds rows to tbody after data loads
+                const rows = grid.querySelectorAll('tbody tr');
+                // Either data rows exist or the infotable footer shows "0"
+                if (rows.length > 0) return true;
+                // Also check if the bootgrid footer says "0 of 0"
+                const info = grid.querySelector('.infotable .infos');
+                if (info && info.textContent.includes('0')) return true;
+                return false;
+            }""",
+            timeout=self.PAGE_READY_TIMEOUT,
         )
 
     # -- Grid locators -------------------------------------------------------
@@ -46,23 +64,51 @@ class InterfacesPage(BasePage):
     # -- Grid methods --------------------------------------------------------
 
     def grid_row_count(self) -> int:
-        """Return the number of data rows in the bootgrid table body."""
-        return self.grid.locator("tbody tr:not(.no-results)").count()
+        """Return the number of data rows in the bootgrid table body.
+
+        Excludes the special "no results" row that bootgrid renders when
+        the data set is empty, and the loading row.
+        """
+        return self.grid.locator(
+            "tbody tr:not(.no-results):not(.loading)"
+        ).count()
 
     def get_row_by_name(self, name: str) -> Locator:
-        """Return the table row whose name column matches *name*."""
-        return self.grid.locator(f"tbody tr:has(td:text-is('{name}'))")
+        """Return the table row whose name column matches *name*.
+
+        Waits briefly for the grid to contain data after a reload/navigation.
+        """
+        row = self.grid.locator(f"tbody tr:has(td:text-is('{name}'))")
+        # Give bootgrid time to populate after AJAX reload
+        try:
+            row.first.wait_for(state="attached", timeout=5_000)
+        except Exception:
+            pass  # Caller will check .count()
+        return row
 
     def click_add(self) -> None:
-        """Click the Add Interface button and wait for the modal to appear."""
+        """Click the Add Interface button and wait for the modal to appear.
+
+        Also waits for the modal's ``shown.bs.modal`` event to complete
+        (which triggers type visibility setup and name conflict fetch).
+        """
         self.add_btn.click()
         self.page.locator("#DialogInterface").wait_for(state="visible")
+        # Wait for the modal transition animation to complete
+        self.page.wait_for_timeout(500)
 
     def click_edit(self, name: str) -> None:
-        """Click the edit button on the row matching *name*."""
+        """Click the edit button on the row matching *name*.
+
+        UIBootgrid handles fetching data and populating the form.
+        We wait for the modal to be fully visible and for the form
+        to populate (shown.bs.modal fires updateTypeVisibility).
+        """
         row = self.get_row_by_name(name)
-        row.locator("a.command-edit, button.command-edit").click()
+        row.locator("button.command-edit").click()
         self.page.locator("#DialogInterface").wait_for(state="visible")
+        # Wait for AJAX form population and shown.bs.modal handlers
+        self.page.wait_for_timeout(1000)
 
     def click_delete(self, name: str) -> None:
         """Click the delete button on the row matching *name*."""
@@ -70,13 +116,18 @@ class InterfacesPage(BasePage):
         row.locator("a.command-delete, button.command-delete").click()
 
     def confirm_delete(self) -> None:
-        """Click confirm in the delete confirmation dialog."""
-        self.page.locator(".bootgrid-confirm .btn-primary, .modal.in .btn-primary").click()
-        self.wait_for_spinner_gone()
+        """Click confirm in the custom delete confirmation dialog."""
+        delete_modal = self.page.locator("#DialogDeleteInterface")
+        delete_modal.wait_for(state="visible", timeout=5_000)
+        delete_modal.locator("#btn-confirm-delete").click()
+        delete_modal.wait_for(state="hidden", timeout=10_000)
 
     def cancel_delete(self) -> None:
-        """Click cancel in the delete confirmation dialog."""
-        self.page.locator(".bootgrid-confirm .btn-default, .modal.in [data-dismiss='modal']").click()
+        """Click cancel in the custom delete confirmation dialog."""
+        delete_modal = self.page.locator("#DialogDeleteInterface")
+        delete_modal.wait_for(state="visible", timeout=5_000)
+        delete_modal.locator("[data-dismiss='modal']").first.click()
+        delete_modal.wait_for(state="hidden", timeout=5_000)
 
     def click_apply(self) -> None:
         """Click Apply Changes."""
@@ -84,10 +135,16 @@ class InterfacesPage(BasePage):
         self.apply_success_msg.wait_for(state="visible")
 
     def toggle_enabled(self, name: str) -> None:
-        """Click the inline enabled toggle for the named interface."""
+        """Click the inline enabled toggle for the named interface.
+
+        UIBootgrid's ``rowtoggle`` formatter renders a ``<span>`` with
+        class ``fa-play`` (enabled) or ``fa-ban`` (disabled) inside a
+        ``command-toggle`` wrapper.
+        """
         row = self.get_row_by_name(name)
-        row.locator(".command-toggle, input[type='checkbox']").click()
-        self.wait_for_spinner_gone()
+        toggle = row.locator(".command-toggle, .fa-play, .fa-ban, input[type='checkbox']")
+        toggle.first.click()
+        self.page.wait_for_timeout(1000)
 
     # -- Modal locators ------------------------------------------------------
 
@@ -310,7 +367,7 @@ class InterfacesPage(BasePage):
 
     @property
     def rnode_multi_config(self) -> Locator:
-        return self.page.locator("#interface\\.rnode_multi_config")
+        return self.page.locator("#interface\\.sub_interfaces_raw")
 
     @property
     def flow_control(self) -> Locator:
@@ -330,8 +387,17 @@ class InterfacesPage(BasePage):
         self.interface_name.fill(name)
 
     def set_type(self, type_value: str) -> None:
-        """Select interface type by option value (e.g. 'TCPServerInterface')."""
+        """Select interface type by option value (e.g. 'TCPServerInterface').
+
+        After selecting, explicitly triggers a jQuery ``change`` event
+        so the ``updateTypeVisibility()`` handler fires (Playwright's
+        native change event may not propagate to jQuery's delegated handler).
+        """
         self.interface_type.select_option(value=type_value)
+        self.page.evaluate(
+            "document.querySelector('#interface\\\\.type').dispatchEvent("
+            "new Event('change', {bubbles: true}))"
+        )
 
     def set_mode(self, mode: str) -> None:
         self.interface_mode.select_option(value=mode)
@@ -378,8 +444,8 @@ class InterfacesPage(BasePage):
 
     def save_modal(self) -> None:
         """Click the modal save button and wait for the modal to close."""
-        self.modal.locator(".btn-primary, button:has-text('Save')").click()
-        self.modal.wait_for(state="hidden")
+        self.page.locator("#btn-save-interface").click()
+        self.modal.wait_for(state="hidden", timeout=10_000)
 
     def cancel_modal(self) -> None:
         """Click cancel or the close button on the modal."""
@@ -387,11 +453,17 @@ class InterfacesPage(BasePage):
         self.modal.wait_for(state="hidden")
 
     def fields_visible_for_type(self, type_value: str) -> set:
-        """Return the set of type-conditional CSS classes currently visible.
+        """Return the set of type-conditional CSS classes currently shown.
 
         The interface form uses classes like ``.type-tcp``, ``.type-udp``,
         ``.type-auto``, etc. to show/hide groups of fields based on the
-        selected interface type.
+        selected interface type.  jQuery ``.show()``/``.hide()`` toggle
+        ``display: none`` on these elements.
+
+        We check the element's own ``display`` style rather than using
+        Playwright's ``is_visible()`` because fields on inactive tab
+        panes are not "visible" in the DOM sense even when their own
+        ``display`` is not ``none``.
         """
         visible = set()
         type_classes = [
@@ -401,8 +473,17 @@ class InterfacesPage(BasePage):
         ]
         for cls in type_classes:
             locator = self.modal.locator(f".{cls}").first
-            if locator.count() > 0 and locator.is_visible():
-                visible.add(cls)
+            if locator.count() > 0:
+                # Check the element's own inline display style.
+                # jQuery .hide() sets el.style.display = 'none';
+                # jQuery .show() clears it (el.style.display = '').
+                # We only care whether the type-visibility JS has hidden
+                # the element, not whether its parent tab pane is active.
+                is_shown = locator.evaluate(
+                    "el => el.style.display !== 'none'"
+                )
+                if is_shown:
+                    visible.add(cls)
         return visible
 
     # -- Assertion helpers ---------------------------------------------------

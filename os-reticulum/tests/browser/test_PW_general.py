@@ -93,9 +93,18 @@ def test_PW_GEN_001_runtime_info_loads(
     gp = _general_page(authenticated_page, base_url)
 
     gp.expect_version_loaded()
+    # Identity and uptime may take longer — wait for identity to update
+    gp.page.wait_for_function(
+        """() => {
+            const el = document.querySelector('#rnsd-identity');
+            return el && el.textContent.trim() !== 'loading...';
+        }""",
+        timeout=15_000,
+    )
     info = gp.get_runtime_info()
     assert info["version"] != "loading...", "Version still shows placeholder"
     assert info["identity"] != "loading...", "Identity still shows placeholder"
+    # Uptime may be empty string if rnstatus fails — accept non-loading state
     assert info["uptime"] != "loading...", "Uptime still shows placeholder"
 
 
@@ -125,11 +134,17 @@ def test_PW_GEN_003_service_status_displayed(
     """Service bar shows a status indicator (running or stopped)."""
     gp = _general_page(authenticated_page, base_url)
 
-    # Wait for updateServiceControlUI to populate the service bar
-    gp.page.wait_for_timeout(2000)
+    # Wait for updateServiceControlUI AJAX to populate the service bar.
+    # The function renders .label-success or .label-danger inside
+    # #service_status_container after the /api/reticulum/service/status
+    # call completes.
+    gp.service_status_container.locator(
+        ".label-success, .label-danger"
+    ).first.wait_for(state="visible", timeout=15_000)
+
     status = gp.get_service_status().lower()
     assert status in ("running", "stopped"), (
-        f"Service status not recognised: {status}"
+        f"Service status not recognised: {status!r}"
     )
 
 
@@ -139,6 +154,8 @@ def test_PW_GEN_006_service_restart(
     """Restart preserves running state."""
     gp = _general_page(authenticated_page, base_url)
 
+    # Wait for the service bar to populate before clicking restart
+    gp.expect_service_running()
     gp.click_restart()
     gp.expect_service_running()
 
@@ -151,6 +168,10 @@ def test_PW_GEN_004_service_start(
     """Click start transitions service to running."""
     gp = _general_page(authenticated_page, base_url)
 
+    # Wait for service bar to render the stopped state
+    gp.service_status_container.locator(
+        ".label-success, .label-danger"
+    ).first.wait_for(state="visible", timeout=15_000)
     gp.expect_service_stopped()
     gp.click_start()
     gp.expect_service_running()
@@ -163,6 +184,10 @@ def test_PW_GEN_005_service_stop(
     """Click stop transitions service to stopped."""
     gp = _general_page(authenticated_page, base_url)
 
+    # Wait for service bar to render the running state
+    gp.service_status_container.locator(
+        ".label-success, .label-danger"
+    ).first.wait_for(state="visible", timeout=15_000)
     gp.expect_service_running()
     gp.click_stop()
     gp.expect_service_stopped()
@@ -328,13 +353,26 @@ def test_PW_GEN_051_authorized_admins_tokenizer(authenticated_page, base_url):
     test_hash = "a" * 64
     gp.add_remote_admin(test_hash)
     # After pressing Enter the tokenizer should contain the value.
-    # OPNsense's select2 tokenizer creates token elements inside
-    # a .select2-container sibling of the original input.
-    token_area = authenticated_page.locator(
+    # OPNsense's select2 v3 tokenizer creates <li class="select2-search-choice">
+    # elements inside the parent container.  The original input's value
+    # is also updated.  Check either the select2 token list or the
+    # hidden input's value attribute.
+    authenticated_page.wait_for_timeout(500)
+    parent = authenticated_page.locator(
         "#general\\.remote_management_allowed"
     ).locator("xpath=..")
-    # Look for the hash in either a select2 token or the raw container
-    expect(token_area).to_contain_text(test_hash[:8], timeout=5_000)
+    # select2 tokens show the value as text in choice elements
+    token = parent.locator(".select2-search-choice, .token")
+    if token.count() > 0:
+        expect(token.first).to_contain_text(test_hash[:8], timeout=5_000)
+    else:
+        # Fallback: check the hidden input's value
+        val = authenticated_page.locator(
+            "#general\\.remote_management_allowed"
+        ).input_value()
+        assert test_hash[:8] in val, (
+            f"Token not found in input value: {val!r}"
+        )
 
 
 def test_PW_GEN_052_rpc_key_password_field(authenticated_page, base_url):

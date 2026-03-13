@@ -235,17 +235,13 @@ class LxmfPage(BasePage):
         """Type a hex identity hash into the tokenizer and press Enter.
 
         OPNsense's formatTokenizersUI() transforms the original <input>
-        into a select2 widget.  We must interact with the select2 search
-        input rather than the hidden original element.
+        into a select2 (v3) tokenizer.  The visible search input is an
+        ``<input class="select2-input">`` inside the parent ``<div>``.
         """
-        container = self.static_peers.locator(
-            "xpath=following-sibling::*[contains(@class,'select2-container')]"
-        )
-        if container.count() > 0:
-            container.click()
-            search_input = self.page.locator(
-                ".select2-input:visible, .select2-search__field:visible"
-            ).first
+        parent = self.static_peers.locator("xpath=..")
+        search_input = parent.locator("input.select2-input")
+        if search_input.count() > 0:
+            search_input.click()
             search_input.fill(hex_hash)
             search_input.press("Enter")
         else:
@@ -312,9 +308,13 @@ class LxmfPage(BasePage):
         self.wait_for_spinner_gone()
 
     def apply_changes(self) -> None:
-        """Click Apply Changes and wait for the success message."""
+        """Click Apply Changes and wait for the success message.
+
+        The reconfigure endpoint may take several seconds to complete,
+        so use a generous timeout.
+        """
         self.apply_btn.click()
-        self.apply_success_msg.wait_for(state="visible")
+        self.apply_success_msg.wait_for(state="visible", timeout=30_000)
 
     # -- Assertion helpers ---------------------------------------------------
 

@@ -169,20 +169,17 @@ class GeneralPage(BasePage):
         """Type a hex identity hash into the tokenizer and press Enter.
 
         OPNsense's formatTokenizersUI() transforms the original <input>
-        into a select2 widget.  The visible search input is inside the
-        select2 container adjacent to the original (now hidden) element.
+        into a select2 (v3) tokenizer.  The visible search input is an
+        ``<input class="select2-input">`` inside a ``<ul class="select2-choices">``
+        container.  We locate it relative to the original element's parent
+        ``<div>`` which contains both the hidden original and the select2 widget.
         """
         # The select2 container is a sibling of the original input.
-        # Click the container to open and focus the search input.
-        container = self.remote_management_allowed.locator(
-            "xpath=following-sibling::*[contains(@class,'select2-container')]"
-        )
-        # If select2 is present, interact with its search input
-        if container.count() > 0:
-            container.click()
-            search_input = self.page.locator(
-                ".select2-input:visible, .select2-search__field:visible"
-            ).first
+        # Click the select2 choices area to focus the search input.
+        parent = self.remote_management_allowed.locator("xpath=..")
+        search_input = parent.locator("input.select2-input")
+        if search_input.count() > 0:
+            search_input.click()
             search_input.fill(hex_hash)
             search_input.press("Enter")
         else:
@@ -237,39 +234,57 @@ class GeneralPage(BasePage):
     def get_service_status(self) -> str:
         """Return the service state based on indicator icons.
 
-        OPNsense's updateServiceControlUI() uses ``span.text-success``
-        for running and ``span.text-danger`` for stopped.  Falls back
-        to inner text if neither icon class is found.
+        OPNsense's updateServiceControlUI() renders:
+          - Running: ``<span class="label label-success">`` (green)
+          - Stopped: ``<span class="label label-danger">`` (red)
+        Falls back to inner text if neither label class is found.
         """
-        if self.service_status_container.locator("span.text-success").count() > 0:
+        if self.service_status_container.locator(".label-success").count() > 0:
             return "running"
-        if self.service_status_container.locator("span.text-danger").count() > 0:
+        if self.service_status_container.locator(".label-danger").count() > 0:
             return "stopped"
-        return self.service_status_container.inner_text()
+        return self.service_status_container.inner_text().strip()
+
+    def _wait_for_service_action(self) -> None:
+        """Wait for the OPNsense standard wait dialog to appear then close.
+
+        ``updateServiceControlUI`` shows ``#OPNsenseStdWaitDialog`` while the
+        start/stop/restart API call is in flight.  After the call completes it
+        hides the dialog and re-fetches status.  We wait for the dialog to
+        become visible (proving the click registered), then wait for it to
+        disappear (proving the action completed).
+        """
+        wait_dialog = self.page.locator("#OPNsenseStdWaitDialog")
+        try:
+            wait_dialog.wait_for(state="visible", timeout=5_000)
+        except Exception:
+            pass  # Dialog may flash too fast to catch
+        wait_dialog.wait_for(state="hidden", timeout=30_000)
+        # Allow the follow-up status refresh to complete
+        self.page.wait_for_timeout(2000)
 
     def click_start(self) -> None:
-        self.service_status_container.locator(
-            "button.srv_status_act2:has(span.fa-play), "
-            "button.service_start, "
-            ".srv_status_act_start"
-        ).first.click()
-        self.wait_for_spinner_gone()
+        """Click the Start button injected by updateServiceControlUI().
+
+        The core JS creates ``<span id="startService" class="btn btn-sm">``
+        inside ``#service_status_container``.
+        """
+        # Wait for the start button to appear (only rendered when stopped)
+        self.page.locator("#startService").wait_for(state="visible", timeout=15_000)
+        self.page.locator("#startService").click()
+        self._wait_for_service_action()
 
     def click_stop(self) -> None:
-        self.service_status_container.locator(
-            "button.srv_status_act2:has(span.fa-stop), "
-            "button.service_stop, "
-            ".srv_status_act_stop"
-        ).first.click()
-        self.wait_for_spinner_gone()
+        """Click the Stop button injected by updateServiceControlUI()."""
+        self.page.locator("#stopService").wait_for(state="visible", timeout=15_000)
+        self.page.locator("#stopService").click()
+        self._wait_for_service_action()
 
     def click_restart(self) -> None:
-        self.service_status_container.locator(
-            "button.srv_status_act2:has(span.fa-repeat), "
-            "button.service_restart, "
-            ".srv_status_act_restart"
-        ).first.click()
-        self.wait_for_spinner_gone()
+        """Click the Restart button injected by updateServiceControlUI()."""
+        self.page.locator("#restartService").wait_for(state="visible", timeout=15_000)
+        self.page.locator("#restartService").click()
+        self._wait_for_service_action()
 
     # -- Assertion helpers ---------------------------------------------------
 
@@ -311,22 +326,21 @@ class GeneralPage(BasePage):
     def expect_service_running(self) -> None:
         """Assert the service bar indicates a running state.
 
-        OPNsense's updateServiceControlUI() renders a green play icon
-        (``span.text-success``) when running.  We check for that class
-        as primary signal and fall back to text content.
+        OPNsense's updateServiceControlUI() renders a label with class
+        ``label-success`` when the service reports ``"running"``.
         """
         running_indicator = self.service_status_container.locator(
-            "span.text-success, .fa-play.text-success"
+            ".label-success"
         )
         expect(running_indicator.first).to_be_visible(timeout=15_000)
 
     def expect_service_stopped(self) -> None:
         """Assert the service bar indicates a stopped state.
 
-        OPNsense renders a red stop icon (``span.text-danger``) when
-        the service is stopped.
+        OPNsense's updateServiceControlUI() renders a label with class
+        ``label-danger`` when the service reports ``"stopped"``.
         """
         stopped_indicator = self.service_status_container.locator(
-            "span.text-danger, .fa-stop.text-danger"
+            ".label-danger"
         )
         expect(stopped_indicator.first).to_be_visible(timeout=15_000)

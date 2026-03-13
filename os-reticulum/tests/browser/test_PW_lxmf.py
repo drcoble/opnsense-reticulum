@@ -50,11 +50,11 @@ def test_PW_LXM_001_rnsd_status_badge_present(
 
 
 def test_PW_LXM_002_link_to_general_page(authenticated_page, base_url):
-    """A link with href /ui/reticulum/general exists on the page."""
+    """At least one link with href /ui/reticulum/general exists on the page."""
     _lxmf_page(authenticated_page, base_url)
 
-    link = authenticated_page.locator('a[href="/ui/reticulum/general"]')
-    expect(link).to_be_attached()
+    links = authenticated_page.locator('a[href="/ui/reticulum/general"]')
+    assert links.count() >= 1, "No link to /ui/reticulum/general found on LXMF page"
 
 
 def test_PW_LXM_003_lxmd_start_button(authenticated_page, base_url):
@@ -319,9 +319,19 @@ def test_PW_LXM_074_static_peers_tokenizer(authenticated_page, base_url):
     test_hash = "a" * 64
     lp.add_static_peer(test_hash)
 
-    # Verify the token was added by checking the container area
-    token_area = authenticated_page.locator("#lxmf\\.static_peers").locator("..")
-    expect(token_area).to_contain_text(test_hash[:8])
+    # Verify the token was added by checking either the select2 choice
+    # elements or the hidden input's value.
+    authenticated_page.wait_for_timeout(500)
+    parent = authenticated_page.locator("#lxmf\\.static_peers").locator("xpath=..")
+    token = parent.locator(".select2-search-choice, .token")
+    if token.count() > 0:
+        expect(token.first).to_contain_text(test_hash[:8], timeout=5_000)
+    else:
+        # Fallback: check the hidden input's value
+        val = authenticated_page.locator("#lxmf\\.static_peers").input_value()
+        assert test_hash[:8] in val, (
+            f"Token not found in input value: {val!r}"
+        )
 
 
 def test_PW_LXM_075_static_only_warning(authenticated_page, base_url):

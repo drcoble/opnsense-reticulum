@@ -114,7 +114,14 @@ class LogsPage(BasePage):
         return self.page.locator("#log-output")
 
     def log_line_count(self) -> int:
-        """Return the number of non-empty lines in the log output."""
+        """Return the number of non-empty lines in the log output.
+
+        Returns 0 if the log output element is hidden (display:none),
+        which happens when filters exclude all lines or the service is
+        not running (the JS hides #log-output and shows a status message).
+        """
+        if not self.log_output.is_visible():
+            return 0
         text = self.log_output.inner_text()
         if not text.strip():
             return 0
