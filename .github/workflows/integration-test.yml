@@ -237,6 +237,42 @@ jobs:
             echo "Plugin installed successfully"
           ENDSSH
 
+      - name: Verify Volt templates on VM
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/opnsense_key
+          chmod 600 ~/.ssh/opnsense_key
+          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+
+          $SSH root@"$OPNSENSE_HOST" sh << 'ENDSSH'
+            echo "=== Volt files deployed ==="
+            ls -la /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/
+
+            echo "=== First 5 lines of general.volt ==="
+            head -5 /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/general.volt
+
+            echo "=== IndexController.php ==="
+            cat /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php
+
+            echo "=== PHP syntax: IndexController ==="
+            php -l /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php
+
+            echo "=== Volt cache files ==="
+            find /tmp /usr/local/opnsense/mvc/app/cache /var/lib/php -name '*Reticulum*' -o -name '*reticulum*' 2>/dev/null || echo 'none found'
+
+            echo "=== curl UI page from localhost ==="
+            curl -sk https://127.0.0.1/ui/reticulum/general 2>/dev/null | grep -oE '(id="maintabs"|Page not found|<title>[^<]+|class="page-content-main")' || echo 'no key elements found'
+
+            echo "=== lighttpd error log (last 20) ==="
+            tail -20 /var/log/lighttpd/error.log 2>/dev/null || echo 'no log'
+
+            echo "=== PHP error log ==="
+            find /var/log /tmp -name 'php*error*' -o -name 'php*log' 2>/dev/null | while read f; do echo "--- $f ---"; tail -10 "$f"; done || echo 'no PHP error logs'
+          ENDSSH
+
       - name: Run integration tests
         env:
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
