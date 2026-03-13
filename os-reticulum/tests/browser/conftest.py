@@ -241,20 +241,24 @@ def authenticated_context(login_once, browser, base_url):
     )
 
     # Verify Reticulum plugin pages are reachable — OPNsense returns HTTP 200
-    # with "page not found" when MVC routes are not registered (e.g. lighttpd
-    # was not restarted after plugin install via SCP).
+    # with a generic layout (no plugin content) when MVC routes are not
+    # registered (e.g. lighttpd was not restarted after plugin install).
+    # Check for #maintabs which is the definitive proof the Volt template
+    # rendered.  Note: body.inner_text() is unreliable because OPNsense's
+    # sidebar navigation may contain "page not found" as link text even on
+    # valid pages.
     reticulum_url = f"{base_url}/ui/reticulum/general"
     probe.goto(reticulum_url, wait_until="load", timeout=PAGE_LOAD_TIMEOUT)
-    body_text = probe.locator("body").inner_text(timeout=5000)
-    if "page not found" in body_text.lower():
-        # Capture full page content for CI diagnostics before failing
+    has_maintabs = probe.locator("#maintabs").count() > 0
+    if not has_maintabs:
+        body_text = probe.locator("body").inner_text(timeout=5000)
         full_html = probe.content()
         probe.close()
         raise AssertionError(
-            f"Reticulum plugin pages are not reachable — "
-            f"navigating to {reticulum_url} returned 'page not found'. "
+            f"Reticulum plugin page did not render — "
+            f"navigating to {reticulum_url} did not produce #maintabs. "
             f"This usually means lighttpd was not restarted after plugin "
-            f"deployment.  Run 'service lighttpd restart' on the OPNsense VM.\n"
+            f"deployment, or the Volt template has a PHP error.\n"
             f"Page body excerpt: {body_text[:500]}\n"
             f"Full HTML (first 2000 chars): {full_html[:2000]}"
         )
