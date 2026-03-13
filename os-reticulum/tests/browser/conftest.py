@@ -63,10 +63,16 @@ class OPNsenseApiClient:
         )
 
     def delete_interface(self, uuid: str) -> requests.Response:
-        """DELETE an interface record by UUID."""
+        """DELETE an interface record by UUID.
+
+        ``allow_redirects=False`` prevents requests from silently following
+        a 302 redirect (which OPNsense returns when CSRF or auth checks
+        fail on POSTs without a JSON Content-Type).
+        """
         return self.session.post(
             f"{self.base_url}/api/reticulum/rnsd/delInterface/{uuid}",
             json={},
+            allow_redirects=False,
         )
 
     def list_interfaces(self) -> requests.Response:
@@ -349,19 +355,21 @@ def clean_interfaces(opnsense_api_client):
     endpoint may return paginated results (missing some rows per call).
     """
     yield
-    for attempt in range(5):  # Safety limit to avoid infinite loop
-        resp = opnsense_api_client.list_interfaces()
-        if not resp.ok:
-            return
-        body = resp.json()
-        rows = body.get("rows", [])
-        pw_rows = [r for r in rows if r.get("name", "").startswith("PW-")]
-        if not pw_rows:
-            return
-        for row in pw_rows:
-            del_resp = opnsense_api_client.delete_interface(row["uuid"])
-            print(f"[DIAG clean] attempt={attempt} del {row['name']} uuid={row['uuid']}: "
-                  f"status={del_resp.status_code} body={del_resp.text[:200]}")
+    resp = opnsense_api_client.list_interfaces()
+    if not resp.ok:
+        return
+    body = resp.json()
+    rows = body.get("rows", [])
+    # Debug: print first row's full structure to see UUID field name
+    if rows:
+        print(f"[DIAG clean] First row keys: {list(rows[0].keys())}")
+        print(f"[DIAG clean] First row sample: {rows[0]}")
+    pw_rows = [r for r in rows if r.get("name", "").startswith("PW-")]
+    for row in pw_rows:
+        uuid = row.get("uuid", row.get("id", ""))
+        del_resp = opnsense_api_client.delete_interface(uuid)
+        print(f"[DIAG clean] del {row['name']} uuid={uuid}: "
+              f"status={del_resp.status_code} body={del_resp.text[:200]}")
 
 
 @pytest.fixture(scope="function")
