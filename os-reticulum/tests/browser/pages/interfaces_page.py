@@ -110,18 +110,46 @@ class InterfacesPage(BasePage):
         btn.wait_for(state="visible", timeout=10_000)
         uuid = btn.get_attribute("data-row-id")
 
-        # Fetch data and populate form via OPNsense's standard JS helpers
+        # Fetch data and populate form fields manually via AJAX.
+        # mapDataToFormUI does not reliably populate fields in all
+        # OPNsense versions, so we iterate the response and set
+        # each form element directly.
         self.page.evaluate("""(uuid) => {
             window._editReady = false;
+            window._editDebug = '';
             editingUuid = uuid;
             $('#DialogInterface .modal-title').text('Edit Interface');
-            ajaxGet('/api/reticulum/rnsd/getInterface/' + uuid, {}, function(data, status) {
-                if (status === 'success') {
-                    mapDataToFormUI(data).done(function() {
-                        $('#DialogInterface').modal('show');
-                        window._editReady = true;
-                    });
-                } else {
+            $.ajax({
+                url: '/api/reticulum/rnsd/getInterface/' + uuid,
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    window._editDebug = JSON.stringify(Object.keys(data || {}));
+                    var iface = data && data.interface ? data.interface : {};
+                    for (var key in iface) {
+                        var el = document.getElementById('interface.' + key);
+                        if (!el) continue;
+                        var val = iface[key];
+                        if (typeof val === 'object' && val !== null) {
+                            // OptionField / BooleanField metadata —
+                            // find the selected key
+                            for (var optKey in val) {
+                                if (typeof val[optKey] === 'object' &&
+                                    val[optKey] !== null &&
+                                    val[optKey].selected) {
+                                    $(el).val(String(optKey)).trigger('change');
+                                    break;
+                                }
+                            }
+                        } else {
+                            $(el).val(val === null ? '' : String(val));
+                        }
+                    }
+                    $('#DialogInterface').modal('show');
+                    window._editReady = true;
+                },
+                error: function(xhr) {
+                    window._editDebug = 'AJAX error: ' + xhr.status;
                     $('#DialogInterface').modal('show');
                     window._editReady = true;
                 }
