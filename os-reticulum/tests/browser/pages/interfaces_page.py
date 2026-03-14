@@ -536,31 +536,30 @@ class InterfacesPage(BasePage):
         self.command.fill(cmd)
 
     def save_modal(self) -> None:
-        """Click the modal save button and wait for the modal to close.
+        """Save the interface form and wait for the modal to close.
 
-        Waits for the save button to be enabled first — the
-        ``shown.bs.modal`` handler's ``checkNameConflict()`` AJAX
-        callback may temporarily disable it while it verifies name
-        uniqueness against the server.
+        Calls ``saveFormToEndpoint`` directly via JS — the same code
+        path the ``#btn-save-interface`` click handler uses — to avoid
+        jQuery/Playwright click handler reliability issues.  On success,
+        hides the modal and reloads the grid.
         """
-        save_btn = self.page.locator("#btn-save-interface")
-        save_btn.wait_for(state="visible", timeout=5_000)
-        # The save button may be disabled by checkNameConflict's async
-        # AJAX callback or by UIBootgrid's internal modal machinery.
-        # Wait briefly for normal re-enable, then force-enable if needed.
-        try:
-            self.page.wait_for_function(
-                "() => !document.getElementById('btn-save-interface').disabled",
-                timeout=3_000,
-            )
-        except Exception:
-            # Force-enable — the checkNameConflict AJAX race or
-            # UIBootgrid internal state can leave the button disabled
-            # even when there is no actual conflict.
-            self.page.evaluate(
-                "document.getElementById('btn-save-interface').disabled = false"
-            )
-        save_btn.click()
+        self.page.evaluate("""() => {
+            window._saveReady = false;
+            var endpoint;
+            if (editingUuid) {
+                endpoint = '/api/reticulum/rnsd/setInterface/' + editingUuid;
+            } else {
+                endpoint = '/api/reticulum/rnsd/addInterface';
+            }
+            saveFormToEndpoint(endpoint, 'interface', function(data) {
+                if (data && (data.result === 'saved' || data.uuid)) {
+                    $('#DialogInterface').modal('hide');
+                    $('#grid-interfaces').bootgrid('reload');
+                }
+                window._saveReady = true;
+            }, true);
+        }""")
+        self.page.wait_for_function("() => window._saveReady === true", timeout=15_000)
         self.modal.wait_for(state="hidden", timeout=10_000)
 
     def cancel_modal(self) -> None:
