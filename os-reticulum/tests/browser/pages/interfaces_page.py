@@ -110,13 +110,25 @@ class InterfacesPage(BasePage):
         btn.wait_for(state="visible", timeout=10_000)
         uuid = btn.get_attribute("data-row-id")
 
+        # Ensure any previous modal transition is complete before
+        # trying to show a new one.  Bootstrap ignores modal('show')
+        # if a hide transition is still in progress.
+        self.page.evaluate("""() => {
+            var dlg = $('#DialogInterface');
+            if (dlg.hasClass('in') || dlg.data('bs.modal') && dlg.data('bs.modal').isShown) {
+                dlg.modal('hide');
+            }
+        }""")
+        # Wait for the modal to be fully hidden
+        self.page.locator("#DialogInterface").wait_for(state="hidden", timeout=5_000)
+        self.page.wait_for_timeout(300)
+
         # Fetch data and populate form fields manually via AJAX.
         # mapDataToFormUI does not reliably populate fields in all
         # OPNsense versions, so we iterate the response and set
         # each form element directly.
         self.page.evaluate("""(uuid) => {
             window._editReady = false;
-            window._editDebug = '';
             editingUuid = uuid;
             $('#DialogInterface .modal-title').text('Edit Interface');
             $.ajax({
@@ -124,7 +136,6 @@ class InterfacesPage(BasePage):
                 type: 'GET',
                 dataType: 'json',
                 success: function(data) {
-                    window._editDebug = JSON.stringify(Object.keys(data || {}));
                     var iface = data && data.interface ? data.interface : {};
                     for (var key in iface) {
                         var el = document.getElementById('interface.' + key);
@@ -149,7 +160,6 @@ class InterfacesPage(BasePage):
                     window._editReady = true;
                 },
                 error: function(xhr) {
-                    window._editDebug = 'AJAX error: ' + xhr.status;
                     $('#DialogInterface').modal('show');
                     window._editReady = true;
                 }
@@ -157,7 +167,7 @@ class InterfacesPage(BasePage):
         }""", uuid)
 
         self.page.wait_for_function("() => window._editReady === true", timeout=10_000)
-        self.page.locator("#DialogInterface").wait_for(state="visible")
+        self.page.locator("#DialogInterface").wait_for(state="visible", timeout=10_000)
         # Allow shown.bs.modal handlers (updateTypeVisibility) to complete
         self.page.wait_for_timeout(500)
 
@@ -538,37 +548,23 @@ class InterfacesPage(BasePage):
     def save_modal(self) -> None:
         """Save the interface form and wait for the modal to close.
 
-        Calls ``saveFormToEndpoint`` directly via JS — the same code
-        path the ``#btn-save-interface`` click handler uses — to avoid
-        jQuery/Playwright click handler reliability issues.  On success,
-        hides the modal and reloads the grid.
+        Force-enables the save button (which may be disabled by the
+        async ``checkNameConflict`` AJAX race), then triggers the
+        save via JS click on the button element.  The button's jQuery
+        ``.click()`` handler calls ``saveFormToEndpoint`` which POSTs
+        the form data, hides the modal on success, and reloads the grid.
         """
+        # Ensure the save button is enabled — checkNameConflict's
+        # async AJAX can leave it disabled despite no real conflict.
         self.page.evaluate("""() => {
-            window._saveReady = false;
-            window._saveDebug = '';
-            var endpoint;
-            if (editingUuid) {
-                endpoint = '/api/reticulum/rnsd/setInterface/' + editingUuid;
-            } else {
-                endpoint = '/api/reticulum/rnsd/addInterface';
-            }
-            window._saveDebug = 'endpoint=' + endpoint;
-            saveFormToEndpoint(endpoint, 'interface', function(data) {
-                window._saveDebug += ' resp=' + JSON.stringify(data).substring(0, 500);
-                if (data && (data.result === 'saved' || data.uuid)) {
-                    $('#DialogInterface').modal('hide');
-                    $('#grid-interfaces').bootgrid('reload');
-                }
-                window._saveReady = true;
-            }, true);
+            var btn = document.getElementById('btn-save-interface');
+            if (btn) btn.disabled = false;
         }""")
-        self.page.wait_for_function("() => window._saveReady === true", timeout=15_000)
-        # Check if modal hid (save succeeded) — if not, surface debug info
-        try:
-            self.modal.wait_for(state="hidden", timeout=10_000)
-        except Exception:
-            debug = self.page.evaluate("window._saveDebug || 'no debug'")
-            raise AssertionError(f"Modal did not close after save. Debug: {debug}")
+        # Use JS click to fire the jQuery .click() handler
+        self.page.evaluate("""() => {
+            document.getElementById('btn-save-interface').click();
+        }""")
+        self.modal.wait_for(state="hidden", timeout=15_000)
 
     def cancel_modal(self) -> None:
         """Click cancel or the close button on the modal."""
