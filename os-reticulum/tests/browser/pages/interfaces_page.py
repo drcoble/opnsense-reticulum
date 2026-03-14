@@ -536,8 +536,33 @@ class InterfacesPage(BasePage):
         self.command.fill(cmd)
 
     def save_modal(self) -> None:
-        """Click the modal save button and wait for the modal to close."""
-        self.page.locator("#btn-save-interface").click()
+        """Click the modal save button and wait for the modal to close.
+
+        Waits for the save button to be enabled first — the
+        ``shown.bs.modal`` handler's ``checkNameConflict()`` AJAX
+        callback may temporarily disable it while it verifies name
+        uniqueness against the server.
+        """
+        save_btn = self.page.locator("#btn-save-interface")
+        save_btn.wait_for(state="visible", timeout=5_000)
+        # Wait for checkNameConflict AJAX to complete and enable button.
+        # If the button stays disabled, it means there's a real name
+        # conflict — surface that as a clear error.
+        try:
+            self.page.wait_for_function(
+                "() => !document.getElementById('btn-save-interface').disabled",
+                timeout=10_000,
+            )
+        except Exception:
+            conflict_msg = self.page.locator("#interface-name-conflict")
+            is_conflict = conflict_msg.is_visible()
+            name_val = self.page.locator("#interface\\.name").input_value()
+            raise AssertionError(
+                f"Save button disabled. Name='{name_val}', "
+                f"conflict visible={is_conflict}, "
+                f"editingUuid={self.page.evaluate('typeof editingUuid !== \"undefined\" ? editingUuid : \"undefined\"')}"
+            )
+        save_btn.click()
         self.modal.wait_for(state="hidden", timeout=10_000)
 
     def cancel_modal(self) -> None:

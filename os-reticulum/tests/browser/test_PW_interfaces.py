@@ -147,11 +147,7 @@ class TestModalLifecycle:
         page.click_edit("PW-Seed-TCP")
         assert page.modal_visible()
         # Verify the name field is pre-populated
-        name_val = page.interface_name.input_value()
-        if name_val == "":
-            debug = authenticated_page.evaluate("window._editDebug || 'no debug'")
-            assert False, f"Name field empty. Debug: {debug}"
-        assert name_val == "PW-Seed-TCP"
+        assert page.interface_name.input_value() == "PW-Seed-TCP"
 
     def test_PW_IFC_022_modal_close_button(self, authenticated_page, base_url):
         page = _make_page(authenticated_page, base_url)
