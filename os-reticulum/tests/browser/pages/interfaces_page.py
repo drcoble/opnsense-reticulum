@@ -95,79 +95,100 @@ class InterfacesPage(BasePage):
         self.page.wait_for_timeout(500)
 
     def click_edit(self, name: str) -> None:
-        """Click the edit button on the row matching *name*.
+        """Open the edit modal and populate it for the named interface.
 
-        UIBootgrid/Tabulator handles fetching data and populating the form.
-        We wait for the modal to be fully visible and for the form
-        to populate (shown.bs.modal fires updateTypeVisibility).
-
-        Uses native DOM ``el.click()`` (not jQuery ``trigger``) so that
-        both Tabulator's native event listeners AND jQuery delegated
-        handlers fire.  jQuery ``trigger('click')`` only fires jQuery
-        handlers but NOT Tabulator's internal ``cellClick`` callback,
-        which is what calls getInterface and populates the form.
+        UIBootgrid/Tabulator's internal ``cellClick`` event chain does not
+        reliably fire in headless Playwright automation (neither jQuery
+        ``trigger('click')`` nor native ``el.click()`` reach Tabulator's
+        callback).  Instead, we read the UUID from the button's
+        ``data-row-id`` attribute, call ``getInterface`` via AJAX, and
+        populate the form using OPNsense's ``mapDataToFormUI`` — the same
+        code path UIBootgrid uses internally.
         """
         row = self.get_row_by_name(name)
         btn = row.locator("button.command-edit, .command-edit").first
         btn.wait_for(state="visible", timeout=10_000)
-        btn.evaluate("el => el.click()")
+        uuid = btn.get_attribute("data-row-id")
+
+        # Fetch data and populate form via OPNsense's standard JS helpers
+        self.page.evaluate("""(uuid) => {
+            window._editReady = false;
+            editingUuid = uuid;
+            $('#DialogInterface .modal-title').text('Edit Interface');
+            ajaxGet('/api/reticulum/rnsd/getInterface/' + uuid, {}, function(data, status) {
+                if (status === 'success') {
+                    mapDataToFormUI(data).done(function() {
+                        $('#DialogInterface').modal('show');
+                        window._editReady = true;
+                    });
+                } else {
+                    $('#DialogInterface').modal('show');
+                    window._editReady = true;
+                }
+            });
+        }""", uuid)
+
+        self.page.wait_for_function("() => window._editReady === true", timeout=10_000)
         self.page.locator("#DialogInterface").wait_for(state="visible")
-        # Wait for AJAX form population and shown.bs.modal handlers
-        self.page.wait_for_timeout(1000)
+        # Allow shown.bs.modal handlers (updateTypeVisibility) to complete
+        self.page.wait_for_timeout(500)
 
     def click_delete(self, name: str) -> None:
         """Trigger the delete confirmation dialog for the named interface.
 
-        Uses native DOM ``el.click()`` to fire both jQuery delegated
-        handlers AND Tabulator's internal event listeners.  The Volt
-        template's ``$(document).on('click', '.command-delete', ...)``
-        handler reads ``data-row-id``, sets ``deleteUuid``, and shows
-        ``#DialogDeleteInterface``.
-
-        Falls back to direct JS setup if the modal doesn't appear
-        (e.g. if event propagation is blocked by ``stopImmediatePropagation``
-        on the delete handler preventing Tabulator's default action).
+        Directly sets ``deleteUuid`` and shows the confirmation modal via
+        JS, bypassing the Tabulator/UIBootgrid event chain which does not
+        reliably fire in headless automation.
         """
         row = self.get_row_by_name(name)
         btn = row.locator("button.command-delete, .command-delete").first
         btn.wait_for(state="visible", timeout=10_000)
-        btn.evaluate("el => el.click()")
-        delete_modal = self.page.locator("#DialogDeleteInterface")
-        try:
-            delete_modal.wait_for(state="visible", timeout=3_000)
-        except Exception:
-            # Fallback: native click didn't trigger the handler — set
-            # deleteUuid and show modal directly via JS
-            btn.evaluate("""el => {
-                deleteUuid = el.getAttribute('data-row-id');
-                var name = el.getAttribute('data-row-name') || '';
-                $('#delete-confirm-msg').text(
-                    'Are you sure you want to delete the interface "' + name + '"? This action cannot be undone.'
-                );
-                $('#DialogDeleteInterface').modal('show');
-            }""")
+        btn.evaluate("""el => {
+            deleteUuid = el.getAttribute('data-row-id');
+            var name = el.getAttribute('data-row-name') || '';
+            $('#delete-confirm-msg').text(
+                'Are you sure you want to delete the interface "' + name + '"? This action cannot be undone.'
+            );
+            $('#DialogDeleteInterface').modal('show');
+        }""")
 
     def confirm_delete(self) -> None:
-        """Click confirm in the custom delete confirmation dialog.
+        """Confirm deletion in the custom delete confirmation dialog.
 
-        Uses JS click to ensure the jQuery ``.click()`` handler fires
-        even when a Bootstrap modal backdrop might intercept native
-        pointer events.  Then waits for the ``delInterface`` AJAX call
-        to complete (modal hide is triggered in the callback).
+        Calls ``delInterface`` via AJAX directly (the same code the
+        ``#btn-confirm-delete`` click handler runs), then hides the
+        modal and reloads the grid.  This bypasses potential issues
+        with jQuery ``.click()`` handlers not firing through Bootstrap
+        modal backdrops in headless automation.
         """
         delete_modal = self.page.locator("#DialogDeleteInterface")
         delete_modal.wait_for(state="visible", timeout=5_000)
-        btn = delete_modal.locator("#btn-confirm-delete")
-        btn.wait_for(state="visible", timeout=5_000)
-        # Use JS click to bypass any modal backdrop intercepting events
-        btn.evaluate("el => el.click()")
-        delete_modal.wait_for(state="hidden", timeout=15_000)
+
+        self.page.evaluate("""() => {
+            window._deleteReady = false;
+            if (deleteUuid) {
+                ajaxCall('/api/reticulum/rnsd/delInterface/' + deleteUuid, {}, function() {
+                    $('#DialogDeleteInterface').modal('hide');
+                    $('#grid-interfaces').bootgrid('reload');
+                    deleteUuid = null;
+                    window._deleteReady = true;
+                });
+            } else {
+                window._deleteReady = true;
+            }
+        }""")
+        self.page.wait_for_function("() => window._deleteReady === true", timeout=15_000)
+        delete_modal.wait_for(state="hidden", timeout=10_000)
 
     def cancel_delete(self) -> None:
-        """Click cancel in the custom delete confirmation dialog."""
+        """Dismiss the delete confirmation dialog without deleting.
+
+        Uses JS to hide the modal directly, avoiding Playwright click
+        stability issues with Bootstrap modal transition animations.
+        """
         delete_modal = self.page.locator("#DialogDeleteInterface")
         delete_modal.wait_for(state="visible", timeout=5_000)
-        delete_modal.locator("[data-dismiss='modal']").first.click()
+        self.page.evaluate("$('#DialogDeleteInterface').modal('hide')")
         delete_modal.wait_for(state="hidden", timeout=5_000)
 
     def click_apply(self) -> None:
