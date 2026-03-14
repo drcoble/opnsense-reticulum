@@ -1,0 +1,5 @@
+playwright>=1.44
+pytest-playwright>=0.5
+pytest>=7.4
+pytest-timeout>=2.1
+requests>=2.31

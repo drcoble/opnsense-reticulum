@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# Stop services
+service lxmd stop 2>/dev/null || true
+service rnsd stop 2>/dev/null || true
+
+# Disable services
+sysrc -f /etc/rc.conf.d/rnsd rnsd_enable="NO" 2>/dev/null || true
+sysrc -f /etc/rc.conf.d/lxmd lxmd_enable="NO" 2>/dev/null || true
+
+# Remove generated config files (preserve user data dirs)
+rm -f /usr/local/etc/reticulum/config
+rm -f /usr/local/etc/lxmf/config
+rm -f /usr/local/etc/lxmf/allowed
+rm -f /usr/local/etc/lxmf/ignored
+rm -f /etc/rc.conf.d/rnsd
+rm -f /etc/rc.conf.d/lxmd
+
+# Remove cloned source directories. These are build artifacts created during
+# pkg-install to compile rns/lxmf into the virtualenv. They contain no user
+# data and can be safely recreated by reinstalling the plugin.
+rm -rf /usr/local/reticulum-src
+
+# NOTE: Preserving the following for user data safety:
+#   /usr/local/etc/reticulum/  (identity keys, path tables)
+#   /usr/local/etc/lxmf/       (identity, stored messages)
+#   /var/db/reticulum/          (runtime data)
+#   /var/db/lxmf/               (message storage)
+#   /var/log/reticulum/         (logs)
+#   /usr/local/reticulum-venv/  (virtualenv)
+# Administrator may remove these manually if desired.
+
+exit 0

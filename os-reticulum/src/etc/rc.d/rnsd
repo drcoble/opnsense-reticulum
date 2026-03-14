@@ -1,0 +1,75 @@
+#!/bin/sh
+
+# PROVIDE: rnsd
+# REQUIRE: NETWORKING
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="rnsd"
+rcvar="rnsd_enable"
+
+load_rc_config $name
+
+: ${rnsd_enable:="NO"}
+: ${rnsd_user:="reticulum"}
+: ${rnsd_config:="/usr/local/etc/reticulum"}
+: ${rnsd_log:="/var/log/reticulum/rnsd.log"}
+
+pidfile="/var/run/${name}.pid"
+command="/usr/local/reticulum-venv/bin/rnsd"
+command_args="--service --config ${rnsd_config}"
+
+start_precmd="${name}_prestart"
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
+stop_postcmd="${name}_poststop"
+
+rnsd_prestart()
+{
+    # Ensure config directory exists with restrictive permissions (identity keys inside)
+    if [ ! -d "${rnsd_config}" ]; then
+        mkdir -p "${rnsd_config}"
+    fi
+    chown ${rnsd_user}:${rnsd_user} "${rnsd_config}"
+    chmod 700 "${rnsd_config}"
+
+    # Ensure log directory exists and is writable by service user
+    mkdir -p /var/log/reticulum
+    chown ${rnsd_user}:${rnsd_user} /var/log/reticulum
+
+    # Ensure identity key files created by rnsd are not world-readable
+    umask 077
+}
+
+rnsd_start()
+{
+    echo "Starting ${name}."
+    # Use /bin/sh -c wrapper so shell handles log redirection inside the child,
+    # then daemon(8) tracks the sh process PID in the pidfile.
+    # -p (lowercase) writes the child PID; works on FreeBSD 12/13/14.
+    /usr/sbin/daemon -f -p "${pidfile}" -u "${rnsd_user}" \
+        /bin/sh -c "${command} ${command_args} >> ${rnsd_log} 2>&1"
+    sleep 3
+    if [ -f "${pidfile}" ] && kill -0 "$(cat ${pidfile})" 2>/dev/null; then
+        echo "${name} started (PID: $(cat ${pidfile}))"
+    else
+        echo "WARNING: failed to start ${name} — check ${rnsd_log}"
+        rm -f "${pidfile}"
+        return 1
+    fi
+}
+
+rnsd_stop()
+{
+    if [ -f "${pidfile}" ]; then
+        kill "$(cat ${pidfile})" 2>/dev/null || true
+    fi
+}
+
+rnsd_poststop()
+{
+    rm -f ${pidfile}
+}
+
+run_rc_command "$1"

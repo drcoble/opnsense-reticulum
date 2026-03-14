@@ -1,0 +1,30 @@
+<acl>
+    <page-services-reticulum>
+        <name>WebCfg - Services: Reticulum</name>
+        <description>Allow access to Reticulum configuration and service management</description>
+        <patterns>
+            <pattern>ui/reticulum/*</pattern>
+            <pattern>api/reticulum/*</pattern>
+        </patterns>
+    </page-services-reticulum>
+    <page-services-reticulum-readonly>
+        <name>WebCfg - Services: Reticulum (Read-Only)</name>
+        <description>Allow read-only access to Reticulum status and configuration</description>
+        <patterns>
+            <pattern>ui/reticulum/*</pattern>
+            <pattern>api/reticulum/rnsd/get</pattern>
+            <pattern>api/reticulum/rnsd/searchInterfaces</pattern>
+            <pattern>api/reticulum/rnsd/getInterface/*</pattern>
+            <pattern>api/reticulum/lxmd/get</pattern>
+            <pattern>api/reticulum/service/status</pattern>
+            <pattern>api/reticulum/service/rnsdStatus</pattern>
+            <pattern>api/reticulum/service/lxmdStatus</pattern>
+            <pattern>api/reticulum/service/rnstatus</pattern>
+            <pattern>api/reticulum/service/info</pattern>
+            <pattern>api/reticulum/service/rnsdInfo</pattern>
+            <pattern>api/reticulum/service/lxmdInfo</pattern>
+            <pattern>api/reticulum/service/rnsdLogs</pattern>
+            <pattern>api/reticulum/service/lxmdLogs</pattern>
+        </patterns>
+    </page-services-reticulum-readonly>
+</acl>

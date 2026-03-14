@@ -1,0 +1,6 @@
+reticulum_config.j2:/usr/local/etc/reticulum/config
+lxmf_config.j2:/usr/local/etc/lxmf/config
+rc.conf.d_rnsd.j2:/etc/rc.conf.d/rnsd
+rc.conf.d_lxmd.j2:/etc/rc.conf.d/lxmd
+lxmf_allowed.j2:/usr/local/etc/lxmf/allowed
+lxmf_ignored.j2:/usr/local/etc/lxmf/ignored

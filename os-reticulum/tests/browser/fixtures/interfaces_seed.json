@@ -1,0 +1,6 @@
+{
+  "name": "PW-Seed-TCP",
+  "type": "TCPServerInterface",
+  "listen_port": "9999",
+  "enabled": "1"
+}
