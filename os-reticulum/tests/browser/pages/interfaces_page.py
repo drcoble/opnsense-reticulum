@@ -545,13 +545,16 @@ class InterfacesPage(BasePage):
         """
         self.page.evaluate("""() => {
             window._saveReady = false;
+            window._saveDebug = '';
             var endpoint;
             if (editingUuid) {
                 endpoint = '/api/reticulum/rnsd/setInterface/' + editingUuid;
             } else {
                 endpoint = '/api/reticulum/rnsd/addInterface';
             }
+            window._saveDebug = 'endpoint=' + endpoint;
             saveFormToEndpoint(endpoint, 'interface', function(data) {
+                window._saveDebug += ' resp=' + JSON.stringify(data).substring(0, 500);
                 if (data && (data.result === 'saved' || data.uuid)) {
                     $('#DialogInterface').modal('hide');
                     $('#grid-interfaces').bootgrid('reload');
@@ -560,7 +563,12 @@ class InterfacesPage(BasePage):
             }, true);
         }""")
         self.page.wait_for_function("() => window._saveReady === true", timeout=15_000)
-        self.modal.wait_for(state="hidden", timeout=10_000)
+        # Check if modal hid (save succeeded) — if not, surface debug info
+        try:
+            self.modal.wait_for(state="hidden", timeout=10_000)
+        except Exception:
+            debug = self.page.evaluate("window._saveDebug || 'no debug'")
+            raise AssertionError(f"Modal did not close after save. Debug: {debug}")
 
     def cancel_modal(self) -> None:
         """Click cancel or the close button on the modal."""
