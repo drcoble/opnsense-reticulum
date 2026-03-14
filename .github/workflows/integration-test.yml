@@ -501,6 +501,50 @@ jobs:
           curl -sk --max-time 10 "https://${OPNSENSE_HOST}/ui/reticulum/general" 2>/dev/null | \
             grep -iE '(fatal|error|warning|notice|exception|undefined|syntax)' | head -10 || echo 'no PHP errors in HTML'
 
+          echo ""
+          echo "=== UUID diagnostic: create interface and check searchInterfaces UUID format ==="
+          echo "--- addInterface response ---"
+          ADD_RESP=$(curl -sk --max-time 10 -X POST \
+            -u "${OPNSENSE_API_KEY}:${OPNSENSE_API_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{"interface":{"name":"PW-UUID-Diag","type":"TCPServerInterface","listen_port":"19876","enabled":"1"}}' \
+            "https://${OPNSENSE_HOST}/api/reticulum/rnsd/addInterface" 2>/dev/null)
+          echo "$ADD_RESP"
+          ADD_UUID=$(echo "$ADD_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('uuid',''))" 2>/dev/null)
+          echo "addInterface UUID: $ADD_UUID"
+
+          echo "--- searchInterfaces response (uuid field) ---"
+          SEARCH_RESP=$(curl -sk --max-time 10 \
+            -u "${OPNSENSE_API_KEY}:${OPNSENSE_API_SECRET}" \
+            "https://${OPNSENSE_HOST}/api/reticulum/rnsd/searchInterfaces" 2>/dev/null)
+          echo "$SEARCH_RESP" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          for row in data.get('rows', []):
+              print(f\"  name={row.get('name')}  uuid={row.get('uuid')}  id={row.get('id', 'N/A')}\")
+          " 2>/dev/null || echo "Failed to parse search response"
+
+          echo "--- getInterface with addInterface UUID ---"
+          if [ -n "$ADD_UUID" ]; then
+            curl -sk --max-time 10 \
+              -u "${OPNSENSE_API_KEY}:${OPNSENSE_API_SECRET}" \
+              "https://${OPNSENSE_HOST}/api/reticulum/rnsd/getInterface/$ADD_UUID" 2>/dev/null | head -c 300
+            echo ""
+          fi
+
+          echo "--- delInterface cleanup ---"
+          if [ -n "$ADD_UUID" ]; then
+            curl -sk --max-time 10 -X POST \
+              -u "${OPNSENSE_API_KEY}:${OPNSENSE_API_SECRET}" \
+              -H "Content-Type: application/json" -d '{}' \
+              "https://${OPNSENSE_HOST}/api/reticulum/rnsd/delInterface/$ADD_UUID" 2>/dev/null
+            echo ""
+          fi
+
+          echo "--- Deployed model XML (UniqueIdField check) ---"
+          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+          $SSH root@"${OPNSENSE_HOST}" "grep -A2 'UniqueIdField' /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/Reticulum.xml" 2>/dev/null || echo "SSH check failed"
+
       - name: Run Playwright tests
         env:
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
