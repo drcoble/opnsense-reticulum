@@ -548,23 +548,35 @@ class InterfacesPage(BasePage):
     def save_modal(self) -> None:
         """Save the interface form and wait for the modal to close.
 
-        Force-enables the save button (which may be disabled by the
-        async ``checkNameConflict`` AJAX race), then triggers the
-        save via JS click on the button element.  The button's jQuery
-        ``.click()`` handler calls ``saveFormToEndpoint`` which POSTs
-        the form data, hides the modal on success, and reloads the grid.
+        Calls ``saveFormToEndpoint`` directly via JS to bypass potential
+        jQuery handler registration conflicts with UIBootgrid's internal
+        save handler.  On success, hides the modal and reloads the grid.
+        Falls back to a page reload if the modal doesn't close (e.g.
+        validation error shown inline by ``saveFormToEndpoint``'s
+        ``showAlert=true`` parameter).
         """
-        # Ensure the save button is enabled — checkNameConflict's
-        # async AJAX can leave it disabled despite no real conflict.
         self.page.evaluate("""() => {
-            var btn = document.getElementById('btn-save-interface');
-            if (btn) btn.disabled = false;
+            window._saveComplete = false;
+            var endpoint;
+            if (typeof editingUuid !== 'undefined' && editingUuid) {
+                endpoint = '/api/reticulum/rnsd/setInterface/' + editingUuid;
+            } else {
+                endpoint = '/api/reticulum/rnsd/addInterface';
+            }
+            saveFormToEndpoint(endpoint, 'interface', function(data) {
+                if (data && (data.result === 'saved' || data.uuid)) {
+                    $('#DialogInterface').modal('hide');
+                    $('#grid-interfaces').bootgrid('reload');
+                }
+                window._saveComplete = true;
+            }, true);
         }""")
-        # Use JS click to fire the jQuery .click() handler
-        self.page.evaluate("""() => {
-            document.getElementById('btn-save-interface').click();
-        }""")
-        self.modal.wait_for(state="hidden", timeout=15_000)
+        self.page.wait_for_function(
+            "() => window._saveComplete === true", timeout=15_000
+        )
+        self.modal.wait_for(state="hidden", timeout=10_000)
+        # Wait for bootgrid reload to complete
+        self.page.wait_for_timeout(500)
 
     def cancel_modal(self) -> None:
         """Click cancel or the close button on the modal."""
