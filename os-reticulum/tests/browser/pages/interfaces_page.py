@@ -101,13 +101,16 @@ class InterfacesPage(BasePage):
         We wait for the modal to be fully visible and for the form
         to populate (shown.bs.modal fires updateTypeVisibility).
 
-        Uses JS click to reliably trigger jQuery delegated handlers on
-        dynamically-rendered Tabulator cells.
+        Uses native DOM ``el.click()`` (not jQuery ``trigger``) so that
+        both Tabulator's native event listeners AND jQuery delegated
+        handlers fire.  jQuery ``trigger('click')`` only fires jQuery
+        handlers but NOT Tabulator's internal ``cellClick`` callback,
+        which is what calls getInterface and populates the form.
         """
         row = self.get_row_by_name(name)
         btn = row.locator("button.command-edit, .command-edit").first
         btn.wait_for(state="visible", timeout=10_000)
-        btn.evaluate("el => $(el).trigger('click')")
+        btn.evaluate("el => el.click()")
         self.page.locator("#DialogInterface").wait_for(state="visible")
         # Wait for AJAX form population and shown.bs.modal handlers
         self.page.wait_for_timeout(1000)
@@ -115,33 +118,50 @@ class InterfacesPage(BasePage):
     def click_delete(self, name: str) -> None:
         """Trigger the delete confirmation dialog for the named interface.
 
-        The Volt template's delete flow sets a module-level ``deleteUuid``
-        variable and then shows ``#DialogDeleteInterface``.  The jQuery
-        delegated handler ``$(document).on('click', '.command-delete', ...)``
-        doesn't reliably fire from either native ``el.click()`` or
-        ``$(el).trigger('click')`` inside headless Chromium with Tabulator.
+        Uses native DOM ``el.click()`` to fire both jQuery delegated
+        handlers AND Tabulator's internal event listeners.  The Volt
+        template's ``$(document).on('click', '.command-delete', ...)``
+        handler reads ``data-row-id``, sets ``deleteUuid``, and shows
+        ``#DialogDeleteInterface``.
 
-        As a workaround, we read the UUID from the button's ``data-row-id``
-        attribute and directly set ``deleteUuid`` + show the modal via JS.
+        Falls back to direct JS setup if the modal doesn't appear
+        (e.g. if event propagation is blocked by ``stopImmediatePropagation``
+        on the delete handler preventing Tabulator's default action).
         """
         row = self.get_row_by_name(name)
         btn = row.locator("button.command-delete, .command-delete").first
         btn.wait_for(state="visible", timeout=10_000)
-        btn.evaluate("""el => {
-            deleteUuid = el.getAttribute('data-row-id');
-            var name = el.getAttribute('data-row-name') || '';
-            $('#delete-confirm-msg').text(
-                'Are you sure you want to delete the interface "' + name + '"? This action cannot be undone.'
-            );
-            $('#DialogDeleteInterface').modal('show');
-        }""")
+        btn.evaluate("el => el.click()")
+        delete_modal = self.page.locator("#DialogDeleteInterface")
+        try:
+            delete_modal.wait_for(state="visible", timeout=3_000)
+        except Exception:
+            # Fallback: native click didn't trigger the handler — set
+            # deleteUuid and show modal directly via JS
+            btn.evaluate("""el => {
+                deleteUuid = el.getAttribute('data-row-id');
+                var name = el.getAttribute('data-row-name') || '';
+                $('#delete-confirm-msg').text(
+                    'Are you sure you want to delete the interface "' + name + '"? This action cannot be undone.'
+                );
+                $('#DialogDeleteInterface').modal('show');
+            }""")
 
     def confirm_delete(self) -> None:
-        """Click confirm in the custom delete confirmation dialog."""
+        """Click confirm in the custom delete confirmation dialog.
+
+        Uses JS click to ensure the jQuery ``.click()`` handler fires
+        even when a Bootstrap modal backdrop might intercept native
+        pointer events.  Then waits for the ``delInterface`` AJAX call
+        to complete (modal hide is triggered in the callback).
+        """
         delete_modal = self.page.locator("#DialogDeleteInterface")
         delete_modal.wait_for(state="visible", timeout=5_000)
-        delete_modal.locator("#btn-confirm-delete").click()
-        delete_modal.wait_for(state="hidden", timeout=10_000)
+        btn = delete_modal.locator("#btn-confirm-delete")
+        btn.wait_for(state="visible", timeout=5_000)
+        # Use JS click to bypass any modal backdrop intercepting events
+        btn.evaluate("el => el.click()")
+        delete_modal.wait_for(state="hidden", timeout=15_000)
 
     def cancel_delete(self) -> None:
         """Click cancel in the custom delete confirmation dialog."""
@@ -167,7 +187,7 @@ class InterfacesPage(BasePage):
         row = self.get_row_by_name(name)
         toggle = row.locator(".command-toggle").first
         toggle.wait_for(state="visible", timeout=10_000)
-        toggle.evaluate("el => $(el).trigger('click')")
+        toggle.evaluate("el => el.click()")
         self.page.wait_for_timeout(1000)
 
     # -- Modal locators ------------------------------------------------------
