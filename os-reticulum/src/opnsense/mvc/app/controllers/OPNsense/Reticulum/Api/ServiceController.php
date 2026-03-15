@@ -7,7 +7,74 @@ use OPNsense\Core\Backend;
 
 class ServiceController extends ApiControllerBase
 {
-    // ==================== rnsd ====================
+    // ==================== Standard service endpoints ====================
+    // These are required by the OPNsense core updateServiceControlUI() function,
+    // which calls GET /api/{module}/service/status and POST start/stop/restart.
+    // They control the primary service (rnsd). The existing rnsd*/lxmd* endpoints
+    // below are kept for the dashboard widget and custom AJAX calls.
+
+    /**
+     * GET api/reticulum/service/status
+     * Standard OPNsense service status endpoint for updateServiceControlUI().
+     * Returns rnsd (primary service) status.
+     */
+    public function statusAction()
+    {
+        $pidfile = '/var/run/rnsd.pid';
+        if (!file_exists($pidfile)) {
+            return ['status' => 'stopped'];
+        }
+        $pid = trim(file_get_contents($pidfile));
+        if (!ctype_digit($pid)) {
+            return ['status' => 'stopped'];
+        }
+        exec("ps -p $pid -o pid= 2>/dev/null", $out, $code);
+        return ['status' => $code === 0 ? 'running' : 'stopped'];
+    }
+
+    /**
+     * POST api/reticulum/service/start
+     * Standard OPNsense service start endpoint for updateServiceControlUI().
+     */
+    public function startAction()
+    {
+        if ($this->request->isPost()) {
+            $backend = new Backend();
+            $result = trim($backend->configdRun('reticulum start rnsd'));
+            return ['result' => $result];
+        }
+        return ['result' => 'error', 'message' => 'POST required'];
+    }
+
+    /**
+     * POST api/reticulum/service/stop
+     * Standard OPNsense service stop endpoint for updateServiceControlUI().
+     */
+    public function stopAction()
+    {
+        if ($this->request->isPost()) {
+            $backend = new Backend();
+            $result = trim($backend->configdRun('reticulum stop rnsd'));
+            return ['result' => $result];
+        }
+        return ['result' => 'error', 'message' => 'POST required'];
+    }
+
+    /**
+     * POST api/reticulum/service/restart
+     * Standard OPNsense service restart endpoint for updateServiceControlUI().
+     */
+    public function restartAction()
+    {
+        if ($this->request->isPost()) {
+            $backend = new Backend();
+            $result = trim($backend->configdRun('reticulum restart rnsd'));
+            return ['result' => $result];
+        }
+        return ['result' => 'error', 'message' => 'POST required'];
+    }
+
+    // ==================== rnsd (custom endpoints) ====================
 
     /**
      * POST api/reticulum/service/rnsdStart
@@ -16,7 +83,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum start.rnsd'));
+            $result = trim($backend->configdRun('reticulum start rnsd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -29,7 +96,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum stop.rnsd'));
+            $result = trim($backend->configdRun('reticulum stop rnsd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -42,7 +109,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum restart.rnsd'));
+            $result = trim($backend->configdRun('reticulum restart rnsd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -50,12 +117,23 @@ class ServiceController extends ApiControllerBase
 
     /**
      * GET api/reticulum/service/rnsdStatus
+     * Uses pgrep -F (pidfile) because rnsd runs as a Python process and
+     * its ps name is the interpreter, not "rnsd".
      */
     public function rnsdStatusAction()
     {
-        $backend = new Backend();
-        $response = trim($backend->configdRun('reticulum status.rnsd'));
-        return json_decode($response, true) ?: ['status' => 'unknown'];
+        $pidfile = '/var/run/rnsd.pid';
+        if (!file_exists($pidfile)) {
+            return ['status' => 'stopped'];
+        }
+        $pid = trim(file_get_contents($pidfile));
+        if (!ctype_digit($pid)) {
+            return ['status' => 'stopped'];
+        }
+        // Use ps -p instead of kill -0: ps can check any process regardless of
+        // ownership (PHP runs as www, rnsd runs as reticulum — kill -0 returns EPERM).
+        exec("ps -p $pid -o pid= 2>/dev/null", $out, $code);
+        return ['status' => $code === 0 ? 'running' : 'stopped'];
     }
 
     // ==================== lxmd ====================
@@ -69,19 +147,17 @@ class ServiceController extends ApiControllerBase
         if ($this->request->isPost()) {
             $backend = new Backend();
 
-            // Check rnsd is running first
-            $rnsdStatus = json_decode(
-                trim($backend->configdRun('reticulum status.rnsd')),
-                true
-            );
-            if (!isset($rnsdStatus['status']) || $rnsdStatus['status'] !== 'running') {
+            // Check rnsd is running first (use ps -p: PHP runs as www, rnsd as reticulum)
+            $rnsdPid = file_exists('/var/run/rnsd.pid') ? trim(file_get_contents('/var/run/rnsd.pid')) : '';
+            exec("ps -p $rnsdPid -o pid= 2>/dev/null", $chk, $rnsdCode);
+            if (!ctype_digit($rnsdPid) || $rnsdCode !== 0) {
                 return [
                     'result' => 'error',
                     'message' => 'Cannot start lxmd: rnsd is not running. Start rnsd first.'
                 ];
             }
 
-            $result = trim($backend->configdRun('reticulum start.lxmd'));
+            $result = trim($backend->configdRun('reticulum start lxmd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -94,7 +170,7 @@ class ServiceController extends ApiControllerBase
     {
         if ($this->request->isPost()) {
             $backend = new Backend();
-            $result = trim($backend->configdRun('reticulum stop.lxmd'));
+            $result = trim($backend->configdRun('reticulum stop lxmd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -109,19 +185,17 @@ class ServiceController extends ApiControllerBase
         if ($this->request->isPost()) {
             $backend = new Backend();
 
-            // Check rnsd is running first
-            $rnsdStatus = json_decode(
-                trim($backend->configdRun('reticulum status.rnsd')),
-                true
-            );
-            if (!isset($rnsdStatus['status']) || $rnsdStatus['status'] !== 'running') {
+            // Check rnsd is running first (use ps -p: PHP runs as www, rnsd as reticulum)
+            $rnsdPid = file_exists('/var/run/rnsd.pid') ? trim(file_get_contents('/var/run/rnsd.pid')) : '';
+            exec("ps -p $rnsdPid -o pid= 2>/dev/null", $chk, $rnsdCode);
+            if (!ctype_digit($rnsdPid) || $rnsdCode !== 0) {
                 return [
                     'result' => 'error',
                     'message' => 'Cannot restart lxmd: rnsd is not running. Start rnsd first.'
                 ];
             }
 
-            $result = trim($backend->configdRun('reticulum restart.lxmd'));
+            $result = trim($backend->configdRun('reticulum restart lxmd'));
             return ['result' => $result];
         }
         return ['result' => 'error', 'message' => 'POST required'];
@@ -129,12 +203,23 @@ class ServiceController extends ApiControllerBase
 
     /**
      * GET api/reticulum/service/lxmdStatus
+     * Uses pgrep -F (pidfile) because lxmd runs as a Python process and
+     * its ps name is the interpreter, not "lxmd".
      */
     public function lxmdStatusAction()
     {
-        $backend = new Backend();
-        $response = trim($backend->configdRun('reticulum status.lxmd'));
-        return json_decode($response, true) ?: ['status' => 'unknown'];
+        $pidfile = '/var/run/lxmd.pid';
+        if (!file_exists($pidfile)) {
+            return ['status' => 'stopped'];
+        }
+        $pid = trim(file_get_contents($pidfile));
+        if (!ctype_digit($pid)) {
+            return ['status' => 'stopped'];
+        }
+        // Use ps -p instead of kill -0: ps can check any process regardless of
+        // ownership (PHP runs as www, lxmd runs as reticulum — kill -0 returns EPERM).
+        exec("ps -p $pid -o pid= 2>/dev/null", $out, $code);
+        return ['status' => $code === 0 ? 'running' : 'stopped'];
     }
 
     // ==================== Shared ====================
@@ -233,7 +318,7 @@ class ServiceController extends ApiControllerBase
         $lines = $this->request->get('lines', 'int', 200);
         $lines = min(max($lines, 10), 500);
         $backend = new Backend();
-        $result = trim($backend->configdRun('reticulum logs.rnsd', [$lines]));
+        $result = trim($backend->configdRun('reticulum logs rnsd', [$lines]));
         return ['logs' => explode("\n", $result)];
     }
 
@@ -246,7 +331,7 @@ class ServiceController extends ApiControllerBase
         $lines = $this->request->get('lines', 'int', 200);
         $lines = min(max($lines, 10), 500);
         $backend = new Backend();
-        $result = trim($backend->configdRun('reticulum logs.lxmd', [$lines]));
+        $result = trim($backend->configdRun('reticulum logs lxmd', [$lines]));
         return ['logs' => explode("\n", $result)];
     }
 }

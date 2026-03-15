@@ -4,19 +4,13 @@
     SPDX-License-Identifier: BSD-2-Clause
 #}
 
-{% extends 'layouts/default.volt' %}
-
-{% block content %}
-
-<div id="service_status_container"></div>
-
 {# ======================== Toolbar ======================== #}
 <div class="row" style="margin-bottom:8px; margin-top:8px;">
     <div class="col-sm-12">
         <button class="btn btn-primary" id="addInterfaceBtn" type="button">
             <i class="fa fa-plus"></i> {{ lang._('Add Interface') }}
         </button>
-        <button class="btn btn-default" id="applyInterfacesBtn" type="button" style="float:right;">
+        <button class="btn btn-default pull-right" id="applyInterfacesBtn" type="button">
             <i class="fa fa-check"></i> {{ lang._('Apply Changes') }}
         </button>
     </div>
@@ -29,7 +23,7 @@
 {# ======================== Interface Grid ======================== #}
 <table id="grid-interfaces" class="table table-condensed table-hover bootgrid-table"
        data-editDialog="DialogInterface"
-       data-empty="{{ lang._('No interfaces configured. Click \\'Add Interface\\' to create your first Reticulum interface.') }}">
+       data-empty="{{ lang._('No interfaces configured. Use the Add Interface button to create one.') }}">
     <thead>
         <tr>
             <th data-column-id="name" data-type="string">{{ lang._('Name') }}</th>
@@ -788,7 +782,7 @@
         <input type="text" class="form-control" id="interface.command"
                placeholder="/usr/bin/nc 10.0.0.1 4242" />
         <div class="hidden" data-for="help_for_interface.command">
-            <small>{{ lang._('The shell command to execute for this pipe interface. rnsd will communicate with the command\'s stdin/stdout as a Reticulum data channel. Example: /usr/bin/nc 10.0.0.1 4242. The command must be a full absolute path.') }}</small>
+            <small>{{ lang._("The shell command to execute for this pipe interface. rnsd will communicate with the command's stdin/stdout as a Reticulum data channel. Example: /usr/bin/nc 10.0.0.1 4242. The command must be a full absolute path.") }}</small>
         </div>
     </div>
 </div>
@@ -886,7 +880,7 @@
     <div class="col-sm-8">
         <input type="checkbox" id="interface.discoverable" />
         <div class="hidden" data-for="help_for_interface.discoverable">
-            <small>{{ lang._('Broadcast this node\'s connection information (address, port) so other Reticulum nodes can automatically discover and connect to it. Applies to: TCP Server, TCP Backbone.') }}</small>
+            <small>{{ lang._("Broadcast this node's connection information (address, port) so other Reticulum nodes can automatically discover and connect to it. Applies to: TCP Server, TCP Backbone.") }}</small>
         </div>
     </div>
 </div>
@@ -1270,9 +1264,9 @@ $(document).ready(function() {
     };
 
     // Service status indicator (read-only rnsd dot — no Start/Stop on this page)
-    updateServiceControlUI('reticulum', 'rnsd');
+    updateServiceControlUI('reticulum');
     setInterval(function() {
-        updateServiceControlUI('reticulum', 'rnsd');
+        updateServiceControlUI('reticulum');
     }, 10000);
 
     // Initialize the interface grid
@@ -1397,8 +1391,7 @@ $(document).ready(function() {
         deleteUuid = $(this).data('row-id');
         var name = $(this).data('row-name');
         $('#delete-confirm-msg').text(
-            '{{ lang._("Are you sure you want to delete the interface") }} "' + name + '"? ' +
-            '{{ lang._("This cannot be undone.") }}'
+            '{{ lang._("Are you sure you want to delete the interface \"%s\"? This action cannot be undone.") }}'.replace('%s', name)
         );
         $('#DialogDeleteInterface').modal('show');
     });
@@ -1465,7 +1458,7 @@ $(document).ready(function() {
     // Apply Changes — triggers configd reconfigure
     $('#applyInterfacesBtn').click(function() {
         ajaxCall('/api/reticulum/service/reconfigure', {}, function(data) {
-            updateServiceControlUI('reticulum', 'rnsd');
+            updateServiceControlUI('reticulum');
             $('#apply-success-msg').fadeIn().delay(3000).fadeOut();
         });
     });
@@ -1518,4 +1511,3 @@ $(document).ready(function() {
 });
 </script>
 
-{% endblock %}

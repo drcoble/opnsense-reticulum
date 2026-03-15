@@ -77,11 +77,13 @@
 
         <interfaces>
             <interface type="ArrayField">
-                <!-- UniqueIdField REQUIRED: provides the UUID key for all API CRUD operations
-                     (addItem/getItem/setItem/delItem). Must be first child of every ArrayField. -->
-                <uuid type="UniqueIdField">
+                <!-- UniqueIdField: internal record identifier.  Named "id" (not "uuid")
+                     to avoid colliding with the framework's container uuid attribute
+                     in UIModelGrid's array_merge — using "uuid" causes the uniqid()
+                     value to overwrite the UUID4 key that getBase/delBase require. -->
+                <id type="UniqueIdField">
                     <Required>N</Required>
-                </uuid>
+                </id>
 
                 <!-- ===== COMMON FIELDS (all types) ===== -->
 

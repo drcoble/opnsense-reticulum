@@ -6,7 +6,10 @@
 /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/Menu/Menu.xml
 /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/Reticulum.xml
 /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/Reticulum.php
-/usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php
+/usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/GeneralController.php
+/usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/InterfacesController.php
+/usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/LxmfController.php
+/usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/LogsController.php
 /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/Api/RnsdController.php
 /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/Api/LxmdController.php
 /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/Api/ServiceController.php
@@ -29,3 +32,5 @@
 /usr/local/opnsense/service/templates/OPNsense/Reticulum/lxmf_ignored.j2
 /usr/local/opnsense/www/js/widgets/Reticulum.js
 /usr/local/opnsense/www/js/widgets/Metadata/Reticulum.xml
+/usr/local/share/os-reticulum/versions.env
+@dir /usr/local/share/os-reticulum

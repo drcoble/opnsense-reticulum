@@ -6,12 +6,17 @@ on:
   pull_request:
     branches: [development, testing, main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   pytest:
     name: Template & Model Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - uses: actions/setup-python@v5
         with:
@@ -32,6 +37,7 @@ jobs:
         run: |
           cd os-reticulum
           pytest tests/ -m unit \
+            --ignore=tests/browser --ignore=tests/integration \
             -v --tb=short --junit-xml=test-results.xml
 
       - name: Upload test results

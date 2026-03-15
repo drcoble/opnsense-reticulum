@@ -4,16 +4,51 @@
     SPDX-License-Identifier: BSD-2-Clause
 #}
 
-{% extends 'layouts/default.volt' %}
+<style>
+    /*
+     * Terminal-style output area for log display. Scoped to this template
+     * only — avoids polluting global OPNsense styles.
+     */
+    .log-terminal {
+        margin: 0;
+        padding: 12px 16px;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        font-size: 12px;
+        max-height: 600px;
+        overflow-y: auto;
+        border: none;
+        border-radius: 0;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+</style>
 
-{% block content %}
+{#
+    Bootstrap tab markup — data-toggle="tab" lets Bootstrap manage active-class
+    toggling, keyboard navigation (arrow keys), tabindex, aria-selected, and
+    aria-expanded. role="tablist" / role="presentation" / role="tab" add the
+    ARIA semantics that data-toggle alone does not inject in Bootstrap 3.
 
-<ul class="nav nav-tabs" id="log-tabs" style="margin-bottom:0;">
-    <li class="active log-tab" data-service="rnsd">
-        <a href="#" class="log-tab-link">{{ lang._('Transport Node (rnsd)') }}</a>
+    Both tabs point to the same pane (#log-output-pane) because the log output
+    area is shared — the tabs control which service is fetched, not which DOM
+    panel is visible. shown.bs.tab fires on every tab switch and drives the
+    service-change logic below.
+#}
+<ul class="nav nav-tabs" id="log-tabs" role="tablist" style="margin-bottom:0;">
+    <li class="active" role="presentation">
+        <a href="#log-output-pane"
+           role="tab"
+           data-toggle="tab"
+           data-service="rnsd"
+           aria-controls="log-output-pane">{{ lang._('Transport Node (rnsd)') }}</a>
     </li>
-    <li class="log-tab" data-service="lxmd">
-        <a href="#" class="log-tab-link">{{ lang._('Propagation Node (lxmd)') }}</a>
+    <li role="presentation">
+        <a href="#log-output-pane"
+           role="tab"
+           data-toggle="tab"
+           data-service="lxmd"
+           aria-controls="log-output-pane">{{ lang._('Propagation Node (lxmd)') }}</a>
     </li>
 </ul>
 
@@ -59,36 +94,33 @@
             <div style="margin-top:6px;">
                 <label class="checkbox-inline" style="font-weight:normal;">
                     <input type="checkbox" id="auto-refresh" />
-                    {{ lang._('Auto-refresh every 5 s') }}
+                    {{ lang._('Auto-refresh') }} (5s)
                 </label>
             </div>
         </div>
     </div>
 </div>
 
-<div class="content-box" style="padding:0; margin-top:4px;">
-    <div id="log-loading" class="text-center text-muted" style="display:none; padding:24px;">
-        <i class="fa fa-spinner fa-spin"></i> {{ lang._('Loading log data...') }}
+{#
+    Single shared output pane. Both tab links point to this same pane ID so
+    Bootstrap's tab plugin finds a valid target and manages ARIA state, while
+    the JS below drives the actual service-data switch via shown.bs.tab.
+#}
+<div class="tab-content">
+    <div class="tab-pane active" id="log-output-pane">
+        <div class="content-box" style="padding:0;">
+            <div id="log-loading" class="text-center text-muted" style="display:none; padding:24px;">
+                <i class="fa fa-spinner fa-spin"></i> {{ lang._('Loading log data...') }}
+            </div>
+            <div id="log-empty-service" class="text-center text-muted" style="display:none; padding:24px;">
+                <em>{{ lang._('No log entries found. The service may not have started yet, or the log file does not exist at the configured path.') }}</em>
+            </div>
+            <div id="log-empty-filter" class="text-center text-muted" style="display:none; padding:24px;">
+                <em>{{ lang._('No log lines match the current severity and search filters. Try widening the filter or selecting a higher severity level.') }}</em>
+            </div>
+            <pre id="log-output" class="log-terminal"></pre>
+        </div>
     </div>
-    <div id="log-empty-service" class="text-center text-muted" style="display:none; padding:24px;">
-        <em>{{ lang._('No log entries found. The service may not have started yet, or the log file does not exist at the configured path.') }}</em>
-    </div>
-    <div id="log-empty-filter" class="text-center text-muted" style="display:none; padding:24px;">
-        <em>{{ lang._('No log lines match the current severity and search filters. Try widening the filter or selecting a higher severity level.') }}</em>
-    </div>
-    <pre id="log-output" style="
-        margin:0;
-        padding:12px 16px;
-        background:#1e1e1e;
-        color:#d4d4d4;
-        font-size:12px;
-        max-height:600px;
-        overflow-y:auto;
-        border:none;
-        border-radius:0;
-        white-space:pre-wrap;
-        word-break:break-all;
-    "></pre>
 </div>
 
 <script>
@@ -181,15 +213,24 @@ $(document).ready(function() {
         });
     }
 
-    // Tab switching — custom tab navigation (not Bootstrap data-toggle)
-    $('#log-tabs').on('click', '.log-tab-link', function(e) {
-        e.preventDefault();
-        var $tab = $(this).closest('.log-tab');
-        $('.log-tab').removeClass('active');
-        $tab.addClass('active');
-        currentService = $tab.data('service');
-        lastRawLogs = [];
-        loadLogs();
+    /*
+     * Tab switching via Bootstrap's shown.bs.tab event.
+     *
+     * Bootstrap handles: active-class on <li>, aria-selected, aria-expanded,
+     * tabindex management, and keyboard navigation (arrow keys, Home, End).
+     * We only need to react to the completed tab switch to update currentService
+     * and reload the correct log stream.
+     *
+     * e.target  — the newly activated <a> tab link
+     * e.relatedTarget — the previously active <a> tab link (BS3 only)
+     */
+    $('#log-tabs').on('shown.bs.tab', 'a[data-toggle="tab"]', function(e) {
+        var newService = $(e.target).data('service');
+        if (newService && newService !== currentService) {
+            currentService = newService;
+            lastRawLogs = [];
+            loadLogs();
+        }
     });
 
     // Filter controls — re-filter cached data without re-fetching
@@ -241,4 +282,3 @@ $(document).ready(function() {
 });
 </script>
 
-{% endblock %}

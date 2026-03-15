@@ -5,6 +5,9 @@ on:
     branches: [testing, main, development]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   integration-test:
     name: OPNsense Integration Test
@@ -117,40 +120,157 @@ jobs:
             sleep 10
           done
 
-      - name: Resolve branch name
-        id: branch
-        run: |
-          BRANCH="${{ github.head_ref }}"
-          [ -z "$BRANCH" ] && BRANCH="${{ github.ref_name }}"
-          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "Deploying branch: $BRANCH"
-
       - name: Deploy plugin to OPNsense
         env:
           SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
           OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
-          BRANCH: ${{ steps.branch.outputs.name }}
-          REPO: ${{ github.repository }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/opnsense_key
           chmod 600 ~/.ssh/opnsense_key
 
           SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+          SCP="scp -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
 
-          $SSH root@"$OPNSENSE_HOST" sh << ENDSSH
+          # Clean and prepare target directories on VM
+          $SSH root@"$OPNSENSE_HOST" "rm -rf /tmp/ci-reticulum /tmp/ci-reticulum-vendored && mkdir -p /tmp/ci-reticulum"
+
+          # SCP plugin source and vendored submodules from runner checkout
+          $SCP -r os-reticulum root@"$OPNSENSE_HOST":/tmp/ci-reticulum/os-reticulum
+          $SCP -r reticulum_project root@"$OPNSENSE_HOST":/tmp/ci-reticulum-vendored
+
+          $SSH root@"$OPNSENSE_HOST" sh << 'ENDSSH'
             set -e
-            which git 2>/dev/null || pkg install -y git
-            rm -rf /tmp/ci-reticulum
-            git clone --recurse-submodules \
-              -b "$BRANCH" \
-              "https://github.com/$REPO.git" \
-              /tmp/ci-reticulum
+
             cd /tmp/ci-reticulum/os-reticulum
+
+            # Fetch OPNsense plugin Mk files — ../../Mk/ resolves to /tmp/Mk/
+            mkdir -p /tmp/Mk
+            for _mk in common.mk contrib.mk defaults.mk devel.mk git.mk lint.mk plugins.mk style.mk sweep.mk; do
+              fetch -qo /tmp/Mk/${_mk} "https://raw.githubusercontent.com/opnsense/plugins/master/Mk/${_mk}"
+            done
+
+            # Create stub Templates/version to suppress cosmetic cat error from plugins.mk
+            mkdir -p /tmp/ci-reticulum/Templates
+            echo "1.0" > /tmp/ci-reticulum/Templates/version
+
             make install
+            # Clear compiled Volt template cache so Phalcon recompiles from
+            # the freshly-installed .volt files instead of serving stale PHP.
+            rm -f /var/lib/php/cache/*Reticulum*.php 2>/dev/null || true
+            rm -f /usr/local/opnsense/mvc/app/cache/*Reticulum* 2>/dev/null || true
+            chmod +x /usr/local/opnsense/scripts/OPNsense/Reticulum/*.sh
+            chmod +x /usr/local/etc/rc.d/rnsd /usr/local/etc/rc.d/lxmd 2>/dev/null || true
+
+            # Create reticulum system user (required by rc.d/rnsd)
+            pw user show reticulum >/dev/null 2>&1 || \
+              pw user add -n reticulum -d /var/db/reticulum -s /usr/sbin/nologin \
+                -c "Reticulum transport daemon" -G dialer
+
+            # Install Reticulum Python environment from pinned submodule source
+            if [ ! -f /usr/local/reticulum-venv/bin/rnsd ]; then
+              echo "Installing Reticulum Python environment..."
+              # Install cryptography from FreeBSD pkg to avoid Rust/maturin build
+              pkg install -y py311-cryptography 2>/dev/null || \
+                pkg install -y py39-cryptography 2>/dev/null || \
+                echo "WARNING: could not install system cryptography — pip may build from source"
+              # Create venv inheriting system site-packages (avoids building cryptography)
+              python3 -m venv --system-site-packages /usr/local/reticulum-venv
+            fi
+            # Install from pinned submodule source (no PyPI pull)
+            VENDOR_ROOT="/tmp/ci-reticulum-vendored"
+            /usr/local/reticulum-venv/bin/pip install --quiet "${VENDOR_ROOT}/rns-src"
+            /usr/local/reticulum-venv/bin/pip install --quiet "${VENDOR_ROOT}/lxmf-src"
+            echo "Reticulum installed OK (rnsd: $(/usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo NOT FOUND))"
+
+            # Create required runtime directories
+            mkdir -p /var/db/reticulum /var/log/reticulum /usr/local/etc/reticulum
+            chown -R reticulum:reticulum /var/db/reticulum /var/log/reticulum \
+              /usr/local/etc/reticulum 2>/dev/null || true
+
             service configd restart
-            sleep 3
+            sleep 5
+            # Verify configd loaded the reticulum actions
+            for i in 1 2 3 4 5; do
+              if configctl reticulum info 2>&1 | grep -qv "not allowed"; then
+                echo "configd loaded reticulum actions (attempt $i)"
+                break
+              fi
+              echo "Waiting for configd to load actions (attempt $i)..."
+              service configd restart
+              sleep 5
+            done
+            # Generate config files from OPNsense model defaults
+            configctl template reload OPNsense/Reticulum
+
+            # Restart lighttpd so the Phalcon MVC router picks up new
+            # controllers and UI routes.  Without this, /ui/reticulum/*
+            # pages return "page not found" because the web server process
+            # still has the old route table cached from before plugin install.
+            echo "Restarting lighttpd to register new MVC routes..."
+            # Use OPNsense's native web GUI restart script — it properly
+            # handles lighttpd lifecycle including PID files, port binding,
+            # and PHP process recycling.  Falls back to a SIGHUP reload
+            # if the restart script is unavailable.
+            if [ -x /usr/local/etc/rc.restart_webgui ]; then
+              /usr/local/etc/rc.restart_webgui
+            else
+              pkill -HUP lighttpd 2>/dev/null || true
+            fi
+            sleep 5
+            # Verify lighttpd is listening
+            for i in 1 2 3 4 5; do
+              if sockstat -4 -l -p 443 | grep -q lighttpd; then
+                echo "lighttpd listening on 443 (attempt $i)"
+                break
+              fi
+              echo "Waiting for lighttpd (attempt $i)..."
+              sleep 3
+            done
+            # Create lxmf directories needed by templates
+            mkdir -p /usr/local/etc/lxmf /var/db/lxmf
+            chown -R reticulum:reticulum /usr/local/etc/lxmf /var/db/lxmf 2>/dev/null || true
+            # Fix ownership after template reload (configctl runs as root,
+            # creates storage/ and interfaces/ dirs owned by root)
+            chown -R reticulum:reticulum /usr/local/etc/reticulum 2>/dev/null || true
+            chmod 700 /usr/local/etc/reticulum
             echo "Plugin installed successfully"
+          ENDSSH
+
+      - name: Verify Volt templates on VM
+        env:
+          SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/opnsense_key
+          chmod 600 ~/.ssh/opnsense_key
+          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+
+          $SSH root@"$OPNSENSE_HOST" sh << 'ENDSSH'
+            echo "=== Volt files deployed ==="
+            ls -la /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/
+
+            echo "=== First 5 lines of general.volt ==="
+            head -5 /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/general.volt
+
+            echo "=== IndexController.php ==="
+            cat /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php
+
+            echo "=== PHP syntax: IndexController ==="
+            php -l /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php
+
+            echo "=== Volt cache files ==="
+            find /tmp /usr/local/opnsense/mvc/app/cache /var/lib/php -name '*Reticulum*' -o -name '*reticulum*' 2>/dev/null || echo 'none found'
+
+            echo "=== curl UI page from localhost ==="
+            curl -sk https://127.0.0.1/ui/reticulum/general 2>/dev/null | grep -oE '(id="maintabs"|Page not found|<title>[^<]+|class="page-content-main")' || echo 'no key elements found'
+
+            echo "=== lighttpd error log (last 20) ==="
+            tail -20 /var/log/lighttpd/error.log 2>/dev/null || echo 'no log'
+
+            echo "=== PHP error log ==="
+            find /var/log /tmp -name 'php*error*' -o -name 'php*log' 2>/dev/null | while read f; do echo "--- $f ---"; tail -10 "$f"; done || echo 'no PHP error logs'
           ENDSSH
 
       - name: Run integration tests
@@ -160,6 +280,162 @@ jobs:
           OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
         run: |
           .venv/bin/pytest os-reticulum/tests/ -v --tb=short -m integration --junit-xml=test-results.xml
+
+      - name: Capture VM diagnostics on failure
+        if: failure()
+        env:
+          SSH_KEY: ${{ secrets.OPNSENSE_SSH_KEY }}
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+        run: |
+          SSH="ssh -i ~/.ssh/opnsense_key -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=6"
+          timeout 180 $SSH root@"$OPNSENSE_HOST" sh << 'ENDSSH'
+            echo "=== lighttpd/PHP error log ==="
+            tail -30 /var/log/lighttpd/error.log 2>/dev/null || echo 'no lighttpd log'
+
+            echo "=== configd actions (reticulum) ==="
+            ls -la /usr/local/opnsense/service/conf/actions.d/ 2>/dev/null | grep -i reticulum || echo 'no reticulum action file'
+            cat /usr/local/opnsense/service/conf/actions.d/actions_reticulum.conf 2>/dev/null || echo 'action file not readable'
+
+            echo "=== Reticulum config file contents ==="
+            cat /usr/local/etc/reticulum/config 2>/dev/null || echo 'no config file'
+
+            echo "=== rc.conf.d/rnsd contents ==="
+            cat /etc/rc.conf.d/rnsd 2>/dev/null || echo 'no rc.conf.d/rnsd'
+
+            echo "=== rc.conf.d/lxmd contents ==="
+            cat /etc/rc.conf.d/lxmd 2>/dev/null || echo 'no rc.conf.d/lxmd'
+
+            echo "=== configd status.rnsd via configctl ==="
+            timeout 10 configctl reticulum status.rnsd 2>&1 || echo 'configctl call failed or timed out'
+
+            echo "=== Reticulum venv ==="
+            ls -la /usr/local/reticulum-venv/bin/ 2>/dev/null | grep -E 'rnsd|lxmd|python' || echo 'venv not found'
+
+            echo "=== reticulum user ==="
+            id reticulum 2>/dev/null || echo 'reticulum user not found'
+
+            echo "=== rc.conf enable flags ==="
+            grep -E 'rnsd|lxmd' /etc/rc.conf /etc/rc.conf.local 2>/dev/null || echo 'no rnsd/lxmd enable flags found'
+
+            echo "=== Reticulum venv contents ==="
+            ls -la /usr/local/reticulum-venv/bin/ 2>/dev/null | head -20 || echo 'no venv'
+
+            echo "=== rnsd binary check ==="
+            /usr/local/reticulum-venv/bin/rnsd --version 2>&1 || echo 'rnsd not found in venv'
+            ls -la /usr/local/bin/rnsd 2>/dev/null || echo 'no rnsd in /usr/local/bin'
+
+            echo "=== python3 version ==="
+            python3 --version 2>&1
+            ls -la /usr/local/reticulum-venv/bin/python* 2>/dev/null || echo 'no python in venv'
+
+            echo "=== FreeBSD version ==="
+            uname -r
+
+            echo "=== daemon -p flag test ==="
+            /usr/sbin/daemon -p /tmp/dtest.pid /usr/bin/true 2>&1 && echo 'daemon -p OK' || echo 'daemon -p FAILED'
+
+            echo "=== Direct rnsd run as reticulum user (8s) ==="
+            rm -f /tmp/rnsd-reticulum.log /var/run/rnsd-test.pid
+            /usr/sbin/daemon -p /var/run/rnsd-test.pid -u reticulum \
+              /bin/sh -c "/usr/local/reticulum-venv/bin/rnsd --service --config /usr/local/etc/reticulum >> /tmp/rnsd-reticulum.log 2>&1"
+            sleep 6
+            echo "rnsd daemon stdout/stderr (usually empty with --service):"
+            cat /tmp/rnsd-reticulum.log 2>/dev/null || echo "(empty)"
+            echo "RNS internal logfile (configdir/logfile):"
+            tail -50 /usr/local/etc/reticulum/logfile 2>/dev/null || echo "(no RNS logfile found)"
+            echo "ls of config dir after run:"
+            ls -la /usr/local/etc/reticulum/ 2>/dev/null
+            echo "test pidfile status:"
+            if [ -f /var/run/rnsd-test.pid ]; then
+              TPID=$(cat /var/run/rnsd-test.pid)
+              echo "pidfile exists, PID=$TPID"
+              ps -p "$TPID" -o pid,user,command 2>/dev/null || echo "process dead (pid=$TPID)"
+            else
+              echo "no test pidfile — daemon+rnsd exited before check"
+            fi
+            # Cleanup
+            kill "$(cat /var/run/rnsd-test.pid 2>/dev/null)" 2>/dev/null || true
+            pkill -9 -f 'rnsd --service' 2>/dev/null || true
+            rm -f /var/run/rnsd-test.pid
+
+            echo "=== Python RNS import test ==="
+            timeout 10 /usr/local/reticulum-venv/bin/python3 -c "import RNS; print('RNS import OK, version:', RNS.__version__)" 2>&1 || echo 'RNS import FAILED or timed out'
+
+            echo "=== service rnsd onestart output ==="
+            timeout 15 service rnsd onestart 2>&1 || echo 'service start failed or timed out'
+            sleep 4
+            echo "=== pgrep all python/rnsd/daemon ==="
+            pgrep -lax python 2>/dev/null || echo 'no python processes'
+            pgrep -lax daemon 2>/dev/null || echo 'no daemon processes'
+            ls -la /var/run/rnsd.pid 2>/dev/null || echo 'no pidfile'
+            if [ -f /var/run/rnsd.pid ]; then
+              echo "pidfile content: $(cat /var/run/rnsd.pid)"
+              kill -0 "$(cat /var/run/rnsd.pid)" 2>/dev/null && echo 'process alive' || echo 'process dead'
+            fi
+
+            echo "=== rnsd log (last 30 lines) ==="
+            tail -30 /var/log/reticulum/rnsd.log 2>/dev/null || echo 'no rnsd log'
+
+            echo "=== RNS internal logfile (configdir/logfile) ==="
+            tail -50 /usr/local/etc/reticulum/logfile 2>/dev/null || echo 'no RNS logfile'
+
+            echo "=== ps -p pidfile check (www-user-compatible) ==="
+            if [ -f /var/run/rnsd.pid ]; then
+              PID2=$(cat /var/run/rnsd.pid)
+              echo "pidfile PID: $PID2"
+              ps -p "$PID2" -o pid,user,command 2>/dev/null || echo "process dead via ps -p"
+            fi
+
+            echo "=== Installed scripts ==="
+            ls -la /usr/local/opnsense/scripts/OPNsense/Reticulum/ 2>/dev/null
+
+            echo "=== Test status script directly ==="
+            timeout 10 /usr/local/opnsense/scripts/OPNsense/Reticulum/rnsd_status.sh 2>&1 || echo 'status script failed or timed out'
+
+            echo "=== Volt templates deployed ==="
+            ls -la /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/ 2>/dev/null || echo 'no Reticulum views directory'
+
+            echo "=== Volt template cache (all locations) ==="
+            ls -la /var/lib/php/cache/*Reticulum* 2>/dev/null || echo 'no cached in /var/lib/php/cache'
+            ls -la /usr/local/opnsense/mvc/app/cache/*Reticulum* 2>/dev/null || echo 'no cached in mvc/app/cache'
+            find /tmp -maxdepth 1 -name '*Reticulum*' -o -name '*reticulum*' 2>/dev/null | head -10 || echo 'none in /tmp'
+
+            echo "=== First 3 lines of each Volt template ==="
+            for f in /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/*.volt; do
+              echo "--- $f ---"
+              head -3 "$f"
+            done
+
+            echo "=== Check for problematic extends directive ==="
+            grep -l 'extends.*layouts' /usr/local/opnsense/mvc/app/views/OPNsense/Reticulum/*.volt 2>/dev/null && echo 'WARNING: Volt templates contain extends directive — this conflicts with setTemplateBefore' || echo 'OK: no extends directive found'
+
+            echo "=== PHP syntax: IndexController ==="
+            php -l /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/IndexController.php 2>&1
+
+            echo "=== Curl UI page from localhost (check for rendering) ==="
+            timeout 10 curl -sk https://127.0.0.1/ui/reticulum/general 2>/dev/null | grep -oE '(id="maintabs"|Page not found|<title>[^<]+)' || echo 'no maintabs or title match'
+
+            echo "=== PHP error log ==="
+            tail -30 /var/log/lighttpd/error.log 2>/dev/null || echo 'no lighttpd error log'
+            tail -10 /tmp/php_errors.log 2>/dev/null || echo 'no /tmp/php_errors.log'
+
+            echo "=== PHP syntax: Model ==="
+            php -l /usr/local/opnsense/mvc/app/models/OPNsense/Reticulum/Reticulum.php 2>&1
+
+            echo "=== PHP syntax: RnsdController ==="
+            php -l /usr/local/opnsense/mvc/app/controllers/OPNsense/Reticulum/Api/RnsdController.php 2>&1
+
+            echo "=== curl rnsd/get from localhost ==="
+            timeout 10 curl -sk -u "$(cat /conf/config.xml | grep -o '<apikey>[^<]*' | head -1 | sed 's/<apikey>//')":X \
+              https://127.0.0.1/api/reticulum/rnsd/get 2>/dev/null | head -c 500 || echo 'curl failed or timed out'
+
+            echo "=== PHP include test ==="
+            timeout 10 php -r "spl_autoload_register(function(\$c){@include '/usr/local/opnsense/mvc/app/Library/' . str_replace('\\\\','/',\$c) . '.php';}); try { \$m = new OPNsense\Reticulum\Reticulum(); echo 'model OK\n'; } catch(Throwable \$e) { echo 'ERROR: ' . \$e->getMessage() . '\n'; }" 2>&1 || echo 'php test failed or timed out'
+
+            # Clean up: stop rnsd if we started it, kill any stray processes
+            timeout 10 service rnsd onestop 2>/dev/null || true
+            pkill -9 -f 'rnsd' 2>/dev/null || true
+          ENDSSH
 
       - name: Run API endpoint tests
         env:
@@ -179,6 +455,51 @@ jobs:
         with:
           name: test-results-${{ github.run_number }}
           path: test-results.xml
+
+  browser-test:
+    name: OPNsense Browser Tests (Playwright)
+    needs: integration-test
+    runs-on: [self-hosted, opnsense-test]
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install browser test dependencies
+        run: |
+          python3 -m venv .venv-browser
+          .venv-browser/bin/pip install --upgrade pip
+          .venv-browser/bin/pip install -r os-reticulum/tests/requirements-browser.txt
+
+      - name: Install Chromium
+        run: .venv-browser/bin/playwright install chromium
+
+      - name: Run Playwright tests
+        env:
+          OPNSENSE_HOST: ${{ secrets.OPNSENSE_HOST }}
+          OPNSENSE_API_KEY: ${{ secrets.OPNSENSE_API_KEY }}
+          OPNSENSE_API_SECRET: ${{ secrets.OPNSENSE_API_SECRET }}
+          OPNSENSE_UI_USER: ${{ secrets.OPNSENSE_UI_USER }}
+          OPNSENSE_UI_PASS: ${{ secrets.OPNSENSE_UI_PASS }}
+        run: |
+          .venv-browser/bin/pytest os-reticulum/tests/browser/ \
+            --confcutdir=os-reticulum/tests/browser \
+            -v -s --tb=short -m browser \
+            --screenshot=only-on-failure \
+            --output=test-results/ \
+            --junit-xml=browser-test-results.xml
+
+      - name: Upload Playwright artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-test-results-${{ github.run_number }}
+          path: |
+            browser-test-results.xml
+            test-results/
 
       - name: Shutdown OPNsense VM
         if: always()

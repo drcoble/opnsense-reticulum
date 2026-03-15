@@ -16,6 +16,7 @@ load_rc_config $name
 : ${lxmd_config:="/usr/local/etc/lxmf"}
 : ${lxmd_rnsconfig:="/usr/local/etc/reticulum"}
 : ${lxmd_propagation:="YES"}
+: ${lxmd_log:="/var/log/reticulum/lxmd.log"}
 
 pidfile="/var/run/${name}.pid"
 command="/usr/local/reticulum-venv/bin/lxmd"
@@ -25,18 +26,17 @@ lxmd_flags=""
 if checkyesno lxmd_propagation; then
     lxmd_flags="-p"
 fi
-command_args="--service -s ${lxmd_flags} --config ${lxmd_config} --rnsconfig ${lxmd_rnsconfig}"
-
-command_interpreter="/usr/local/reticulum-venv/bin/python3.11"
-command_user="${lxmd_user}"
+command_args="--service ${lxmd_flags} --config ${lxmd_config} --rnsconfig ${lxmd_rnsconfig}"
 
 start_precmd="${name}_prestart"
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
 stop_postcmd="${name}_poststop"
 
 lxmd_prestart()
 {
     # Check that rnsd is running
-    if ! service rnsd status >/dev/null 2>&1; then
+    if ! [ -f /var/run/rnsd.pid ] || ! kill -0 "$(cat /var/run/rnsd.pid)" 2>/dev/null; then
         echo "rnsd is not running. lxmd requires rnsd to be started first."
         return 1
     fi
@@ -50,6 +50,28 @@ lxmd_prestart()
 
     # Ensure identity key files created by lxmd are not world-readable
     umask 077
+}
+
+lxmd_start()
+{
+    echo "Starting ${name}."
+    /usr/sbin/daemon -f -p "${pidfile}" -u "${lxmd_user}" \
+        /bin/sh -c "${command} ${command_args} >> ${lxmd_log} 2>&1"
+    sleep 3
+    if [ -f "${pidfile}" ] && kill -0 "$(cat ${pidfile})" 2>/dev/null; then
+        echo "${name} started (PID: $(cat ${pidfile}))"
+    else
+        echo "WARNING: failed to start ${name} — check ${lxmd_log}"
+        rm -f "${pidfile}"
+        return 1
+    fi
+}
+
+lxmd_stop()
+{
+    if [ -f "${pidfile}" ]; then
+        kill "$(cat ${pidfile})" 2>/dev/null || true
+    fi
 }
 
 lxmd_poststop()

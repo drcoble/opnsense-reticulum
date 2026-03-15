@@ -1,13 +1,13 @@
 <menu>
     <Services>
-        <Reticulum VisibleName="Reticulum" cssClass="fa fa-broadcast-tower" order="500">
+        <Reticulum VisibleName="Reticulum" cssClass="fa fa-sitemap" order="500">
             <General VisibleName="General Settings"
                      url="/ui/reticulum/general"
                      order="100" />
             <Interfaces VisibleName="Interfaces"
                         url="/ui/reticulum/interfaces"
                         order="200" />
-            <Lxmf VisibleName="LXMF / Propagation Node"
+            <Lxmf VisibleName="Propagation Node"
                    url="/ui/reticulum/lxmf"
                    order="300" />
             <Logs VisibleName="Log Viewer"

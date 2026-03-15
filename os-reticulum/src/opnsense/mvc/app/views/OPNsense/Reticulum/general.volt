@@ -4,13 +4,7 @@
     SPDX-License-Identifier: BSD-2-Clause
 #}
 
-{% extends 'layouts/default.volt' %}
-
-{% block content %}
-
-<div id="service_status_container"></div>
-
-<div id="rnsd-runtime-info" class="row" style="margin-top:8px;">
+<div id="rnsd-runtime-info" class="row">
     <div class="col-sm-12">
         <small>
             <strong>{{ lang._('Version') }}:</strong> <span id="rnsd-version">{{ lang._('loading...') }}</span>
@@ -23,7 +17,7 @@
     </div>
 </div>
 
-<ul class="nav nav-tabs" data-tabs="tabs" id="maintabs" style="margin-top:12px;">
+<ul class="nav nav-tabs" data-tabs="tabs" id="maintabs">
     <li class="active"><a data-toggle="tab" href="#tab-general">{{ lang._('General') }}</a></li>
     <li><a data-toggle="tab" href="#tab-transport">{{ lang._('Transport') }}</a></li>
     <li><a data-toggle="tab" href="#tab-sharing">{{ lang._('Sharing') }}</a></li>
@@ -255,7 +249,7 @@
         </div>
     </div>
 
-    <div id="apply-success-msg" class="alert alert-info" style="display:none; margin-top:12px;">
+    <div id="apply-success-msg" class="alert alert-info" style="display:none;">
         {{ lang._('Configuration applied. The service is reloading — the status indicator above will update shortly.') }}
     </div>
 </div>
@@ -318,14 +312,14 @@ $(document).ready(function() {
             updateShareInstanceVisibility();
             updateRemoteMgmtVisibility();
             checkPortConflict();
-            updateServiceControlUI('reticulum', 'rnsd');
+            updateServiceControlUI('reticulum');
             updateRnsdRuntimeInfo();
         });
     });
 
     // Refresh service status and runtime info every 10 seconds
     setInterval(function() {
-        updateServiceControlUI('reticulum', 'rnsd');
+        updateServiceControlUI('reticulum');
         updateRnsdRuntimeInfo();
     }, 10000);
 
@@ -363,7 +357,7 @@ $(document).ready(function() {
     // Apply changes (triggers configd reconfigure)
     $('#applyBtn').click(function() {
         ajaxCall('/api/reticulum/service/reconfigure', {}, function(data) {
-            updateServiceControlUI('reticulum', 'rnsd');
+            updateServiceControlUI('reticulum');
             $('#apply-success-msg').fadeIn().delay(3000).fadeOut();
         });
     });
@@ -371,4 +365,3 @@ $(document).ready(function() {
 });
 </script>
 
-{% endblock %}
